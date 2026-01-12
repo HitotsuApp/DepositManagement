@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { PDFViewer } from "@react-pdf/renderer"
 import { PdfRenderer } from "@/pdf/renderer/PdfRenderer"
+import { BatchPdfRenderer } from "@/pdf/renderer/BatchPdfRenderer"
 import MainLayout from "@/components/MainLayout"
 import DateSelector from "@/components/DateSelector"
 import depositStatementTemplate from "@/pdf/templates/deposit-statement.json"
@@ -68,13 +69,18 @@ interface ResidentPrintData {
 
 type PrintData = UnitPrintData | ResidentPrintData
 
+interface BatchPrintData {
+  facilitySummary: UnitPrintData
+  residentStatements: ResidentPrintData[]
+}
+
 export default function PrintPreviewPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const facilityId = searchParams.get("facilityId")
   const unitId = searchParams.get("unitId")
   const residentId = searchParams.get("residentId")
-  const printType = searchParams.get("type") // "unit" or "resident"
+  const printType = searchParams.get("type") // "unit", "resident", or "batch"
   
   const [year, setYear] = useState(() => {
     const y = searchParams.get("year")
@@ -86,6 +92,7 @@ export default function PrintPreviewPage() {
   })
 
   const [printData, setPrintData] = useState<PrintData | null>(null)
+  const [batchPrintData, setBatchPrintData] = useState<BatchPrintData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [residentFacilityId, setResidentFacilityId] = useState<number | null>(null)
@@ -94,7 +101,14 @@ export default function PrintPreviewPage() {
   const [nextResidentId, setNextResidentId] = useState<number | null>(null)
 
   useEffect(() => {
-    if (printType === "resident") {
+    if (printType === "batch") {
+      if (facilityId) {
+        fetchBatchPrintData()
+      } else {
+        setError("施設IDが指定されていません")
+        setIsLoading(false)
+      }
+    } else if (printType === "resident") {
       if (residentId) {
         fetchResidentPrintData()
       } else {
@@ -126,6 +140,26 @@ export default function PrintPreviewPage() {
       setPrintData(data)
     } catch (err) {
       console.error("Failed to fetch print data:", err)
+      setError(err instanceof Error ? err.message : "エラーが発生しました")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchBatchPrintData = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const response = await fetch(
+        `/api/print/batch-print?facilityId=${facilityId}&year=${year}&month=${month}`
+      )
+      if (!response.ok) {
+        throw new Error("印刷データの取得に失敗しました")
+      }
+      const data = await response.json()
+      setBatchPrintData(data)
+    } catch (err) {
+      console.error("Failed to fetch batch print data:", err)
       setError(err instanceof Error ? err.message : "エラーが発生しました")
     } finally {
       setIsLoading(false)
@@ -224,7 +258,7 @@ export default function PrintPreviewPage() {
     )
   }
 
-  if (error || !printData) {
+  if (error || (printType !== "batch" && !printData) || (printType === "batch" && !batchPrintData)) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center h-screen">
@@ -250,7 +284,9 @@ export default function PrintPreviewPage() {
         {/* ヘッダー */}
         <div className="bg-white border-b p-4 flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold mb-2">預り金明細書 印刷プレビュー</h1>
+            <h1 className="text-2xl font-bold mb-2">
+              {printType === "batch" ? "まとめて印刷 プレビュー" : "預り金明細書 印刷プレビュー"}
+            </h1>
             <DateSelector
               year={year}
               month={month}
@@ -303,14 +339,18 @@ export default function PrintPreviewPage() {
         {/* PDFプレビュー */}
         <div className="flex-1 overflow-hidden">
           <PDFViewer width="100%" height="100%">
-            <PdfRenderer
-              template={
-                printType === "resident"
-                  ? (residentStatementTemplate as any)
-                  : (depositStatementTemplate as any)
-              }
-              data={printData}
-            />
+            {printType === "batch" && batchPrintData ? (
+              <BatchPdfRenderer data={batchPrintData} />
+            ) : printData ? (
+              <PdfRenderer
+                template={
+                  printType === "resident"
+                    ? (residentStatementTemplate as any)
+                    : (depositStatementTemplate as any)
+                }
+                data={printData}
+              />
+            ) : null}
           </PDFViewer>
         </div>
       </div>
