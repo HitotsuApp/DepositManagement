@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Facility {
+  id                Int      @id @default(autoincrement())
+  name              String
+  positionName      String?
+  positionHolderName String?
+  sortOrder         Int      @default(0)
+  isActive          Boolean  @default(true)
+  units             Unit[]
+  residents         Resident[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Unit {
+  id         Int        @id @default(autoincrement())
+  facilityId Int
+  name       String
+  isActive   Boolean    @default(true)
+  facility   Facility   @relation(fields: [facilityId], references: [id])
+  residents  Resident[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Resident {
+  id         Int          @id @default(autoincrement())
+  facilityId Int
+  unitId     Int
+  name       String
+  startDate  DateTime?
+  endDate    DateTime?
+  isActive   Boolean      @default(true)
+  facility   Facility     @relation(fields: [facilityId], references: [id])
+  unit       Unit         @relation(fields: [unitId], references: [id])
+  transactions Transaction[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+model Transaction {
+  id              Int          @id @default(autoincrement())
+  residentId      Int
+  transactionDate DateTime
+  transactionType String       // "in", "out", "correct_in", "correct_out"
+  amount          Float
+  description     String?
+  payee           String?       // 支払先
+  reason          String?      // 訂正入力時の理由
+  resident        Resident     @relation(fields: [residentId], references: [id])
+  createdAt       DateTime     @default(now())
+}
+

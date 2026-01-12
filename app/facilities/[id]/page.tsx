@@ -1,0 +1,184 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
+import MainLayout from '@/components/MainLayout'
+import DateSelector from '@/components/DateSelector'
+import Card from '@/components/Card'
+
+interface UnitSummary {
+  id: number
+  name: string
+  totalAmount: number
+}
+
+interface ResidentSummary {
+  id: number
+  name: string
+  balance: number
+}
+
+export default function FacilityDetailPage() {
+  const params = useParams()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const facilityId = Number(params.id)
+  
+  const [year, setYear] = useState(() => {
+    const y = searchParams.get('year')
+    return y ? Number(y) : new Date().getFullYear()
+  })
+  const [month, setMonth] = useState(() => {
+    const m = searchParams.get('month')
+    return m ? Number(m) : new Date().getMonth() + 1
+  })
+  
+  const [facilityName, setFacilityName] = useState('')
+  const [totalAmount, setTotalAmount] = useState(0)
+  const [units, setUnits] = useState<UnitSummary[]>([])
+  const [residents, setResidents] = useState<ResidentSummary[]>([])
+  const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    fetchFacilityData()
+  }, [facilityId, year, month, selectedUnitId])
+
+  const fetchFacilityData = async () => {
+    setIsLoading(true)
+    try {
+      const unitParam = selectedUnitId ? `&unitId=${selectedUnitId}` : ''
+      const response = await fetch(
+        `/api/facilities/${facilityId}?year=${year}&month=${month}${unitParam}`
+      )
+      if (!response.ok) {
+        throw new Error('Failed to fetch facility data')
+      }
+      const data = await response.json()
+      setFacilityName(data.facilityName || '')
+      setTotalAmount(data.totalAmount || 0)
+      setUnits(data.units || [])
+      setResidents(data.residents || [])
+    } catch (error) {
+      console.error('Failed to fetch facility data:', error)
+      setFacilityName('')
+      setTotalAmount(0)
+      setUnits([])
+      setResidents([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDateChange = (newYear: number, newMonth: number) => {
+    setYear(newYear)
+    setMonth(newMonth)
+    setSelectedUnitId(null)
+  }
+
+  const handleUnitClick = (unitId: number) => {
+    setSelectedUnitId(unitId === selectedUnitId ? null : unitId)
+  }
+
+  const handleResidentClick = (residentId: number) => {
+    router.push(`/residents/${residentId}?year=${year}&month=${month}`)
+  }
+
+  const handlePrintClick = (unitId: number) => {
+    router.push(
+      `/print/preview?facilityId=${facilityId}&unitId=${unitId}&year=${year}&month=${month}`
+    )
+  }
+
+  return (
+    <MainLayout>
+      <div>
+        <h1 className="text-3xl font-bold mb-6">
+          施設詳細: {isLoading ? '読み込み中...' : facilityName || '施設が見つかりません'}
+        </h1>
+        
+        <DateSelector year={year} month={month} onDateChange={handleDateChange} />
+
+        <div className="mb-8">
+          <Card
+            title="施設合計"
+            amount={totalAmount}
+            className="bg-green-50 border-2 border-green-200"
+          />
+        </div>
+
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">ユニット別合計</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          {units.map(unit => (
+            <div key={unit.id} className="relative">
+              <Card
+                title={unit.name}
+                amount={unit.totalAmount}
+                onClick={() => handleUnitClick(unit.id)}
+                className={selectedUnitId === unit.id ? 'ring-2 ring-blue-500' : ''}
+              />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handlePrintClick(unit.id)
+                }}
+                className="absolute top-2 right-2 px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 shadow-md"
+                title="預り金明細書を印刷"
+              >
+                🖨️ 印刷
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {selectedUnitId && (
+          <div className="mb-4">
+            <button
+              onClick={() => setSelectedUnitId(null)}
+              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
+            >
+              絞り込み解除
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">
+            利用者別残高
+            {selectedUnitId && (
+              <span className="text-sm font-normal text-gray-600 ml-2">
+                （{units.find(u => u.id === selectedUnitId)?.name || '選択中のユニット'}で絞り込み中）
+              </span>
+            )}
+          </h2>
+          <button
+            onClick={() => router.push('/master?tab=resident')}
+            className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 shadow-md hover:shadow-lg transition-shadow"
+            title="利用者マスタで編集"
+          >
+            ✏️ 利用者を編集
+          </button>
+        </div>
+        {residents.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
+            {selectedUnitId ? 'このユニットに利用者が登録されていません' : '利用者が登録されていません'}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {residents.map(resident => (
+              <Card
+                key={resident.id}
+                title={resident.name}
+                amount={resident.balance}
+                onClick={() => handleResidentClick(resident.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </MainLayout>
+  )
+}
+
