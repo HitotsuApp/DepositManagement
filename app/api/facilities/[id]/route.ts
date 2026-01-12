@@ -15,6 +15,7 @@ export async function GET(
 
     // 施設詳細画面用のリクエスト（yearとmonthが指定されている場合）
     if (year && month) {
+      // ユニット別合計の計算には全ての利用者が必要なため、unitIdでフィルタリングせずに取得
       const facility = await prisma.facility.findUnique({
         where: { id: facilityId },
         include: {
@@ -29,7 +30,6 @@ export async function GET(
             where: {
               isActive: true,
               facilityId: facilityId, // 明示的に施設IDでフィルタリング
-              ...(unitId ? { unitId: Number(unitId) } : {}),
             },
             include: {
               transactions: {
@@ -44,7 +44,7 @@ export async function GET(
         return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
       }
 
-      // ユニット別合計
+      // ユニット別合計（全ての利用者を使用して計算）
       const unitSummaries = facility.units.map(unit => {
         const unitResidents = facility.residents.filter(r => r.unitId === unit.id)
         const totalAmount = unitResidents.reduce((sum, resident) => {
@@ -57,8 +57,13 @@ export async function GET(
         }
       })
 
-      // 利用者別残高
-      const residentSummaries = facility.residents.map(resident => {
+      // 表示用の利用者リスト（unitIdが指定されている場合は絞り込み）
+      const displayResidents = unitId 
+        ? facility.residents.filter(r => r.unitId === Number(unitId))
+        : facility.residents
+
+      // 利用者別残高（表示用の利用者リストから計算）
+      const residentSummaries = displayResidents.map(resident => {
         const balance = calculateBalanceUpToMonth(resident.transactions, Number(year), Number(month))
         return {
           id: resident.id,
@@ -67,8 +72,10 @@ export async function GET(
         }
       })
 
-      // 施設合計
-      const totalAmount = residentSummaries.reduce((sum, r) => sum + r.balance, 0)
+      // 施設合計（常に全利用者の合計を表示）
+      const totalAmount = facility.residents.reduce((sum, resident) => {
+        return sum + calculateBalanceUpToMonth(resident.transactions, Number(year), Number(month))
+      }, 0)
 
       return NextResponse.json({
         facilityName: facility.name,

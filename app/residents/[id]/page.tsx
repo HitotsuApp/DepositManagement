@@ -49,6 +49,9 @@ export default function ResidentDetailPage() {
   const [residentFacilityId, setResidentFacilityId] = useState<number | null>(null)
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [residents, setResidents] = useState<{ id: number; name: string }[]>([])
+  const [prevResidentId, setPrevResidentId] = useState<number | null>(null)
+  const [nextResidentId, setNextResidentId] = useState<number | null>(null)
   const [showInOutForm, setShowInOutForm] = useState(false)
   const [showCorrectForm, setShowCorrectForm] = useState(false)
   const [formData, setFormData] = useState<TransactionFormData>({
@@ -76,6 +79,12 @@ export default function ResidentDetailPage() {
     fetchResidentData()
   }, [residentId, year, month])
 
+  useEffect(() => {
+    if (residentFacilityId) {
+      fetchResidentsList()
+    }
+  }, [residentFacilityId, residentId])
+
   const fetchResidentData = async () => {
     try {
       const response = await fetch(
@@ -89,6 +98,39 @@ export default function ResidentDetailPage() {
     } catch (error) {
       console.error('Failed to fetch resident data:', error)
     }
+  }
+
+  const fetchResidentsList = async () => {
+    try {
+      const response = await fetch(
+        `/api/residents?facilityId=${residentFacilityId}`
+      )
+      const data = await response.json()
+      const sortedResidents = data.map((r: { id: number; name: string }) => ({
+        id: r.id,
+        name: r.name,
+      }))
+      setResidents(sortedResidents)
+      
+      // 前後の利用者IDを計算
+      const currentIndex = sortedResidents.findIndex((r: { id: number }) => r.id === residentId)
+      if (currentIndex > 0) {
+        setPrevResidentId(sortedResidents[currentIndex - 1].id)
+      } else {
+        setPrevResidentId(null)
+      }
+      if (currentIndex < sortedResidents.length - 1 && currentIndex >= 0) {
+        setNextResidentId(sortedResidents[currentIndex + 1].id)
+      } else {
+        setNextResidentId(null)
+      }
+    } catch (error) {
+      console.error('Failed to fetch residents list:', error)
+    }
+  }
+
+  const handleResidentChange = (newResidentId: number) => {
+    router.push(`/residents/${newResidentId}?year=${year}&month=${month}`)
   }
 
   const handleDateChange = (newYear: number, newMonth: number) => {
@@ -111,6 +153,22 @@ export default function ResidentDetailPage() {
       return
     }
 
+    // 当月入力の場合、対象日が現在の月と一致しているかチェック
+    if (isCurrentMonth && showInOutForm) {
+      const transactionDate = new Date(formData.transactionDate)
+      const transactionYear = transactionDate.getFullYear()
+      const transactionMonth = transactionDate.getMonth() + 1
+      
+      if (transactionYear !== currentYear || transactionMonth !== currentMonth) {
+        setToast({
+          message: '対象日は今月の日付を入力してください',
+          type: 'error',
+          isVisible: true,
+        })
+        return
+      }
+    }
+
     const amount = parseFloat(formData.amount)
     if (isNaN(amount) || amount < 1 || amount % 1 !== 0) {
       setToast({
@@ -123,11 +181,28 @@ export default function ResidentDetailPage() {
 
     if (showCorrectForm && !formData.reason) {
       setToast({
-        message: '訂正入力の場合は理由を入力してください',
+        message: '過去訂正入力の場合は理由を入力してください',
         type: 'error',
         isVisible: true,
       })
       return
+    }
+
+    // 過去訂正入力の場合、対象日が過去月であることを確認（今月の日付は許可しない）
+    if (showCorrectForm) {
+      const transactionDate = new Date(formData.transactionDate)
+      const transactionYear = transactionDate.getFullYear()
+      const transactionMonth = transactionDate.getMonth() + 1
+      
+      // 今月または未来の月の場合はエラー
+      if (transactionYear > currentYear || (transactionYear === currentYear && transactionMonth >= currentMonth)) {
+        setToast({
+          message: '過去訂正入力は過去の月の日付のみ入力できます',
+          type: 'error',
+          isVisible: true,
+        })
+        return
+      }
     }
 
     setIsSubmitting(true)
@@ -147,7 +222,7 @@ export default function ResidentDetailPage() {
 
       if (response.ok) {
         const transactionTypeLabel = showCorrectForm 
-          ? (formData.transactionType === 'correct_in' ? '訂正入金' : '訂正出金')
+          ? (formData.transactionType === 'past_correct_in' ? '過去訂正入金' : '過去訂正出金')
           : (formData.transactionType === 'in' ? '入金' : '出金')
         
         setToast({
@@ -158,7 +233,7 @@ export default function ResidentDetailPage() {
         
         setFormData({
           transactionDate: '',
-          transactionType: showCorrectForm ? 'correct_in' : 'in',
+          transactionType: showCorrectForm ? 'past_correct_in' : 'in',
           amount: '',
           description: '',
           payee: '',
@@ -192,6 +267,8 @@ export default function ResidentDetailPage() {
       case 'out': return '出金'
       case 'correct_in': return '訂正入金'
       case 'correct_out': return '訂正出金'
+      case 'past_correct_in': return '過去訂正入金'
+      case 'past_correct_out': return '過去訂正出金'
       default: return type
     }
   }
@@ -237,7 +314,33 @@ export default function ResidentDetailPage() {
   return (
     <MainLayout>
       <div>
-        <h1 className="text-3xl font-bold mb-6">利用者詳細: {residentName}</h1>
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={() => prevResidentId && handleResidentChange(prevResidentId)}
+            disabled={!prevResidentId}
+            className={`px-4 py-2 rounded ${
+              prevResidentId
+                ? 'bg-gray-200 hover:bg-gray-300'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+            title={prevResidentId ? '前の利用者' : '前の利用者なし'}
+          >
+            ◀
+          </button>
+          <h1 className="text-3xl font-bold">利用者詳細: {residentName}</h1>
+          <button
+            onClick={() => nextResidentId && handleResidentChange(nextResidentId)}
+            disabled={!nextResidentId}
+            className={`px-4 py-2 rounded ${
+              nextResidentId
+                ? 'bg-gray-200 hover:bg-gray-300'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+            title={nextResidentId ? '次の利用者' : '次の利用者なし'}
+          >
+            ▶
+          </button>
+        </div>
         
         {/* 選択された施設と異なる施設の利用者のページにアクセスした場合の警告 */}
         {selectedFacilityId !== null && residentFacilityId !== null && selectedFacilityId !== residentFacilityId && (
@@ -331,7 +434,7 @@ export default function ResidentDetailPage() {
                 const defaultDate = today > lastDayOfMonth ? lastDayOfMonth.toISOString().split('T')[0] : today.toISOString().split('T')[0]
                 setFormData({
                   transactionDate: defaultDate,
-                  transactionType: 'correct_in',
+                  transactionType: 'past_correct_in',
                   amount: '',
                   description: '',
                   payee: '',
@@ -459,9 +562,10 @@ export default function ResidentDetailPage() {
             setShowCorrectForm(false)
             setFormData({
               transactionDate: '',
-              transactionType: 'correct_in',
+              transactionType: 'past_correct_in',
               amount: '',
               description: '',
+              payee: '',
               reason: '',
             })
           }}
@@ -494,8 +598,8 @@ export default function ResidentDetailPage() {
                   onChange={(e) => setFormData({ ...formData, transactionType: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
-                  <option value="correct_in">訂正入金</option>
-                  <option value="correct_out">訂正出金</option>
+                  <option value="past_correct_in">過去訂正入金</option>
+                  <option value="past_correct_out">過去訂正出金</option>
                 </select>
               </div>
 
@@ -568,7 +672,7 @@ export default function ResidentDetailPage() {
                     setShowCorrectForm(false)
                     setFormData({
                       transactionDate: '',
-                      transactionType: 'correct_in',
+                      transactionType: 'past_correct_in',
                       amount: '',
                       description: '',
                       payee: '',
@@ -616,9 +720,10 @@ export default function ResidentDetailPage() {
                   </tr>
                 ) : (
                   transactions.map((transaction) => {
-                    const isIn = transaction.transactionType === 'in' || transaction.transactionType === 'correct_in'
+                    const isIn = transaction.transactionType === 'in' || transaction.transactionType === 'correct_in' || transaction.transactionType === 'past_correct_in'
                     const isCorrect = transaction.transactionType === 'correct_in' || transaction.transactionType === 'correct_out'
-                    const canCorrect = !isCorrect && isCurrentMonth
+                    const isPastCorrect = transaction.transactionType === 'past_correct_in' || transaction.transactionType === 'past_correct_out'
+                    const canCorrect = !isCorrect && !isPastCorrect && isCurrentMonth
                     
                     return (
                       <tr 
@@ -637,10 +742,14 @@ export default function ResidentDetailPage() {
                             isIn
                               ? isCorrect
                                 ? 'bg-orange-100 text-orange-800'
-                                : 'bg-blue-100 text-blue-800'
+                                : isPastCorrect
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-blue-100 text-blue-800'
                               : isCorrect
                                 ? 'bg-orange-100 text-orange-800'
-                                : 'bg-red-100 text-red-800'
+                                : isPastCorrect
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-red-100 text-red-800'
                           }`}>
                             {getTransactionTypeLabel(transaction.transactionType)}
                           </span>

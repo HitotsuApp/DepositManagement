@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { PDFViewer } from "@react-pdf/renderer"
 import { PdfRenderer } from "@/pdf/renderer/PdfRenderer"
 import MainLayout from "@/components/MainLayout"
@@ -70,6 +70,7 @@ type PrintData = UnitPrintData | ResidentPrintData
 
 export default function PrintPreviewPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const facilityId = searchParams.get("facilityId")
   const unitId = searchParams.get("unitId")
   const residentId = searchParams.get("residentId")
@@ -87,6 +88,10 @@ export default function PrintPreviewPage() {
   const [printData, setPrintData] = useState<PrintData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [residentFacilityId, setResidentFacilityId] = useState<number | null>(null)
+  const [residents, setResidents] = useState<{ id: number; name: string }[]>([])
+  const [prevResidentId, setPrevResidentId] = useState<number | null>(null)
+  const [nextResidentId, setNextResidentId] = useState<number | null>(null)
 
   useEffect(() => {
     if (printType === "resident") {
@@ -97,10 +102,10 @@ export default function PrintPreviewPage() {
         setIsLoading(false)
       }
     } else {
-      if (facilityId && unitId) {
+      if (facilityId) {
         fetchUnitPrintData()
       } else {
-        setError("施設IDまたはユニットIDが指定されていません")
+        setError("施設IDが指定されていません")
         setIsLoading(false)
       }
     }
@@ -110,8 +115,9 @@ export default function PrintPreviewPage() {
     setIsLoading(true)
     setError(null)
     try {
+      const unitParam = unitId ? `&unitId=${unitId}` : ''
       const response = await fetch(
-        `/api/print/deposit-statement?facilityId=${facilityId}&unitId=${unitId}&year=${year}&month=${month}`
+        `/api/print/deposit-statement?facilityId=${facilityId}${unitParam}&year=${year}&month=${month}`
       )
       if (!response.ok) {
         throw new Error("印刷データの取得に失敗しました")
@@ -138,12 +144,62 @@ export default function PrintPreviewPage() {
       }
       const data = await response.json()
       setPrintData(data)
+      
+      // 施設IDを取得（利用者詳細APIから）
+      if (residentId) {
+        const residentDetailResponse = await fetch(
+          `/api/residents/${residentId}?year=${year}&month=${month}`
+        )
+        if (residentDetailResponse.ok) {
+          const residentDetail = await residentDetailResponse.json()
+          setResidentFacilityId(residentDetail.facilityId || null)
+        }
+      }
     } catch (err) {
       console.error("Failed to fetch print data:", err)
       setError(err instanceof Error ? err.message : "エラーが発生しました")
     } finally {
       setIsLoading(false)
     }
+  }
+
+  useEffect(() => {
+    if (printType === "resident" && residentFacilityId && residentId) {
+      fetchResidentsList()
+    }
+  }, [residentFacilityId, residentId, printType])
+
+  const fetchResidentsList = async () => {
+    try {
+      const response = await fetch(
+        `/api/residents?facilityId=${residentFacilityId}`
+      )
+      const data = await response.json()
+      const sortedResidents = data.map((r: { id: number; name: string }) => ({
+        id: r.id,
+        name: r.name,
+      }))
+      setResidents(sortedResidents)
+      
+      // 前後の利用者IDを計算
+      const currentIndex = sortedResidents.findIndex((r: { id: number }) => r.id === Number(residentId))
+      if (currentIndex > 0) {
+        setPrevResidentId(sortedResidents[currentIndex - 1].id)
+      } else {
+        setPrevResidentId(null)
+      }
+      if (currentIndex < sortedResidents.length - 1 && currentIndex >= 0) {
+        setNextResidentId(sortedResidents[currentIndex + 1].id)
+      } else {
+        setNextResidentId(null)
+      }
+    } catch (error) {
+      console.error("Failed to fetch residents list:", error)
+    }
+  }
+
+  const handleResidentChange = (newResidentId: number) => {
+    router.push(`/print/preview?residentId=${newResidentId}&year=${year}&month=${month}&type=resident`)
   }
 
   const handleDateChange = (newYear: number, newMonth: number) => {
@@ -192,7 +248,7 @@ export default function PrintPreviewPage() {
     <MainLayout>
       <div className="h-screen flex flex-col">
         {/* ヘッダー */}
-        <div className="bg-white border-b p-4 flex items-center justify-between">
+        <div className="bg-white border-b p-4 flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold mb-2">預り金明細書 印刷プレビュー</h1>
             <DateSelector
@@ -201,7 +257,40 @@ export default function PrintPreviewPage() {
               onDateChange={handleDateChange}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col items-end gap-2">
+            {/* 利用者タイプの場合、利用者名と矢印ボタンを右上に表示 */}
+            {printType === "resident" && printData && "resident" in printData && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => prevResidentId && handleResidentChange(prevResidentId)}
+                  disabled={!prevResidentId}
+                  className={`px-3 py-1 rounded text-sm ${
+                    prevResidentId
+                      ? "bg-gray-200 hover:bg-gray-300"
+                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  }`}
+                  title={prevResidentId ? "前の利用者" : "前の利用者なし"}
+                >
+                  ◀
+                </button>
+                <span className="text-lg font-semibold min-w-[120px] text-center">
+                  {printData.resident.name}
+                </span>
+                <button
+                  onClick={() => nextResidentId && handleResidentChange(nextResidentId)}
+                  disabled={!nextResidentId}
+                  className={`px-3 py-1 rounded text-sm ${
+                    nextResidentId
+                      ? "bg-gray-200 hover:bg-gray-300"
+                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  }`}
+                  title={nextResidentId ? "次の利用者" : "次の利用者なし"}
+                >
+                  ▶
+                </button>
+              </div>
+            )}
+            {/* 戻るボタンを利用者名の下に配置 */}
             <button
               onClick={() => window.history.back()}
               className="px-6 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"

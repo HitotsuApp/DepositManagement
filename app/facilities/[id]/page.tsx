@@ -86,9 +86,9 @@ export default function FacilityDetailPage() {
     router.push(`/residents/${residentId}?year=${year}&month=${month}`)
   }
 
-  const handlePrintClick = (unitId: number) => {
+  const handlePrintClick = () => {
     router.push(
-      `/print/preview?facilityId=${facilityId}&unitId=${unitId}&year=${year}&month=${month}`
+      `/print/preview?facilityId=${facilityId}&year=${year}&month=${month}&type=facility`
     )
   }
 
@@ -119,11 +119,20 @@ export default function FacilityDetailPage() {
         <DateSelector year={year} month={month} onDateChange={handleDateChange} />
 
         <div className="mb-8">
-          <Card
-            title="施設合計"
-            amount={totalAmount}
-            className="bg-green-50 border-2 border-green-200"
-          />
+          <div className="relative">
+            <Card
+              title="施設合計"
+              amount={totalAmount}
+              className="bg-green-50 border-2 border-green-200"
+            />
+            <button
+              onClick={handlePrintClick}
+              className="absolute top-4 right-4 px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 shadow-md hover:shadow-lg transition-shadow"
+              title="預り金明細書を印刷"
+            >
+              🖨️ 印刷
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center justify-between mb-4">
@@ -131,24 +140,13 @@ export default function FacilityDetailPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           {units.map(unit => (
-            <div key={unit.id} className="relative">
-              <Card
-                title={unit.name}
-                amount={unit.totalAmount}
-                onClick={() => handleUnitClick(unit.id)}
-                className={selectedUnitId === unit.id ? 'ring-2 ring-blue-500' : ''}
-              />
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handlePrintClick(unit.id)
-                }}
-                className="absolute top-2 right-2 px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 shadow-md"
-                title="預り金明細書を印刷"
-              >
-                🖨️ 印刷
-              </button>
-            </div>
+            <Card
+              key={unit.id}
+              title={unit.name}
+              amount={unit.totalAmount}
+              onClick={() => handleUnitClick(unit.id)}
+              className={selectedUnitId === unit.id ? 'ring-2 ring-blue-500' : ''}
+            />
           ))}
         </div>
 

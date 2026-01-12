@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     const year = searchParams.get("year")
     const month = searchParams.get("month")
 
-    if (!facilityId || !unitId || !year || !month) {
+    if (!facilityId || !year || !month) {
       return NextResponse.json(
         { error: "Missing required parameters" },
         { status: 400 }
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
         residents: {
           where: {
             isActive: true,
-            unitId: Number(unitId),
+            ...(unitId ? { unitId: Number(unitId) } : {}),
           },
           include: {
             transactions: {
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
 
     const printData = transformToPrintData(
       facility,
-      Number(unitId),
+      unitId ? Number(unitId) : null,
       Number(year),
       Number(month)
     )

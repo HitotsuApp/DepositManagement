@@ -71,6 +71,12 @@ export default function DashboardPage() {
     router.push(`/facilities/${facilityId}?year=${year}&month=${month}`)
   }
 
+  const handlePrintClick = (facilityId: number) => {
+    router.push(
+      `/print/preview?facilityId=${facilityId}&year=${year}&month=${month}&type=facility`
+    )
+  }
+
   // ローディング中または施設選択が完了していない場合は何も表示しない（リダイレクト待ち）
   if (isChecking || !hasCompletedSelection) {
     return (
@@ -102,11 +108,22 @@ export default function DashboardPage() {
         <DateSelector year={year} month={month} onDateChange={handleDateChange} />
 
         <div className="mb-8">
-          <Card
-            title={selectedFacilityId !== null ? `${selectedFacilityName}の預かり金合計` : '法人全体の預かり金合計'}
-            amount={totalAmount}
-            className="bg-blue-50 border-2 border-blue-200"
-          />
+          <div className="relative">
+            <Card
+              title={selectedFacilityId !== null ? `${selectedFacilityName}の預かり金合計` : '法人全体の預かり金合計'}
+              amount={totalAmount}
+              className="bg-blue-50 border-2 border-blue-200"
+            />
+            {selectedFacilityId !== null && (
+              <button
+                onClick={() => handlePrintClick(selectedFacilityId)}
+                className="absolute top-4 right-4 px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 shadow-md hover:shadow-lg transition-shadow"
+                title="預り金明細書を印刷"
+              >
+                🖨️ 印刷
+              </button>
+            )}
+          </div>
         </div>
 
         {selectedFacilityId === null ? (
