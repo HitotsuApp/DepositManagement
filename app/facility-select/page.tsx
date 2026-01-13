@@ -35,7 +35,10 @@ export default function FacilitySelectPage() {
 
   const handleSelectFacility = (facilityId: number) => {
     setSelectedFacilityId(facilityId)
-    router.push('/')
+    const currentDate = new Date()
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth() + 1
+    router.push(`/facilities/${facilityId}?year=${year}&month=${month}`)
   }
 
   const handleSelectAll = () => {
@@ -58,7 +61,7 @@ export default function FacilitySelectPage() {
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">預かり金管理システム</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">預り金管理システム</h1>
           <p className="text-lg text-gray-600">施設を選択してください</p>
           {selectedFacilityId !== null && (
             <div className="mt-4 inline-block px-4 py-2 bg-blue-100 border-2 border-blue-300 rounded-lg">

@@ -51,10 +51,10 @@ export async function POST(request: Request) {
 
     const transaction = await prisma.transaction.create({
       data: {
-        residentId: body.residentId,
+        residentId: Number(body.residentId),
         transactionDate: new Date(body.transactionDate),
         transactionType: body.transactionType,
-        amount: body.amount,
+        amount: Number(body.amount),
         description: body.description || null,
         payee: body.payee || null,
         reason: body.reason || null,

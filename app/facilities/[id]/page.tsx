@@ -92,6 +92,10 @@ export default function FacilityDetailPage() {
     )
   }
 
+  const handleBulkInputClick = () => {
+    router.push(`/facilities/${facilityId}/bulk-input?year=${year}&month=${month}`)
+  }
+
   // 選択された施設と異なる施設のページにアクセスした場合の警告
   const isMismatchedFacility = selectedFacilityId !== null && selectedFacilityId !== facilityId
 
@@ -125,13 +129,22 @@ export default function FacilityDetailPage() {
               amount={totalAmount}
               className="bg-green-50 border-2 border-green-200"
             />
-            <button
-              onClick={handlePrintClick}
-              className="absolute top-4 right-4 px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 shadow-md hover:shadow-lg transition-shadow"
-              title="預り金明細書を印刷"
-            >
-              🖨️ 印刷
-            </button>
+            <div className="absolute top-4 right-4 flex gap-2">
+              <button
+                onClick={handleBulkInputClick}
+                className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 shadow-md hover:shadow-lg transition-shadow"
+                title="まとめて入力"
+              >
+                📝 まとめて入力
+              </button>
+              <button
+                onClick={handlePrintClick}
+                className="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 shadow-md hover:shadow-lg transition-shadow"
+                title="預り金明細書を印刷"
+              >
+                🖨️ 印刷
+              </button>
+            </div>
           </div>
         </div>
 

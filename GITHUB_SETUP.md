@@ -19,7 +19,7 @@ gh repo create DepositManagement --public --source=. --remote=origin --push
 1. **GitHubでリポジトリを作成**
    - https://github.com/new にアクセス
    - リポジトリ名: `DepositManagement`（または任意の名前）
-   - 説明: 「介護法人向け預かり金管理システム」
+   - 説明: 「介護法人向け預り金管理システム」
    - Public または Private を選択
    - **「Initialize this repository with a README」のチェックは外す**（既にローカルにリポジトリがあるため）
    - 「Create repository」をクリック

@@ -38,7 +38,7 @@ export default function Sidebar() {
 
   return (
     <div className="w-64 text-white min-h-screen p-4" style={{ backgroundColor: 'rgba(62, 77, 101, 1)' }}>
-      <h1 className="text-xl font-bold mb-6">預かり金管理</h1>
+      <h1 className="text-xl font-bold mb-6">預り金管理</h1>
       
       {/* 選択中の施設表示 */}
       {selectedFacilityId !== null && selectedFacility ? (

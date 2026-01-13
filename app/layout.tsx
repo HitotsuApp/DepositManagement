@@ -3,8 +3,8 @@ import './globals.css'
 import { FacilityProvider } from '@/contexts/FacilityContext'
 
 export const metadata: Metadata = {
-  title: '預かり金管理システム',
-  description: '介護法人向け預かり金管理Webアプリ',
+  title: '預り金管理システム',
+  description: '介護法人向け預り金管理Webアプリ',
 }
 
 export default function RootLayout({

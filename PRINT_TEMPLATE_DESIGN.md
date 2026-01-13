@@ -3,7 +3,7 @@
 ## 📋 要件整理
 
 ### 印刷対象
-- **利用者の預かり金明細書**
+- **利用者の預り金明細書**
   - 利用者名
   - 対象年月
   - 現在残高
@@ -78,7 +78,7 @@ model PrintTemplate {
 **テンプレートファイル例（JSON形式）:**
 ```json
 {
-  "name": "利用者預かり金明細書",
+  "name": "利用者預り金明細書",
   "type": "resident_detail",
   "pageSize": "A4",
   "orientation": "portrait",
@@ -90,7 +90,7 @@ model PrintTemplate {
   },
   "header": {
     "enabled": true,
-    "template": "預かり金明細書\\n対象年月: {{year}}年{{month}}月"
+    "template": "預り金明細書\\n対象年月: {{year}}年{{month}}月"
   },
   "body": {
     "sections": [
@@ -184,7 +184,7 @@ model PrintTemplate {
 ```json
 {
   "metadata": {
-    "name": "利用者預かり金明細書",
+    "name": "利用者預り金明細書",
     "version": "1.0",
     "pageSize": "A4",
     "orientation": "portrait"
@@ -195,7 +195,7 @@ model PrintTemplate {
       "components": [
         {
           "type": "text",
-          "content": "預かり金明細書",
+          "content": "預り金明細書",
           "style": { "fontSize": 16, "fontWeight": "bold", "align": "center" }
         },
         {
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
 const ResidentDetailPDF = ({ data }) => (
   <Document>
     <Page size="A4" style={styles.page}>
-      <Text style={styles.title}>預かり金明細書</Text>
+      <Text style={styles.title}>預り金明細書</Text>
       {/* ... */}
     </Page>
   </Document>
@@ -374,7 +374,7 @@ const ResidentDetailPDF = ({ data }) => (
 import jsPDF from 'jspdf'
 
 const pdf = new jsPDF()
-pdf.text('預かり金明細書', 10, 10)
+pdf.text('預り金明細書', 10, 10)
 // ...
 pdf.save('明細書.pdf')
 ```

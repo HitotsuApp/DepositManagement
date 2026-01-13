@@ -77,6 +77,10 @@ export default function DashboardPage() {
     )
   }
 
+  const handleBulkInputClick = (facilityId: number) => {
+    router.push(`/facilities/${facilityId}/bulk-input?year=${year}&month=${month}`)
+  }
+
   // ローディング中または施設選択が完了していない場合は何も表示しない（リダイレクト待ち）
   if (isChecking || !hasCompletedSelection) {
     return (
@@ -110,7 +114,7 @@ export default function DashboardPage() {
         <div className="mb-8">
           <div className="relative">
             <Card
-              title={selectedFacilityId !== null ? `${selectedFacilityName}の預かり金合計` : '法人全体の預かり金合計'}
+              title={selectedFacilityId !== null ? `${selectedFacilityName}の預り金合計` : '法人全体の預り金合計'}
               amount={totalAmount}
               className="bg-blue-50 border-2 border-blue-200"
             />
@@ -131,12 +135,23 @@ export default function DashboardPage() {
             <h2 className="text-xl font-semibold mb-4">各施設の合計金額</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {facilities.map(facility => (
-                <Card
-                  key={facility.id}
-                  title={facility.name}
-                  amount={facility.totalAmount}
-                  onClick={() => handleFacilityClick(facility.id)}
-                />
+                <div key={facility.id} className="relative">
+                  <Card
+                    title={facility.name}
+                    amount={facility.totalAmount}
+                    onClick={() => handleFacilityClick(facility.id)}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleBulkInputClick(facility.id)
+                    }}
+                    className="absolute top-2 right-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 shadow-md hover:shadow-lg transition-shadow z-10"
+                    title="まとめて入力"
+                  >
+                    📝
+                  </button>
+                </div>
               ))}
             </div>
           </>
@@ -155,13 +170,24 @@ export default function DashboardPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {facilities.map(facility => (
-                <Card
-                  key={facility.id}
-                  title={facility.name}
-                  amount={facility.totalAmount}
-                  onClick={() => handleFacilityClick(facility.id)}
-                  className={facility.id === selectedFacilityId ? 'ring-2 ring-blue-500' : ''}
-                />
+                <div key={facility.id} className="relative">
+                  <Card
+                    title={facility.name}
+                    amount={facility.totalAmount}
+                    onClick={() => handleFacilityClick(facility.id)}
+                    className={facility.id === selectedFacilityId ? 'ring-2 ring-blue-500' : ''}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleBulkInputClick(facility.id)
+                    }}
+                    className="absolute top-2 right-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 shadow-md hover:shadow-lg transition-shadow z-10"
+                    title="まとめて入力"
+                  >
+                    📝
+                  </button>
+                </div>
               ))}
             </div>
           </>
