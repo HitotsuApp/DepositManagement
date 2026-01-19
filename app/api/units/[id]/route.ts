@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { validateId, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const unitId = Number(params.id)
+    const unitId = validateId(params.id)
+    if (!unitId) {
+      return NextResponse.json(
+        { error: '無効なIDです' },
+        { status: 400 }
+      )
+    }
     const unit = await prisma.unit.findUnique({
       where: { id: unitId },
       include: {
@@ -30,7 +37,13 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const unitId = Number(params.id)
+    const unitId = validateId(params.id)
+    if (!unitId) {
+      return NextResponse.json(
+        { error: '無効なIDです' },
+        { status: 400 }
+      )
+    }
     const body = await request.json()
 
     // バリデーション
@@ -44,6 +57,13 @@ export async function PUT(
     if (!body.name || body.name.trim() === '') {
       return NextResponse.json(
         { error: 'ユニット名を入力してください' },
+        { status: 400 }
+      )
+    }
+    
+    if (!validateMaxLength(body.name, MAX_LENGTHS.UNIT_NAME)) {
+      return NextResponse.json(
+        { error: `ユニット名は${MAX_LENGTHS.UNIT_NAME}文字以内で入力してください` },
         { status: 400 }
       )
     }
@@ -83,7 +103,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const unitId = Number(params.id)
+    const unitId = validateId(params.id)
+    if (!unitId) {
+      return NextResponse.json(
+        { error: '無効なIDです' },
+        { status: 400 }
+      )
+    }
     const body = await request.json()
 
     const unit = await prisma.unit.update({

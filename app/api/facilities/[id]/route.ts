@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { calculateBalanceUpToMonth } from '@/lib/balance'
+import { validateId, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const facilityId = Number(params.id)
+    const facilityId = validateId(params.id)
+    if (!facilityId) {
+      return NextResponse.json(
+        { error: '無効なIDです' },
+        { status: 400 }
+      )
+    }
     const { searchParams } = new URL(request.url)
     const year = searchParams.get('year')
     const month = searchParams.get('month')
@@ -29,6 +36,7 @@ export async function GET(
           residents: {
             where: {
               isActive: true,
+              endDate: null, // 終了日が設定されていない利用者のみ
               facilityId: facilityId, // 明示的に施設IDでフィルタリング
             },
             include: {
@@ -106,16 +114,51 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const facilityId = Number(params.id)
+    const facilityId = validateId(params.id)
+    if (!facilityId) {
+      return NextResponse.json(
+        { error: '無効なIDです' },
+        { status: 400 }
+      )
+    }
     const body = await request.json()
+    
+    // バリデーション
+    if (!body.name || body.name.trim() === '') {
+      return NextResponse.json(
+        { error: '施設名を入力してください' },
+        { status: 400 }
+      )
+    }
+    
+    if (!validateMaxLength(body.name, MAX_LENGTHS.FACILITY_NAME)) {
+      return NextResponse.json(
+        { error: `施設名は${MAX_LENGTHS.FACILITY_NAME}文字以内で入力してください` },
+        { status: 400 }
+      )
+    }
+    
+    if (body.positionName !== undefined && body.positionName !== null && !validateMaxLength(body.positionName, MAX_LENGTHS.POSITION_NAME)) {
+      return NextResponse.json(
+        { error: `役職名は${MAX_LENGTHS.POSITION_NAME}文字以内で入力してください` },
+        { status: 400 }
+      )
+    }
+    
+    if (body.positionHolderName !== undefined && body.positionHolderName !== null && !validateMaxLength(body.positionHolderName, MAX_LENGTHS.POSITION_HOLDER_NAME)) {
+      return NextResponse.json(
+        { error: `役職者の名前は${MAX_LENGTHS.POSITION_HOLDER_NAME}文字以内で入力してください` },
+        { status: 400 }
+      )
+    }
 
     const facility = await prisma.facility.update({
       where: { id: facilityId },
       data: {
-        name: body.name,
-        positionName: body.positionName !== undefined ? body.positionName : null,
-        positionHolderName: body.positionHolderName !== undefined ? body.positionHolderName : null,
-        sortOrder: body.sortOrder !== undefined ? body.sortOrder : 0,
+        name: body.name.trim(),
+        positionName: body.positionName !== undefined ? (body.positionName ? body.positionName.trim() : null) : undefined,
+        positionHolderName: body.positionHolderName !== undefined ? (body.positionHolderName ? body.positionHolderName.trim() : null) : undefined,
+        sortOrder: body.sortOrder !== undefined ? body.sortOrder : undefined,
       },
     })
 
@@ -131,7 +174,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const facilityId = Number(params.id)
+    const facilityId = validateId(params.id)
+    if (!facilityId) {
+      return NextResponse.json(
+        { error: '無効なIDです' },
+        { status: 400 }
+      )
+    }
     const body = await request.json()
 
     const facility = await prisma.facility.update({

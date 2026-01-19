@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { calculateBalance, filterTransactionsByMonth } from '@/lib/balance'
+import { validateId } from '@/lib/validation'
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const facilityId = Number(params.id)
+    const facilityId = validateId(params.id)
+    if (!facilityId) {
+      return NextResponse.json(
+        { error: '無効なIDです' },
+        { status: 400 }
+      )
+    }
     const { searchParams } = new URL(request.url)
     const year = Number(searchParams.get('year')) || new Date().getFullYear()
     const month = Number(searchParams.get('month')) || new Date().getMonth() + 1

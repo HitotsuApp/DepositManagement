@@ -17,7 +17,10 @@ export async function GET(request: Request) {
       },
       include: {
         residents: {
-          where: { isActive: true },
+          where: { 
+            isActive: true,
+            endDate: null, // 終了日が設定されていない利用者のみ
+          },
           include: {
             transactions: {
               orderBy: { transactionDate: 'asc' },

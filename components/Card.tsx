@@ -11,11 +11,15 @@ export default function Card({ title, amount, onClick, className = '' }: CardPro
     currency: 'JPY',
   }).format(amount)
 
+  // classNameに背景色が含まれているかチェック
+  const hasBackgroundColor = className.includes('bg-')
+  const defaultBackground = hasBackgroundColor ? '' : 'bg-white'
+
   return (
     <div
       onClick={onClick}
       className={`
-        bg-white rounded-lg shadow-md p-6
+        ${defaultBackground} rounded-lg shadow-md p-6
         ${onClick ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''}
         ${className}
       `}

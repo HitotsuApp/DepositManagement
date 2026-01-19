@@ -6,6 +6,7 @@ import MainLayout from '@/components/MainLayout'
 import Modal from '@/components/Modal'
 import Toast from '@/components/Toast'
 import { useFacility } from '@/contexts/FacilityContext'
+import { isValidDate } from '@/lib/validation'
 
 interface Transaction {
   id: number
@@ -69,10 +70,8 @@ export default function BulkInputPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [residentSearchQuery, setResidentSearchQuery] = useState('')
-  const [showResidentSearch, setShowResidentSearch] = useState(false)
   const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null)
   const [correctResidentSearchQuery, setCorrectResidentSearchQuery] = useState('')
-  const [showCorrectResidentSearch, setShowCorrectResidentSearch] = useState(false)
   const [selectedCorrectUnitId, setSelectedCorrectUnitId] = useState<number | null>(null)
 
   const currentDate = new Date()
@@ -169,6 +168,16 @@ export default function BulkInputPage() {
     if (!formData.transactionDate) {
       setToast({
         message: '対象日を入力してください',
+        type: 'error',
+        isVisible: true,
+      })
+      return
+    }
+
+    // 日付の妥当性チェック
+    if (!isValidDate(formData.transactionDate)) {
+      setToast({
+        message: '無効な日付形式です',
         type: 'error',
         isVisible: true,
       })
@@ -581,7 +590,6 @@ export default function BulkInputPage() {
           onClose={() => {
             setShowInOutForm(false)
             setResidentSearchQuery('')
-            setShowResidentSearch(false)
             setSelectedUnitId(null)
             setFormData({
               residentId: '',
@@ -602,64 +610,63 @@ export default function BulkInputPage() {
                   利用者 <span className="text-red-500">*</span>
                 </label>
                 <div className="space-y-2">
-                  {showResidentSearch && (
-                    <div className="space-y-2">
-                      <div>
-                        <label className="block text-xs font-medium mb-1 text-gray-600">ユニットで絞り込み</label>
-                        <select
-                          value={selectedUnitId || ''}
-                          onChange={(e) => setSelectedUnitId(e.target.value ? Number(e.target.value) : null)}
-                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        >
-                          <option value="">すべてのユニット</option>
-                          {units.map(unit => (
-                            <option key={unit.id} value={unit.id}>
-                              {unit.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium mb-1 text-gray-600">利用者名で検索</label>
-                        <input
-                          type="text"
-                          value={residentSearchQuery}
-                          onChange={(e) => setResidentSearchQuery(e.target.value)}
-                          placeholder="利用者名で検索..."
-                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        />
-                      </div>
-                      {(() => {
-                        let filteredResidents = residents
-                        if (selectedUnitId !== null) {
-                          filteredResidents = filteredResidents.filter(r => r.unitId === selectedUnitId)
-                        }
-                        if (residentSearchQuery) {
-                          filteredResidents = filteredResidents.filter(r => r.name.includes(residentSearchQuery))
-                        }
-                        return filteredResidents.length
-                      })() !== residents.length && (
-                        <p className="text-xs text-gray-500">
-                          {(() => {
-                            let filteredResidents = residents
-                            if (selectedUnitId !== null) {
-                              filteredResidents = filteredResidents.filter(r => r.unitId === selectedUnitId)
-                            }
-                            if (residentSearchQuery) {
-                              filteredResidents = filteredResidents.filter(r => r.name.includes(residentSearchQuery))
-                            }
-                            return filteredResidents.length
-                          })()}件が見つかりました
-                        </p>
-                      )}
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-xs font-medium mb-1 text-gray-600">ユニットで絞り込み</label>
+                      <select
+                        value={selectedUnitId || ''}
+                        onChange={(e) => setSelectedUnitId(e.target.value ? Number(e.target.value) : null)}
+                        className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      >
+                        <option value="">すべてのユニット</option>
+                        {units.map(unit => (
+                          <option key={unit.id} value={unit.id}>
+                            {unit.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  )}
-                  <div className="flex gap-2">
+                    <div>
+                      <label className="block text-xs font-medium mb-1 text-gray-600">利用者名で検索</label>
+                      <input
+                        type="text"
+                        maxLength={30}
+                        value={residentSearchQuery}
+                        onChange={(e) => setResidentSearchQuery(e.target.value)}
+                        placeholder="利用者名で検索..."
+                        className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                    {(() => {
+                      let filteredResidents = residents
+                      if (selectedUnitId !== null) {
+                        filteredResidents = filteredResidents.filter(r => r.unitId === selectedUnitId)
+                      }
+                      if (residentSearchQuery) {
+                        filteredResidents = filteredResidents.filter(r => r.name.includes(residentSearchQuery))
+                      }
+                      return filteredResidents.length
+                    })() !== residents.length && (
+                      <p className="text-xs text-gray-500">
+                        {(() => {
+                          let filteredResidents = residents
+                          if (selectedUnitId !== null) {
+                            filteredResidents = filteredResidents.filter(r => r.unitId === selectedUnitId)
+                          }
+                          if (residentSearchQuery) {
+                            filteredResidents = filteredResidents.filter(r => r.name.includes(residentSearchQuery))
+                          }
+                          return filteredResidents.length
+                        })()}件が見つかりました
+                      </p>
+                    )}
+                  </div>
+                  <div>
                     <select
                       required
                       value={formData.residentId}
                       onChange={(e) => setFormData({ ...formData, residentId: e.target.value })}
-                      className="flex-1 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">選択してください</option>
                       {(() => {
@@ -679,20 +686,6 @@ export default function BulkInputPage() {
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowResidentSearch(!showResidentSearch)
-                        if (showResidentSearch) {
-                          setResidentSearchQuery('')
-                          setSelectedUnitId(null)
-                        }
-                      }}
-                      className="px-3 py-2 border rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      title="絞り込み検索"
-                    >
-                      🔍
-                    </button>
                   </div>
                 </div>
               </div>
@@ -735,6 +728,7 @@ export default function BulkInputPage() {
                 <label className="block text-sm font-medium mb-1">内容（備考）</label>
                 <input
                   type="text"
+                  maxLength={100}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -746,6 +740,7 @@ export default function BulkInputPage() {
                 <label className="block text-sm font-medium mb-1">支払先</label>
                 <input
                   type="text"
+                  maxLength={30}
                   value={formData.payee}
                   onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -794,7 +789,6 @@ export default function BulkInputPage() {
           onClose={() => {
             setShowCorrectForm(false)
             setCorrectResidentSearchQuery('')
-            setShowCorrectResidentSearch(false)
             setSelectedCorrectUnitId(null)
             setFormData({
               residentId: '',
@@ -815,64 +809,63 @@ export default function BulkInputPage() {
                   利用者 <span className="text-red-500">*</span>
                 </label>
                 <div className="space-y-2">
-                  {showCorrectResidentSearch && (
-                    <div className="space-y-2">
-                      <div>
-                        <label className="block text-xs font-medium mb-1 text-gray-600">ユニットで絞り込み</label>
-                        <select
-                          value={selectedCorrectUnitId || ''}
-                          onChange={(e) => setSelectedCorrectUnitId(e.target.value ? Number(e.target.value) : null)}
-                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
-                        >
-                          <option value="">すべてのユニット</option>
-                          {units.map(unit => (
-                            <option key={unit.id} value={unit.id}>
-                              {unit.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium mb-1 text-gray-600">利用者名で検索</label>
-                        <input
-                          type="text"
-                          value={correctResidentSearchQuery}
-                          onChange={(e) => setCorrectResidentSearchQuery(e.target.value)}
-                          placeholder="利用者名で検索..."
-                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
-                        />
-                      </div>
-                      {(() => {
-                        let filteredResidents = residents
-                        if (selectedCorrectUnitId !== null) {
-                          filteredResidents = filteredResidents.filter(r => r.unitId === selectedCorrectUnitId)
-                        }
-                        if (correctResidentSearchQuery) {
-                          filteredResidents = filteredResidents.filter(r => r.name.includes(correctResidentSearchQuery))
-                        }
-                        return filteredResidents.length
-                      })() !== residents.length && (
-                        <p className="text-xs text-gray-500">
-                          {(() => {
-                            let filteredResidents = residents
-                            if (selectedCorrectUnitId !== null) {
-                              filteredResidents = filteredResidents.filter(r => r.unitId === selectedCorrectUnitId)
-                            }
-                            if (correctResidentSearchQuery) {
-                              filteredResidents = filteredResidents.filter(r => r.name.includes(correctResidentSearchQuery))
-                            }
-                            return filteredResidents.length
-                          })()}件が見つかりました
-                        </p>
-                      )}
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-xs font-medium mb-1 text-gray-600">ユニットで絞り込み</label>
+                      <select
+                        value={selectedCorrectUnitId || ''}
+                        onChange={(e) => setSelectedCorrectUnitId(e.target.value ? Number(e.target.value) : null)}
+                        className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                      >
+                        <option value="">すべてのユニット</option>
+                        {units.map(unit => (
+                          <option key={unit.id} value={unit.id}>
+                            {unit.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  )}
-                  <div className="flex gap-2">
+                    <div>
+                      <label className="block text-xs font-medium mb-1 text-gray-600">利用者名で検索</label>
+                      <input
+                        type="text"
+                        maxLength={30}
+                        value={correctResidentSearchQuery}
+                        onChange={(e) => setCorrectResidentSearchQuery(e.target.value)}
+                        placeholder="利用者名で検索..."
+                        className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                      />
+                    </div>
+                    {(() => {
+                      let filteredResidents = residents
+                      if (selectedCorrectUnitId !== null) {
+                        filteredResidents = filteredResidents.filter(r => r.unitId === selectedCorrectUnitId)
+                      }
+                      if (correctResidentSearchQuery) {
+                        filteredResidents = filteredResidents.filter(r => r.name.includes(correctResidentSearchQuery))
+                      }
+                      return filteredResidents.length
+                    })() !== residents.length && (
+                      <p className="text-xs text-gray-500">
+                        {(() => {
+                          let filteredResidents = residents
+                          if (selectedCorrectUnitId !== null) {
+                            filteredResidents = filteredResidents.filter(r => r.unitId === selectedCorrectUnitId)
+                          }
+                          if (correctResidentSearchQuery) {
+                            filteredResidents = filteredResidents.filter(r => r.name.includes(correctResidentSearchQuery))
+                          }
+                          return filteredResidents.length
+                        })()}件が見つかりました
+                      </p>
+                    )}
+                  </div>
+                  <div>
                     <select
                       required
                       value={formData.residentId}
                       onChange={(e) => setFormData({ ...formData, residentId: e.target.value })}
-                      className="flex-1 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
                     >
                       <option value="">選択してください</option>
                       {(() => {
@@ -892,20 +885,6 @@ export default function BulkInputPage() {
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCorrectResidentSearch(!showCorrectResidentSearch)
-                        if (showCorrectResidentSearch) {
-                          setCorrectResidentSearchQuery('')
-                          setSelectedCorrectUnitId(null)
-                        }
-                      }}
-                      className="px-3 py-2 border rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      title="絞り込み検索"
-                    >
-                      🔍
-                    </button>
                   </div>
                 </div>
               </div>
@@ -966,6 +945,7 @@ export default function BulkInputPage() {
                 <input
                   type="text"
                   required
+                  maxLength={100}
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -977,6 +957,7 @@ export default function BulkInputPage() {
                 <label className="block text-sm font-medium mb-1">内容（備考）</label>
                 <input
                   type="text"
+                  maxLength={100}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -988,6 +969,7 @@ export default function BulkInputPage() {
                 <label className="block text-sm font-medium mb-1">支払先</label>
                 <input
                   type="text"
+                  maxLength={30}
                   value={formData.payee}
                   onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"

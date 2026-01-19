@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(request: Request) {
   try {
@@ -40,6 +41,13 @@ export async function POST(request: Request) {
     if (!body.name || body.name.trim() === '') {
       return NextResponse.json(
         { error: 'ユニット名を入力してください' },
+        { status: 400 }
+      )
+    }
+    
+    if (!validateMaxLength(body.name, MAX_LENGTHS.UNIT_NAME)) {
+      return NextResponse.json(
+        { error: `ユニット名は${MAX_LENGTHS.UNIT_NAME}文字以内で入力してください` },
         { status: 400 }
       )
     }

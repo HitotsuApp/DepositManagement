@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(request: Request) {
   try {
@@ -29,11 +30,27 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    
+    // バリデーション
+    if (!body.name || body.name.trim() === '') {
+      return NextResponse.json(
+        { error: '利用者名を入力してください' },
+        { status: 400 }
+      )
+    }
+    
+    if (!validateMaxLength(body.name, MAX_LENGTHS.RESIDENT_NAME)) {
+      return NextResponse.json(
+        { error: `利用者名は${MAX_LENGTHS.RESIDENT_NAME}文字以内で入力してください` },
+        { status: 400 }
+      )
+    }
+    
     const resident = await prisma.resident.create({
       data: {
         facilityId: body.facilityId,
         unitId: body.unitId,
-        name: body.name,
+        name: body.name.trim(),
         startDate: body.startDate ? new Date(body.startDate) : null,
         endDate: body.endDate ? new Date(body.endDate) : null,
         isActive: body.isActive !== undefined ? body.isActive : true,

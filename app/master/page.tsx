@@ -59,19 +59,17 @@ export default function MasterPage() {
   const [showFacilityModal, setShowFacilityModal] = useState(false)
   const [editingFacility, setEditingFacility] = useState<Facility | null>(null)
   const [facilityForm, setFacilityForm] = useState({ name: '', positionName: '', positionHolderName: '', sortOrder: 0 })
-  const [showFacilityDeactivateConfirm, setShowFacilityDeactivateConfirm] = useState<number | null>(null)
 
   // ユニットマスタ用の状態
   const [showUnitModal, setShowUnitModal] = useState(false)
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null)
   const [unitForm, setUnitForm] = useState({ facilityId: 0, name: '' })
-  const [showUnitDeactivateConfirm, setShowUnitDeactivateConfirm] = useState<number | null>(null)
 
   // 利用者マスタ用の状態
   const [showResidentModal, setShowResidentModal] = useState(false)
   const [editingResident, setEditingResident] = useState<Resident | null>(null)
   const [residentForm, setResidentForm] = useState({ facilityId: 0, unitId: 0, name: '', startDate: '', endDate: '' })
-  const [showResidentDeactivateConfirm, setShowResidentDeactivateConfirm] = useState<number | null>(null)
+  const [showResidentEndConfirm, setShowResidentEndConfirm] = useState<number | null>(null)
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([])
 
   useEffect(() => {
@@ -130,6 +128,7 @@ export default function MasterPage() {
   const fetchResidents = async () => {
     try {
       // 選択された施設がある場合、その施設の利用者のみを取得
+      // includeInactive=trueで全利用者を取得し、endDateでフィルタリング
       const url = selectedFacilityId
         ? `/api/residents?includeInactive=true&facilityId=${selectedFacilityId}`
         : '/api/residents?includeInactive=true'
@@ -198,24 +197,6 @@ export default function MasterPage() {
     }
   }
 
-  const handleDeactivateFacility = async (facilityId: number) => {
-    try {
-      const res = await fetch(`/api/facilities/${facilityId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: false }),
-      })
-      if (!res.ok) {
-        throw new Error('無効化に失敗しました')
-      }
-      alert('施設を無効化しました')
-      setShowFacilityDeactivateConfirm(null)
-      fetchFacilities()
-    } catch (error: any) {
-      console.error('Failed to deactivate facility:', error)
-      alert(error.message || '無効化に失敗しました')
-    }
-  }
 
   const handleReorderFacility = async (facilityId: number, direction: 'up' | 'down') => {
     try {
@@ -294,25 +275,6 @@ export default function MasterPage() {
     } catch (error: any) {
       console.error('Failed to save unit:', error)
       alert(error.message || '保存に失敗しました')
-    }
-  }
-
-  const handleDeactivateUnit = async (unitId: number) => {
-    try {
-      const res = await fetch(`/api/units/${unitId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: false }),
-      })
-      if (!res.ok) {
-        throw new Error('無効化に失敗しました')
-      }
-      alert('ユニットを無効化しました')
-      setShowUnitDeactivateConfirm(null)
-      fetchUnits()
-    } catch (error: any) {
-      console.error('Failed to deactivate unit:', error)
-      alert(error.message || '無効化に失敗しました')
     }
   }
 
@@ -401,22 +363,30 @@ export default function MasterPage() {
     }
   }
 
-  const handleDeactivateResident = async (residentId: number) => {
+  const handleEndResident = async (residentId: number) => {
     try {
+      // 今日の日付を設定
+      const today = new Date().toISOString().split('T')[0]
       const res = await fetch(`/api/residents/${residentId}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: false }),
+        body: JSON.stringify({
+          facilityId: residents.find(r => r.id === residentId)?.facilityId || 0,
+          unitId: residents.find(r => r.id === residentId)?.unitId || 0,
+          name: residents.find(r => r.id === residentId)?.name || '',
+          startDate: residents.find(r => r.id === residentId)?.startDate || null,
+          endDate: today,
+        }),
       })
       if (!res.ok) {
-        throw new Error('無効化に失敗しました')
+        throw new Error('終了処理に失敗しました')
       }
-      alert('利用者を無効化しました')
-      setShowResidentDeactivateConfirm(null)
+      alert('利用者を終了しました')
+      setShowResidentEndConfirm(null)
       fetchResidents()
     } catch (error: any) {
-      console.error('Failed to deactivate resident:', error)
-      alert(error.message || '無効化に失敗しました')
+      console.error('Failed to end resident:', error)
+      alert(error.message || '終了処理に失敗しました')
     }
   }
 
@@ -456,12 +426,18 @@ export default function MasterPage() {
 
         {activeTab === 'facility' && (
           <div>
-            <button
-              onClick={handleAddFacility}
-              className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              施設を追加
-            </button>
+            <div className="mb-4 flex items-start gap-4">
+              <button
+                onClick={handleAddFacility}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                施設を追加
+              </button>
+              <div className="text-sm text-gray-600 mt-2">
+                <p>・預り金明細書に記載される施設名および役職、役職者の名前を登録してください。</p>
+                <p>・役職者の名前が変わった際は施設を追加ではなく編集にて修正してください。</p>
+              </div>
+            </div>
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-100">
@@ -538,18 +514,10 @@ export default function MasterPage() {
                         <td className="px-4 py-3">
                           <button
                             onClick={() => handleEditFacility(facility)}
-                            className="text-blue-500 hover:underline mr-4"
+                            className="text-blue-500 hover:underline"
                           >
                             編集
                           </button>
-                          {facility.isActive && (
-                            <button
-                              onClick={() => setShowFacilityDeactivateConfirm(facility.id)}
-                              className="text-orange-500 hover:underline"
-                            >
-                              無効化
-                            </button>
-                          )}
                         </td>
                       </tr>
                     ))
@@ -571,6 +539,7 @@ export default function MasterPage() {
                     <input
                       type="text"
                       required
+                      maxLength={30}
                       value={facilityForm.name}
                       onChange={(e) => setFacilityForm({ ...facilityForm, name: e.target.value })}
                       className="w-full px-3 py-2 border rounded"
@@ -581,6 +550,7 @@ export default function MasterPage() {
                     <label className="block text-sm font-medium mb-1">役職名</label>
                     <input
                       type="text"
+                      maxLength={30}
                       value={facilityForm.positionName}
                       onChange={(e) => setFacilityForm({ ...facilityForm, positionName: e.target.value })}
                       className="w-full px-3 py-2 border rounded"
@@ -591,6 +561,7 @@ export default function MasterPage() {
                     <label className="block text-sm font-medium mb-1">役職者の名前</label>
                     <input
                       type="text"
+                      maxLength={30}
                       value={facilityForm.positionHolderName}
                       onChange={(e) => setFacilityForm({ ...facilityForm, positionHolderName: e.target.value })}
                       className="w-full px-3 py-2 border rounded"
@@ -616,36 +587,6 @@ export default function MasterPage() {
               </form>
             </Modal>
 
-            {/* 無効化確認モーダル */}
-            <Modal
-              isOpen={showFacilityDeactivateConfirm !== null}
-              onClose={() => setShowFacilityDeactivateConfirm(null)}
-              title="施設の無効化確認"
-            >
-              <div className="space-y-4">
-                <p className="text-gray-700">
-                  この施設を無効化しますか？無効化後もデータは保持されますが、一覧からは非表示になります。
-                </p>
-                <div className="flex gap-4 pt-4">
-                  <button
-                    onClick={() => {
-                      if (showFacilityDeactivateConfirm !== null) {
-                        handleDeactivateFacility(showFacilityDeactivateConfirm)
-                      }
-                    }}
-                    className="flex-1 px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
-                  >
-                    無効化する
-                  </button>
-                  <button
-                    onClick={() => setShowFacilityDeactivateConfirm(null)}
-                    className="flex-1 px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-                  >
-                    キャンセル
-                  </button>
-                </div>
-              </div>
-            </Modal>
           </div>
         )}
 
@@ -689,18 +630,10 @@ export default function MasterPage() {
                         <td className="px-4 py-3">
                           <button
                             onClick={() => handleEditUnit(unit)}
-                            className="text-blue-500 hover:underline mr-4"
+                            className="text-blue-500 hover:underline"
                           >
                             編集
                           </button>
-                          {unit.isActive && (
-                            <button
-                              onClick={() => setShowUnitDeactivateConfirm(unit.id)}
-                              className="text-orange-500 hover:underline"
-                            >
-                              無効化
-                            </button>
-                          )}
                         </td>
                       </tr>
                     ))
@@ -744,6 +677,7 @@ export default function MasterPage() {
                     <input
                       type="text"
                       required
+                      maxLength={30}
                       value={unitForm.name}
                       onChange={(e) => setUnitForm({ ...unitForm, name: e.target.value })}
                       className="w-full px-3 py-2 border rounded"
@@ -767,37 +701,6 @@ export default function MasterPage() {
                   </div>
                 </div>
               </form>
-            </Modal>
-
-            {/* ユニット無効化確認モーダル */}
-            <Modal
-              isOpen={showUnitDeactivateConfirm !== null}
-              onClose={() => setShowUnitDeactivateConfirm(null)}
-              title="ユニットの無効化確認"
-            >
-              <div className="space-y-4">
-                <p className="text-gray-700">
-                  このユニットを無効化しますか？無効化後もデータは保持されますが、一覧からは非表示になります。
-                </p>
-                <div className="flex gap-4 pt-4">
-                  <button
-                    onClick={() => {
-                      if (showUnitDeactivateConfirm !== null) {
-                        handleDeactivateUnit(showUnitDeactivateConfirm)
-                      }
-                    }}
-                    className="flex-1 px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
-                  >
-                    無効化する
-                  </button>
-                  <button
-                    onClick={() => setShowUnitDeactivateConfirm(null)}
-                    className="flex-1 px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-                  >
-                    キャンセル
-                  </button>
-                </div>
-              </div>
             </Modal>
           </div>
         )}
@@ -829,16 +732,16 @@ export default function MasterPage() {
                       </td>
                     </tr>
                   ) : (
-                    residents.map(resident => (
+                    residents
+                      .filter(resident => !resident.endDate) // 終了日が設定されていない利用者のみ表示
+                      .map(resident => (
                       <tr key={resident.id} className="border-t">
                         <td className="px-4 py-3">{resident.facility?.name || `施設ID: ${resident.facilityId}`}</td>
                         <td className="px-4 py-3">{resident.unit?.name || `ユニットID: ${resident.unitId}`}</td>
                         <td className="px-4 py-3">{resident.name}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-sm ${
-                            resident.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {resident.isActive ? '有効' : '無効'}
+                          <span className="px-2 py-1 rounded text-sm bg-green-100 text-green-800">
+                            利用中
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -848,14 +751,12 @@ export default function MasterPage() {
                           >
                             編集
                           </button>
-                          {resident.isActive && (
-                            <button
-                              onClick={() => setShowResidentDeactivateConfirm(resident.id)}
-                              className="text-orange-500 hover:underline"
-                            >
-                              無効化
-                            </button>
-                          )}
+                          <button
+                            onClick={() => setShowResidentEndConfirm(resident.id)}
+                            className="text-red-500 hover:underline"
+                          >
+                            終了
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -923,6 +824,7 @@ export default function MasterPage() {
                     <input
                       type="text"
                       required
+                      maxLength={30}
                       value={residentForm.name}
                       onChange={(e) => setResidentForm({ ...residentForm, name: e.target.value })}
                       className="w-full px-3 py-2 border rounded"
@@ -967,29 +869,29 @@ export default function MasterPage() {
               </form>
             </Modal>
 
-            {/* 利用者無効化確認モーダル */}
+            {/* 利用者終了確認モーダル */}
             <Modal
-              isOpen={showResidentDeactivateConfirm !== null}
-              onClose={() => setShowResidentDeactivateConfirm(null)}
-              title="利用者の無効化確認"
+              isOpen={showResidentEndConfirm !== null}
+              onClose={() => setShowResidentEndConfirm(null)}
+              title="利用者の終了確認"
             >
               <div className="space-y-4">
                 <p className="text-gray-700">
-                  この利用者を無効化しますか？無効化後もデータは保持されますが、一覧からは非表示になります。
+                  この利用者を終了しますか？終了後もデータは保持されますが、通常の利用者一覧からは非表示になり、利用終了者一覧に表示されます。
                 </p>
                 <div className="flex gap-4 pt-4">
                   <button
                     onClick={() => {
-                      if (showResidentDeactivateConfirm !== null) {
-                        handleDeactivateResident(showResidentDeactivateConfirm)
+                      if (showResidentEndConfirm !== null) {
+                        handleEndResident(showResidentEndConfirm)
                       }
                     }}
-                    className="flex-1 px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
+                    className="flex-1 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
                   >
-                    無効化する
+                    終了する
                   </button>
                   <button
-                    onClick={() => setShowResidentDeactivateConfirm(null)}
+                    onClick={() => setShowResidentEndConfirm(null)}
                     className="flex-1 px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
                   >
                     キャンセル
@@ -997,6 +899,62 @@ export default function MasterPage() {
                 </div>
               </div>
             </Modal>
+
+            {/* 利用終了者一覧 */}
+            <div className="mt-8">
+              <h2 className="text-xl font-semibold mb-4">利用終了者一覧</h2>
+              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-4 py-3 text-left">施設</th>
+                      <th className="px-4 py-3 text-left">ユニット</th>
+                      <th className="px-4 py-3 text-left">利用者名</th>
+                      <th className="px-4 py-3 text-left">開始日</th>
+                      <th className="px-4 py-3 text-left">終了日</th>
+                      <th className="px-4 py-3 text-left">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {residents.filter(resident => resident.endDate).length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                          利用終了者がいません
+                        </td>
+                      </tr>
+                    ) : (
+                      residents
+                        .filter(resident => resident.endDate) // 終了日が設定されている利用者のみ表示
+                        .map(resident => (
+                        <tr key={resident.id} className="border-t">
+                          <td className="px-4 py-3">{resident.facility?.name || `施設ID: ${resident.facilityId}`}</td>
+                          <td className="px-4 py-3">{resident.unit?.name || `ユニットID: ${resident.unitId}`}</td>
+                          <td className="px-4 py-3">{resident.name}</td>
+                          <td className="px-4 py-3">
+                            {resident.startDate 
+                              ? new Date(resident.startDate).toLocaleDateString('ja-JP')
+                              : '-'}
+                          </td>
+                          <td className="px-4 py-3">
+                            {resident.endDate 
+                              ? new Date(resident.endDate).toLocaleDateString('ja-JP')
+                              : '-'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => handleEditResident(resident)}
+                              className="text-blue-500 hover:underline"
+                            >
+                              編集
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </div>

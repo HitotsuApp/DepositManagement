@@ -8,6 +8,7 @@ import Card from '@/components/Card'
 import Modal from '@/components/Modal'
 import Toast from '@/components/Toast'
 import { useFacility } from '@/contexts/FacilityContext'
+import { isValidDate } from '@/lib/validation'
 
 interface Transaction {
   id: number
@@ -171,6 +172,16 @@ export default function ResidentDetailPage() {
     if (!formData.transactionDate) {
       setToast({
         message: '対象日を入力してください',
+        type: 'error',
+        isVisible: true,
+      })
+      return
+    }
+
+    // 日付の妥当性チェック
+    if (!isValidDate(formData.transactionDate)) {
+      setToast({
+        message: '無効な日付形式です',
         type: 'error',
         isVisible: true,
       })
@@ -536,6 +547,7 @@ export default function ResidentDetailPage() {
                 <label className="block text-sm font-medium mb-1">内容（備考）</label>
                 <input
                   type="text"
+                  maxLength={100}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -547,6 +559,7 @@ export default function ResidentDetailPage() {
                 <label className="block text-sm font-medium mb-1">支払先</label>
                 <input
                   type="text"
+                  maxLength={30}
                   value={formData.payee}
                   onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -662,6 +675,7 @@ export default function ResidentDetailPage() {
                 <input
                   type="text"
                   required
+                  maxLength={100}
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -673,6 +687,7 @@ export default function ResidentDetailPage() {
                 <label className="block text-sm font-medium mb-1">内容（備考）</label>
                 <input
                   type="text"
+                  maxLength={100}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -684,6 +699,7 @@ export default function ResidentDetailPage() {
                 <label className="block text-sm font-medium mb-1">支払先</label>
                 <input
                   type="text"
+                  maxLength={30}
                   value={formData.payee}
                   onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
                   className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"

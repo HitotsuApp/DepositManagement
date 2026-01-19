@@ -26,6 +26,7 @@ export async function GET(request: Request) {
         residents: {
           where: {
             isActive: true,
+            endDate: null, // 終了日が設定されていない利用者のみ
           },
           include: {
             transactions: {

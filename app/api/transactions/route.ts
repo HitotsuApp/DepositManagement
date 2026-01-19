@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { isValidDate, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 export async function POST(request: Request) {
   try {
@@ -9,6 +10,14 @@ export async function POST(request: Request) {
     if (!body.residentId || !body.transactionDate || !body.transactionType || !body.amount) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      )
+    }
+
+    // 日付の妥当性チェック
+    if (!isValidDate(body.transactionDate)) {
+      return NextResponse.json(
+        { error: '無効な日付形式です' },
         { status: 400 }
       )
     }
@@ -59,6 +68,8 @@ export async function POST(request: Request) {
 
     // 過去訂正入力の場合、対象日が過去月であることを確認（今月の日付は許可しない）
     if (body.transactionType === 'past_correct_in' || body.transactionType === 'past_correct_out') {
+      const transactionYear = transactionDate.getFullYear()
+      const transactionMonth = transactionDate.getMonth() + 1
       // 今月または未来の月の場合はエラー
       if (transactionYear > currentYear || (transactionYear === currentYear && transactionMonth >= currentMonth)) {
         return NextResponse.json(
@@ -67,6 +78,28 @@ export async function POST(request: Request) {
         )
       }
     }
+    
+    // 文字列長のバリデーション
+    if (body.description && !validateMaxLength(body.description, MAX_LENGTHS.TRANSACTION_DESCRIPTION)) {
+      return NextResponse.json(
+        { error: `内容（備考）は${MAX_LENGTHS.TRANSACTION_DESCRIPTION}文字以内で入力してください` },
+        { status: 400 }
+      )
+    }
+    
+    if (body.payee && !validateMaxLength(body.payee, MAX_LENGTHS.TRANSACTION_PAYEE)) {
+      return NextResponse.json(
+        { error: `支払先は${MAX_LENGTHS.TRANSACTION_PAYEE}文字以内で入力してください` },
+        { status: 400 }
+      )
+    }
+    
+    if (body.reason && !validateMaxLength(body.reason, MAX_LENGTHS.TRANSACTION_REASON)) {
+      return NextResponse.json(
+        { error: `理由は${MAX_LENGTHS.TRANSACTION_REASON}文字以内で入力してください` },
+        { status: 400 }
+      )
+    }
 
     const transaction = await prisma.transaction.create({
       data: {
@@ -74,9 +107,9 @@ export async function POST(request: Request) {
         transactionDate: new Date(body.transactionDate),
         transactionType: body.transactionType,
         amount: Number(body.amount),
-        description: body.description || null,
-        payee: body.payee || null,
-        reason: body.reason || null,
+        description: body.description ? body.description.trim() : null,
+        payee: body.payee ? body.payee.trim() : null,
+        reason: body.reason ? body.reason.trim() : null,
       },
     })
 

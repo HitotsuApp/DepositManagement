@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { calculateBalance, filterTransactionsByMonth, calculateBalanceUpToMonth } from '@/lib/balance'
+import { validateId, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const residentId = Number(params.id)
+    const residentId = validateId(params.id)
+    if (!residentId) {
+      return NextResponse.json(
+        { error: '無効なIDです' },
+        { status: 400 }
+      )
+    }
     const { searchParams } = new URL(request.url)
     const year = Number(searchParams.get('year')) || new Date().getFullYear()
     const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
@@ -54,15 +61,36 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const residentId = Number(params.id)
+    const residentId = validateId(params.id)
+    if (!residentId) {
+      return NextResponse.json(
+        { error: '無効なIDです' },
+        { status: 400 }
+      )
+    }
     const body = await request.json()
+    
+    // バリデーション
+    if (!body.name || body.name.trim() === '') {
+      return NextResponse.json(
+        { error: '利用者名を入力してください' },
+        { status: 400 }
+      )
+    }
+    
+    if (!validateMaxLength(body.name, MAX_LENGTHS.RESIDENT_NAME)) {
+      return NextResponse.json(
+        { error: `利用者名は${MAX_LENGTHS.RESIDENT_NAME}文字以内で入力してください` },
+        { status: 400 }
+      )
+    }
 
     const resident = await prisma.resident.update({
       where: { id: residentId },
       data: {
         facilityId: body.facilityId,
         unitId: body.unitId,
-        name: body.name,
+        name: body.name.trim(),
         startDate: body.startDate ? new Date(body.startDate) : null,
         endDate: body.endDate ? new Date(body.endDate) : null,
       },
@@ -80,7 +108,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const residentId = Number(params.id)
+    const residentId = validateId(params.id)
+    if (!residentId) {
+      return NextResponse.json(
+        { error: '無効なIDです' },
+        { status: 400 }
+      )
+    }
     const body = await request.json()
 
     const resident = await prisma.resident.update({

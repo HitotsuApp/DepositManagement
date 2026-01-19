@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { validateId } from '@/lib/validation'
 
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const transactionId = Number(params.id)
+    const transactionId = validateId(params.id)
+    if (!transactionId) {
+      return NextResponse.json(
+        { error: '無効なIDです' },
+        { status: 400 }
+      )
+    }
     
     // 取引を取得して現在の状態を確認
     const currentTransaction = await prisma.transaction.findUnique({
