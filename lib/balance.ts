@@ -36,11 +36,11 @@ export function calculateBalance(transactions: Transaction[]): TransactionWithBa
 /**
  * 指定年月の取引をフィルタリング
  */
-export function filterTransactionsByMonth(
-  transactions: Transaction[],
+export function filterTransactionsByMonth<T extends Transaction>(
+  transactions: T[],
   year: number,
   month: number
-): Transaction[] {
+): T[] {
   const startDate = new Date(year, month - 1, 1)
   const endDate = new Date(year, month, 0, 23, 59, 59, 999)
   

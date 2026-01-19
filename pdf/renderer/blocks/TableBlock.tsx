@@ -64,7 +64,7 @@ const TableBlock = ({ table, data, summary, showSummary }: TableBlockProps) => {
             style={[
               styles.headerCellContainer,
               { width: `${col.width}%` },
-              colIndex < table.columns.length - 1 && styles.cellBorderRight,
+              ...(colIndex < table.columns.length - 1 ? [styles.cellBorderRight] : []),
             ]}
           >
             <Text style={styles.headerCell}>
@@ -90,7 +90,7 @@ const TableBlock = ({ table, data, summary, showSummary }: TableBlockProps) => {
                 style={[
                   styles.cellContainer,
                   { width: `${col.width}%` },
-                  colIndex < table.columns.length - 1 && styles.cellBorderRight,
+                  ...(colIndex < table.columns.length - 1 ? [styles.cellBorderRight] : []),
                 ]}
               >
                 <Text
@@ -123,7 +123,7 @@ const TableBlock = ({ table, data, summary, showSummary }: TableBlockProps) => {
                 style={[
                   styles.summaryCellContainer,
                   { width: `${col.width}%` },
-                  colIndex < table.columns.length - 1 && styles.cellBorderRight,
+                  ...(colIndex < table.columns.length - 1 ? [styles.cellBorderRight] : []),
                 ]}
               >
                 <Text

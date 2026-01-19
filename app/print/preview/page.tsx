@@ -9,69 +9,16 @@ import MainLayout from "@/components/MainLayout"
 import DateSelector from "@/components/DateSelector"
 import depositStatementTemplate from "@/pdf/templates/deposit-statement.json"
 import residentStatementTemplate from "@/pdf/templates/resident-statement.json"
-
-interface UnitPrintData {
-  statement: {
-    month: string
-  }
-  unit: {
-    name: string
-  }
-  transactions: Array<{
-    category: string
-    userName: string
-    date: string
-    label: string
-    payee: string
-    income: number
-    expense: number
-    balance: number
-  }>
-  summary: {
-    totalIncome: number
-    totalExpense: number
-    currentBalance: number
-  }
-  facility: {
-    name: string
-    position: string
-    staffName: string
-  }
-}
-
-interface ResidentPrintData {
-  statement: {
-    month: string
-  }
-  resident: {
-    name: string
-  }
-  transactions: Array<{
-    date: string
-    type: string
-    label: string
-    payee: string
-    income: number
-    expense: number
-    balance: number
-  }>
-  summary: {
-    totalIncome: number
-    totalExpense: number
-    currentBalance: number
-  }
-  facility: {
-    name: string
-    position: string
-    staffName: string
-  }
-}
-
-type PrintData = UnitPrintData | ResidentPrintData
+import { PrintData, ResidentPrintData } from "@/pdf/utils/transform"
 
 interface BatchPrintData {
-  facilitySummary: UnitPrintData
+  facilitySummary: PrintData
   residentStatements: ResidentPrintData[]
+}
+
+// 型ガード関数
+function isResidentPrintData(data: PrintData | ResidentPrintData): data is ResidentPrintData {
+  return "resident" in data
 }
 
 export default function PrintPreviewPage() {
@@ -91,7 +38,7 @@ export default function PrintPreviewPage() {
     return m ? Number(m) : new Date().getMonth() + 1
   })
 
-  const [printData, setPrintData] = useState<PrintData | null>(null)
+  const [printData, setPrintData] = useState<PrintData | ResidentPrintData | null>(null)
   const [batchPrintData, setBatchPrintData] = useState<BatchPrintData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -295,7 +242,7 @@ export default function PrintPreviewPage() {
           </div>
           <div className="flex flex-col items-end gap-2">
             {/* 利用者タイプの場合、利用者名と矢印ボタンを右上に表示 */}
-            {printType === "resident" && printData && "resident" in printData && (
+            {printType === "resident" && printData && isResidentPrintData(printData) && (
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => prevResidentId && handleResidentChange(prevResidentId)}
@@ -338,10 +285,12 @@ export default function PrintPreviewPage() {
 
         {/* PDFプレビュー */}
         <div className="flex-1 overflow-hidden">
-          <PDFViewer width="100%" height="100%">
-            {printType === "batch" && batchPrintData ? (
+          {printType === "batch" && batchPrintData ? (
+            <PDFViewer width="100%" height="100%">
               <BatchPdfRenderer data={batchPrintData} />
-            ) : printData ? (
+            </PDFViewer>
+          ) : printData ? (
+            <PDFViewer width="100%" height="100%">
               <PdfRenderer
                 template={
                   printType === "resident"
@@ -350,8 +299,12 @@ export default function PrintPreviewPage() {
                 }
                 data={printData}
               />
-            ) : null}
-          </PDFViewer>
+            </PDFViewer>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p>データを読み込み中...</p>
+            </div>
+          )}
         </div>
       </div>
     </MainLayout>
