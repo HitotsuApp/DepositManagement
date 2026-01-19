@@ -19,7 +19,8 @@ export async function GET(request: Request) {
     return NextResponse.json(facilities)
   } catch (error) {
     console.error('Failed to fetch facilities:', error)
-    return NextResponse.json({ error: 'Failed to fetch facilities' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch facilities'
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
 

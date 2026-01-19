@@ -23,10 +23,20 @@ export default function FacilitySelectPage() {
   const fetchFacilities = async () => {
     try {
       const response = await fetch('/api/facilities')
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
       const data = await response.json()
+      // エラーオブジェクトの場合は空配列を設定
+      if (data.error || !Array.isArray(data)) {
+        console.error('Failed to fetch facilities:', data.error || 'Invalid response format')
+        setFacilities([])
+        return
+      }
       setFacilities(data.filter((f: Facility) => f.isActive))
     } catch (error) {
       console.error('Failed to fetch facilities:', error)
+      setFacilities([])
       alert('施設データの取得に失敗しました')
     } finally {
       setIsLoading(false)

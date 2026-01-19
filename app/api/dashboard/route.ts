@@ -50,7 +50,8 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error('Failed to fetch dashboard:', error)
-    return NextResponse.json({ error: 'Failed to fetch dashboard' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch dashboard'
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
 

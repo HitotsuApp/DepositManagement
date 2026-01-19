@@ -102,10 +102,20 @@ export default function MasterPage() {
         ? `/api/facilities?includeInactive=true&facilityId=${selectedFacilityId}`
         : '/api/facilities?includeInactive=true'
       const res = await fetch(url)
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`)
+      }
       const data = await res.json()
+      // エラーオブジェクトの場合は空配列を設定
+      if (data.error || !Array.isArray(data)) {
+        console.error('Failed to fetch facilities:', data.error || 'Invalid response format')
+        setFacilities([])
+        return
+      }
       setFacilities(data)
     } catch (error) {
       console.error('Failed to fetch facilities:', error)
+      setFacilities([])
       alert('施設データの取得に失敗しました')
     }
   }
@@ -117,10 +127,20 @@ export default function MasterPage() {
         ? `/api/units?includeInactive=true&facilityId=${selectedFacilityId}`
         : '/api/units?includeInactive=true'
       const res = await fetch(url)
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`)
+      }
       const data = await res.json()
+      // エラーオブジェクトの場合は空配列を設定
+      if (data.error || !Array.isArray(data)) {
+        console.error('Failed to fetch units:', data.error || 'Invalid response format')
+        setUnits([])
+        return
+      }
       setUnits(data)
     } catch (error) {
       console.error('Failed to fetch units:', error)
+      setUnits([])
       alert('ユニットデータの取得に失敗しました')
     }
   }
@@ -133,10 +153,20 @@ export default function MasterPage() {
         ? `/api/residents?includeInactive=true&facilityId=${selectedFacilityId}`
         : '/api/residents?includeInactive=true'
       const res = await fetch(url)
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`)
+      }
       const data = await res.json()
+      // エラーオブジェクトの場合は空配列を設定
+      if (data.error || !Array.isArray(data)) {
+        console.error('Failed to fetch residents:', data.error || 'Invalid response format')
+        setResidents([])
+        return
+      }
       setResidents(data)
     } catch (error) {
       console.error('Failed to fetch residents:', error)
+      setResidents([])
       alert('利用者データの取得に失敗しました')
     }
   }

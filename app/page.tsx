@@ -54,11 +54,23 @@ export default function DashboardPage() {
         ? `/api/dashboard?year=${year}&month=${month}&facilityId=${selectedFacilityId}`
         : `/api/dashboard?year=${year}&month=${month}`
       const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
       const data = await response.json()
+      // エラーオブジェクトの場合はデフォルト値を設定
+      if (data.error) {
+        console.error('Failed to fetch dashboard data:', data.error)
+        setTotalAmount(0)
+        setFacilities([])
+        return
+      }
       setTotalAmount(data.totalAmount || 0)
-      setFacilities(data.facilities || [])
+      setFacilities(Array.isArray(data.facilities) ? data.facilities : [])
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
+      setTotalAmount(0)
+      setFacilities([])
     }
   }
 
