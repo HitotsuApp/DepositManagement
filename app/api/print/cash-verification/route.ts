@@ -73,6 +73,9 @@ export async function GET(request: Request) {
     const totalAmount = bills.reduce((sum: number, b: any) => sum + (b.amount || 0), 0) +
                        coins.reduce((sum: number, c: any) => sum + (c.amount || 0), 0)
 
+    // 差異を計算
+    const difference = facilityBalance - totalAmount
+
     // 印刷日を取得
     const printDate = new Date().toLocaleDateString("ja-JP", {
       year: "numeric",
@@ -87,6 +90,7 @@ export async function GET(request: Request) {
       bills,
       coins,
       totalAmount,
+      difference,
       printDate,
     }
 

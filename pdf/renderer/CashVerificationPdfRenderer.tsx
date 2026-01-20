@@ -33,6 +33,7 @@ interface CashVerificationData {
   bills: CashDenomination[]
   coins: CashDenomination[]
   totalAmount: number
+  difference: number
   printDate: string
 }
 
@@ -58,6 +59,13 @@ export const CashVerificationPdfRenderer = ({ data }: CashVerificationPdfRendere
           <View style={styles.headerDate}>
             <Text style={styles.headerDateText}>印刷日: {data.printDate}</Text>
           </View>
+        </View>
+
+        {/* 計算式セクション */}
+        <View style={styles.calculationSection}>
+          <Text style={styles.calculationText}>
+            {formatYen(data.facilityBalance)}（預り金合計）ー{formatYen(data.totalAmount)}（現金合計）＝{formatYen(data.difference)}（差異）
+          </Text>
         </View>
 
         {/* 紙幣セクション */}
@@ -163,11 +171,18 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   headerSection: {
-    border: "1pt solid #000",
     padding: 8, // 10から8に削減
     marginBottom: 5, // 8から5に削減
     position: "relative",
     minHeight: 50, // 最小高さを設定
+  },
+  calculationSection: {
+    marginBottom: 5,
+    padding: 3,
+  },
+  calculationText: {
+    fontSize: 10,
+    fontWeight: "bold",
   },
   headerTitle: {
     marginBottom: 3, // 5から3に削減

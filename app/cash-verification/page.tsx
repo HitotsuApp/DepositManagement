@@ -268,8 +268,8 @@ export default function CashVerificationPage() {
               display: none !important;
             }
             
-            /* 印刷用日付を表示（金種表の枠内のもののみ） */
-            .bg-green-500 .print-date {
+            /* 印刷用日付を表示 */
+            .print-date {
               display: block !important;
             }
             
@@ -285,10 +285,6 @@ export default function CashVerificationPage() {
             
             /* 印刷時のセクション間のマージンを詰める */
             .print-section {
-              margin-bottom: 0.5rem !important;
-            }
-            
-            .bg-green-500 {
               margin-bottom: 0.5rem !important;
             }
             
@@ -310,13 +306,11 @@ export default function CashVerificationPage() {
               background-color: #fff !important;
             }
             
-            /* 金種表（預り金）の部分を印刷用に調整 */
-            .bg-green-500,
+            /* 金種表（預り金）の部分を印刷用に調整（枠なし） */
             .bg-green-50,
             .bg-green-100 {
               background: #fff !important;
               background-color: #fff !important;
-              border: 2px solid #000 !important;
               color: #000 !important;
             }
             
@@ -363,8 +357,8 @@ export default function CashVerificationPage() {
             }
           }
           
-          /* 通常表示時は印刷用日付を非表示（金種表の枠内のもののみ） */
-          .bg-green-500 .print-date {
+          /* 通常表示時は印刷用日付を非表示 */
+          .print-date {
             display: none;
           }
         `}</style>
@@ -390,24 +384,46 @@ export default function CashVerificationPage() {
               </select>
             </div>
           )}
-          <DateSelector year={year} month={month} onDateChange={handleDateChange} />
+          <div className="flex items-center justify-between">
+            <div className="[&>div]:mb-0">
+              <DateSelector year={year} month={month} onDateChange={handleDateChange} />
+            </div>
+            {selectedFacilityId && (
+              <div className="flex gap-2 no-print-button">
+                <button
+                  onClick={handlePrint}
+                  className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 shadow-md hover:shadow-lg transition-shadow"
+                  title="印刷"
+                >
+                  🖨️ 印刷
+                </button>
+                <button
+                  onClick={handleDownloadPdf}
+                  className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 shadow-md hover:shadow-lg transition-shadow"
+                  title="PDFダウンロード"
+                >
+                  📄 PDFダウンロード
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {selectedFacilityId ? (
           <>
             {/* 施設別残額合計 */}
-            <div className="bg-green-500 text-white rounded-lg shadow-md p-6 mb-6 relative">
+            <div className="mb-6 relative">
               <div className="text-lg font-semibold mb-2">金種表（預り金）</div>
               <div className="text-3xl font-bold">
                 {isLoading ? '読み込み中...' : formatCurrency(facilityBalance)}
               </div>
               {facilityName && (
-                <div className="text-sm mt-2 opacity-90">
+                <div className="text-sm mt-2">
                   {facilityName}
                 </div>
               )}
               {/* 印刷用日付を右下に配置 */}
-              <div className="print-date absolute bottom-4 right-4 text-sm font-normal opacity-90">
+              <div className="print-date absolute bottom-4 right-4 text-sm font-normal">
                 印刷日: {new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
               </div>
             </div>
@@ -504,45 +520,8 @@ export default function CashVerificationPage() {
 
             {/* 合計・差異表示 */}
             <div className="bg-white rounded-lg shadow-md p-6 no-print-summary">
-              <div className="flex justify-end gap-2 mb-4 no-print-button">
-                <button
-                  onClick={handlePrint}
-                  className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 shadow-md hover:shadow-lg transition-shadow"
-                  title="印刷"
-                >
-                  🖨️ 印刷
-                </button>
-                <button
-                  onClick={handleDownloadPdf}
-                  className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 shadow-md hover:shadow-lg transition-shadow"
-                  title="PDFダウンロード"
-                >
-                  📄 PDFダウンロード
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-                  <div className="text-sm text-gray-600 mb-1">計</div>
-                  <div className="text-2xl font-bold text-green-800">
-                    {totalCount.toLocaleString()}枚
-                  </div>
-                </div>
-                <div className="bg-white border-2 border-gray-300 rounded-lg p-4">
-                  <div className="text-sm text-gray-600 mb-1">差異</div>
-                  <div className={`text-2xl font-bold ${difference === 0 ? 'text-green-600' : difference > 0 ? 'text-red-600' : 'text-blue-600'}`}>
-                    {formatCurrency(difference)}
-                  </div>
-                </div>
-                <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-                  <div className="text-sm text-gray-600 mb-1">預り金合計</div>
-                  <div className="text-xl font-bold text-green-800 mb-2">
-                    {formatCurrency(facilityBalance)}
-                  </div>
-                  <div className="text-sm text-gray-600 mb-1">現金合計</div>
-                  <div className="text-2xl font-bold text-green-800">
-                    {formatCurrency(totalAmount)}
-                  </div>
-                </div>
+              <div className="text-xl font-semibold">
+                {formatCurrency(facilityBalance)}（預り金合計）ー{formatCurrency(totalAmount)}（現金合計）＝<span className={difference === 0 ? 'text-green-600' : difference > 0 ? 'text-red-600' : 'text-blue-600'}>{formatCurrency(difference)}</span>（差異）
               </div>
             </div>
           </>
