@@ -224,9 +224,28 @@ export default function CashVerificationPage() {
               display: none !important;
             }
             
-            /* 印刷用日付を表示 */
-            .print-date {
+            /* 印刷用日付を表示（金種表の枠内のもののみ） */
+            .bg-green-500 .print-date {
               display: block !important;
+            }
+            
+            /* 独立した印刷用日付セクションは非表示 */
+            .print-date.bg-white {
+              display: none !important;
+            }
+            
+            /* 合計・差異表示セクションを非表示 */
+            .no-print-summary {
+              display: none !important;
+            }
+            
+            /* 印刷時のセクション間のマージンを詰める */
+            .print-section {
+              margin-bottom: 0.5rem !important;
+            }
+            
+            .bg-green-500 {
+              margin-bottom: 0.5rem !important;
             }
             
             /* メインコンテンツの余白を調整 */
@@ -300,8 +319,8 @@ export default function CashVerificationPage() {
             }
           }
           
-          /* 通常表示時は印刷用日付を非表示 */
-          .print-date {
+          /* 通常表示時は印刷用日付を非表示（金種表の枠内のもののみ） */
+          .bg-green-500 .print-date {
             display: none;
           }
         `}</style>
@@ -333,7 +352,7 @@ export default function CashVerificationPage() {
         {selectedFacilityId ? (
           <>
             {/* 施設別残額合計 */}
-            <div className="bg-green-500 text-white rounded-lg shadow-md p-6 mb-6">
+            <div className="bg-green-500 text-white rounded-lg shadow-md p-6 mb-6 relative">
               <div className="text-lg font-semibold mb-2">金種表（預り金）</div>
               <div className="text-3xl font-bold">
                 {isLoading ? '読み込み中...' : formatCurrency(facilityBalance)}
@@ -343,10 +362,14 @@ export default function CashVerificationPage() {
                   {facilityName}
                 </div>
               )}
+              {/* 印刷用日付を右下に配置 */}
+              <div className="print-date absolute bottom-4 right-4 text-sm font-normal opacity-90">
+                印刷日: {new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+              </div>
             </div>
 
             {/* 紙幣入力セクション */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6 print-section">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">紙幣</h2>
                 <button
@@ -398,7 +421,7 @@ export default function CashVerificationPage() {
             </div>
 
             {/* 硬貨入力セクション */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6 print-section">
               <div className="bg-green-100 px-4 py-2 mb-4 rounded">
                 <span className="font-semibold text-green-800">【本】</span>
               </div>
@@ -443,15 +466,8 @@ export default function CashVerificationPage() {
               </div>
             </div>
 
-            {/* 印刷用日付表示 */}
-            <div className="print-date bg-white rounded-lg shadow-md p-4 mb-4">
-              <div className="text-lg font-semibold text-gray-700">
-                印刷日: {new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
-              </div>
-            </div>
-
             {/* 合計・差異表示 */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-6 no-print-summary">
               <div className="flex justify-end mb-4 no-print-button">
                 <button
                   onClick={handlePrint}
