@@ -23,6 +23,12 @@ const BILL_DENOMINATIONS: CashDenomination[] = [
   { value: 5000, label: '5,000円', count: 0, amount: 0 },
   { value: 2000, label: '2,000円', count: 0, amount: 0 },
   { value: 1000, label: '1,000円', count: 0, amount: 0 },
+  { value: 500, label: '500円', count: 0, amount: 0 },
+  { value: 100, label: '100円', count: 0, amount: 0 },
+  { value: 50, label: '50円', count: 0, amount: 0 },
+  { value: 10, label: '10円', count: 0, amount: 0 },
+  { value: 5, label: '5円', count: 0, amount: 0 },
+  { value: 1, label: '1円', count: 0, amount: 0 },
 ]
 
 const COIN_DENOMINATIONS: CashDenomination[] = [
@@ -136,7 +142,8 @@ export default function CashVerificationPage() {
   const handleCoinCountChange = (index: number, count: number) => {
     const newCoins = [...coins]
     newCoins[index].count = Math.max(0, count)
-    newCoins[index].amount = newCoins[index].count * newCoins[index].value
+    // 50枚セット単位で計算（棒金）
+    newCoins[index].amount = newCoins[index].count * newCoins[index].value * 50
     setCoins(newCoins)
   }
 
@@ -368,7 +375,7 @@ export default function CashVerificationPage() {
               </div>
             </div>
 
-            {/* 紙幣入力セクション */}
+            {/* 紙幣・硬貨入力セクション（統合） */}
             <div className="bg-white rounded-lg shadow-md p-6 mb-6 print-section">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">紙幣</h2>
@@ -408,61 +415,53 @@ export default function CashVerificationPage() {
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-gray-400 font-semibold">
-                      <td colSpan={2} className="py-2 px-4 text-right">小計</td>
-                      <td className="py-2 px-4 text-right font-mono">
-                        {formatCurrency(billSubtotal)}
-                      </td>
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
-            </div>
-
-            {/* 硬貨入力セクション */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6 print-section">
-              <div className="bg-green-100 px-4 py-2 mb-4 rounded">
-                <span className="font-semibold text-green-800">【本】</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 px-4">額面</th>
-                      <th className="text-center py-2 px-4 w-32">枚数</th>
-                      <th className="text-right py-2 px-4 w-40">金額</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {coins.map((coin, index) => (
-                      <tr key={coin.value} className="border-b">
-                        <td className="py-2 px-4">{coin.label}</td>
-                        <td className="py-2 px-4">
-                          <input
-                            type="number"
-                            min="0"
-                            value={coin.count || ''}
-                            onChange={(e) => handleCoinCountChange(index, parseInt(e.target.value) || 0)}
-                            className="w-full px-2 py-1 border border-yellow-300 rounded bg-yellow-50 text-center"
-                            placeholder="0"
-                          />
-                        </td>
+              
+              {/* 【本】セクション */}
+              <div className="mt-6">
+                <div className="bg-green-100 px-4 py-2 mb-4 rounded">
+                  <span className="font-semibold text-green-800">【本】</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 px-4">額面</th>
+                        <th className="text-center py-2 px-4 w-32">本数（50枚セット）</th>
+                        <th className="text-right py-2 px-4 w-40">金額</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coins.map((coin, index) => (
+                        <tr key={coin.value} className="border-b">
+                          <td className="py-2 px-4">{coin.label}</td>
+                          <td className="py-2 px-4">
+                            <input
+                              type="number"
+                              min="0"
+                              value={coin.count || ''}
+                              onChange={(e) => handleCoinCountChange(index, parseInt(e.target.value) || 0)}
+                              className="w-full px-2 py-1 border border-yellow-300 rounded bg-yellow-50 text-center"
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="py-2 px-4 text-right font-mono">
+                            {formatCurrency(coin.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-400 font-semibold">
+                        <td colSpan={2} className="py-2 px-4 text-right">小計</td>
                         <td className="py-2 px-4 text-right font-mono">
-                          {formatCurrency(coin.amount)}
+                          {formatCurrency(coinSubtotal)}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-gray-400 font-semibold">
-                      <td colSpan={2} className="py-2 px-4 text-right">小計</td>
-                      <td className="py-2 px-4 text-right font-mono">
-                        {formatCurrency(coinSubtotal)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
             </div>
 
