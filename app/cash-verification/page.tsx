@@ -288,9 +288,31 @@ export default function CashVerificationPage() {
               display: none !important;
             }
             
+            /* 金種表（預り金）セクションのマージンを詰める */
+            .mb-6.relative {
+              margin-bottom: 0.5rem !important;
+            }
+            
+            /* 施設名のマージンを詰める（金額が非表示のため） */
+            .mb-6.relative .print-hide-amount + div {
+              margin-top: 0 !important;
+            }
+            
+            /* 金種表（預り金）のタイトルのマージンを詰める */
+            .mb-6.relative > div:first-child {
+              margin-bottom: 0.25rem !important;
+            }
+            
             /* 印刷時のセクション間のマージンを詰める */
             .print-section {
               margin-bottom: 0.5rem !important;
+            }
+            
+            /* 入力フィールドの枠を印刷時に非表示 */
+            input[type="number"] {
+              border: none !important;
+              background: transparent !important;
+              background-color: transparent !important;
             }
             
             /* メインコンテンツの余白を調整 */
