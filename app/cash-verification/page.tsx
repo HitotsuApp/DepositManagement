@@ -454,9 +454,9 @@ export default function CashVerificationPage() {
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-gray-400 font-semibold">
-                        <td colSpan={2} className="py-2 px-4 text-right">小計</td>
+                        <td colSpan={2} className="py-2 px-4 text-right">合計</td>
                         <td className="py-2 px-4 text-right font-mono">
-                          {formatCurrency(coinSubtotal)}
+                          {formatCurrency(totalAmount)}
                         </td>
                       </tr>
                     </tfoot>
