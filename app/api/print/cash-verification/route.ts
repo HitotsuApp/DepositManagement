@@ -90,9 +90,9 @@ export async function GET(request: Request) {
       printDate,
     }
 
-    // PDFを生成（React.createElementを使用）
+    // PDFを生成
     const pdfDocument = React.createElement(CashVerificationPdfRenderer, { data: pdfData })
-    const pdfBuffer = await renderToBuffer(pdfDocument)
+    const pdfBuffer = await renderToBuffer(pdfDocument as any)
 
     // PDFを返す
     return new NextResponse(pdfBuffer, {
