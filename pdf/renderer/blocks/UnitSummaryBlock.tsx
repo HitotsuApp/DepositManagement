@@ -18,6 +18,18 @@ interface UnitSummaryBlockProps {
   }>
 }
 
+// 利用者を一定数ごとにグループ化する関数
+const chunkResidents = <T,>(array: T[], chunkSize: number): T[][] => {
+  const chunks: T[][] = []
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize))
+  }
+  return chunks
+}
+
+// 1行に表示する最大セル数（A4用紙の幅を考慮）
+const MAX_CELLS_PER_ROW = 4
+
 const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
   if (!unitSummaries || unitSummaries.length === 0) {
     return null
@@ -25,56 +37,74 @@ const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
 
   return (
     <View style={styles.container}>
-      {unitSummaries.map((unit) => (
-        <View key={unit.unitId} style={styles.unitBox}>
-          <Text style={styles.unitName}>{unit.unitName}</Text>
-          
-          {/* セル区切りのテーブル */}
-          <View style={styles.tableContainer}>
-            {/* 1行目: 利用者名（背景グレー） */}
-            <View style={styles.nameRow}>
-              {unit.residents.map((resident, index) => (
-                <View
-                  key={`name-${resident.residentId}`}
-                  style={[
-                    styles.cell,
-                    styles.nameCell,
-                    ...(index < unit.residents.length - 1 ? [styles.cellBorderRight] : []),
-                  ]}
-                >
-                  <Text style={styles.nameText}>{resident.residentName}</Text>
-                </View>
-              ))}
+      {unitSummaries.map((unit) => {
+        // 利用者をグループ化
+        const residentChunks = chunkResidents(unit.residents, MAX_CELLS_PER_ROW)
+
+        return (
+          <View key={unit.unitId} style={styles.unitBox}>
+            <Text style={styles.unitName}>{unit.unitName}</Text>
+            
+            {/* セル区切りのテーブル */}
+            <View style={styles.tableContainer}>
+              {residentChunks.map((chunk, chunkIndex) => {
+                const isLastChunk = chunkIndex === residentChunks.length - 1
+
+                return (
+                  <View key={`chunk-${chunkIndex}`}>
+                    {/* 1行目: 利用者名（背景グレー） */}
+                    <View style={styles.nameRow}>
+                      {chunk.map((resident, index) => (
+                        <View
+                          key={`name-${resident.residentId}`}
+                          style={[
+                            styles.cell,
+                            styles.nameCell,
+                            ...(index < chunk.length - 1 ? [styles.cellBorderRight] : []),
+                          ]}
+                        >
+                          <Text style={styles.nameText}>{resident.residentName}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    
+                    {/* 2行目: 当月残高 */}
+                    <View
+                      style={[
+                        styles.valueRow,
+                        isLastChunk ? styles.valueRowLast : styles.valueRowNotLast,
+                      ]}
+                    >
+                      {chunk.map((resident, index) => (
+                        <View
+                          key={`value-${resident.residentId}`}
+                          style={[
+                            styles.cell,
+                            styles.valueCell,
+                            ...(index < chunk.length - 1 ? [styles.cellBorderRight] : []),
+                          ]}
+                        >
+                          <Text style={styles.valueText}>
+                            {formatYen(resident.netAmount)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )
+              })}
             </View>
             
-            {/* 2行目: 当月残高 */}
-            <View style={styles.valueRow}>
-              {unit.residents.map((resident, index) => (
-                <View
-                  key={`value-${resident.residentId}`}
-                  style={[
-                    styles.cell,
-                    styles.valueCell,
-                    ...(index < unit.residents.length - 1 ? [styles.cellBorderRight] : []),
-                  ]}
-                >
-                  <Text style={styles.valueText}>
-                    {formatYen(resident.netAmount)}
-                  </Text>
-                </View>
-              ))}
+            {/* ユニット合計 */}
+            <View style={styles.unitTotalRow}>
+              <Text style={styles.unitTotalLabel}>ユニット合計:</Text>
+              <Text style={styles.unitTotalValue}>
+                {formatYen(unit.netAmount)}
+              </Text>
             </View>
           </View>
-          
-          {/* ユニット合計 */}
-          <View style={styles.unitTotalRow}>
-            <Text style={styles.unitTotalLabel}>ユニット合計:</Text>
-            <Text style={styles.unitTotalValue}>
-              {formatYen(unit.netAmount)}
-            </Text>
-          </View>
-        </View>
-      ))}
+        )
+      })}
     </View>
   )
 }
@@ -105,6 +135,11 @@ const styles = StyleSheet.create({
   },
   valueRow: {
     flexDirection: "row",
+  },
+  valueRowNotLast: {
+    borderBottom: "1px solid #ccc",
+  },
+  valueRowLast: {
     borderBottom: "1px solid #000",
   },
   cell: {
