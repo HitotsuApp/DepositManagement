@@ -28,7 +28,7 @@ const chunkResidents = <T,>(array: T[], chunkSize: number): T[][] => {
 }
 
 // 1行に表示する最大セル数（A4用紙の幅を考慮）
-const MAX_CELLS_PER_ROW = 4
+const MAX_CELLS_PER_ROW = 5
 
 const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
   if (!unitSummaries || unitSummaries.length === 0) {
@@ -49,21 +49,37 @@ const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
             <View style={styles.tableContainer}>
               {residentChunks.map((chunk, chunkIndex) => {
                 const isLastChunk = chunkIndex === residentChunks.length - 1
+                // 最後の行でも4セル分の幅を確保するため、空のセルを追加
+                const cellsToShow = [...chunk]
+                const emptyCellsCount = MAX_CELLS_PER_ROW - chunk.length
 
                 return (
                   <View key={`chunk-${chunkIndex}`}>
                     {/* 1行目: 利用者名（背景グレー） */}
                     <View style={styles.nameRow}>
-                      {chunk.map((resident, index) => (
+                      {cellsToShow.map((resident, index) => (
                         <View
                           key={`name-${resident.residentId}`}
                           style={[
                             styles.cell,
                             styles.nameCell,
-                            ...(index < chunk.length - 1 ? [styles.cellBorderRight] : []),
+                            ...(index < MAX_CELLS_PER_ROW - 1 ? [styles.cellBorderRight] : []),
                           ]}
                         >
                           <Text style={styles.nameText}>{resident.residentName}</Text>
+                        </View>
+                      ))}
+                      {/* 空のセルを追加 */}
+                      {Array.from({ length: emptyCellsCount }).map((_, index) => (
+                        <View
+                          key={`empty-name-${index}`}
+                          style={[
+                            styles.cell,
+                            styles.nameCell,
+                            ...(chunk.length + index < MAX_CELLS_PER_ROW - 1 ? [styles.cellBorderRight] : []),
+                          ]}
+                        >
+                          <Text style={styles.nameText}></Text>
                         </View>
                       ))}
                     </View>
@@ -75,18 +91,31 @@ const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
                         isLastChunk ? styles.valueRowLast : styles.valueRowNotLast,
                       ]}
                     >
-                      {chunk.map((resident, index) => (
+                      {cellsToShow.map((resident, index) => (
                         <View
                           key={`value-${resident.residentId}`}
                           style={[
                             styles.cell,
                             styles.valueCell,
-                            ...(index < chunk.length - 1 ? [styles.cellBorderRight] : []),
+                            ...(index < MAX_CELLS_PER_ROW - 1 ? [styles.cellBorderRight] : []),
                           ]}
                         >
                           <Text style={styles.valueText}>
                             {formatYen(resident.netAmount)}
                           </Text>
+                        </View>
+                      ))}
+                      {/* 空のセルを追加 */}
+                      {Array.from({ length: emptyCellsCount }).map((_, index) => (
+                        <View
+                          key={`empty-value-${index}`}
+                          style={[
+                            styles.cell,
+                            styles.valueCell,
+                            ...(chunk.length + index < MAX_CELLS_PER_ROW - 1 ? [styles.cellBorderRight] : []),
+                          ]}
+                        >
+                          <Text style={styles.valueText}></Text>
                         </View>
                       ))}
                     </View>
@@ -144,8 +173,7 @@ const styles = StyleSheet.create({
   },
   cell: {
     padding: 4,
-    flex: 1,
-    minWidth: 80,
+    width: `${100 / MAX_CELLS_PER_ROW}%`, // セル幅を統一（25%ずつ）
   },
   cellBorderRight: {
     borderRight: "1px solid #ccc",
