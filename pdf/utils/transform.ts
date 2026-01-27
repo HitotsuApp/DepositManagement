@@ -244,8 +244,14 @@ export function transformToPrintData(
   // unitIdが指定されている場合はそのユニットのみ、nullの場合は全ユニット
   const targetUnits = unitId ? facility.units.filter((u) => u.id === unitId) : facility.units
   
-  // allTransactionsから繰越行を除外した当月の取引のみを取得
-  const monthTransactionsOnly = allTransactions.filter((t) => !(t as any)._isCarryOver)
+  // allTransactionsから繰越行とcorrect_in/correct_outを除外した当月の取引のみを取得
+  const monthTransactionsOnly = allTransactions.filter((t) => {
+    // 繰越行を除外
+    if ((t as any)._isCarryOver) return false
+    // correct_in と correct_out は除外（打ち消し処理）
+    if (t.transactionType === "correct_in" || t.transactionType === "correct_out") return false
+    return true
+  })
   
   const unitSummaries = targetUnits.map((unit) => {
     // targetResidentsと同じフィルタリング条件を使用
@@ -258,16 +264,18 @@ export function transformToPrintData(
       )
 
       // 当月の入金・出金合計を計算（past_correct_in と past_correct_out を含む）
-      // 取引タイプを確認して計算
+      // 取引タイプを確認して計算（transactionsの計算ロジックと同じ）
       const residentIncome = residentMonthTransactions.reduce((sum, t) => {
-        if (t.transactionType === "in" || t.transactionType === "past_correct_in") {
+        const type = t.transactionType
+        if (type === "in" || type === "past_correct_in") {
           return sum + t.amount
         }
         return sum
       }, 0)
 
       const residentExpense = residentMonthTransactions.reduce((sum, t) => {
-        if (t.transactionType === "out" || t.transactionType === "past_correct_out") {
+        const type = t.transactionType
+        if (type === "out" || type === "past_correct_out") {
           return sum + t.amount
         }
         return sum
