@@ -202,13 +202,15 @@ export function transformToPrintData(
 
     // 通常の取引（訂正区分は既にフィルタリングされている）
     const isIncome = t.transactionType === "in" || t.transactionType === "past_correct_in"
+    const isExpense = t.transactionType === "out" || t.transactionType === "past_correct_out"
     const amount = t.amount
 
     if (isIncome) {
       runningBalance += amount
-    } else {
+    } else if (isExpense) {
       runningBalance -= amount
     }
+    // その他の取引タイプは処理しない（念のため）
 
     // 各利用者の最終残高を記録
     residentFinalBalances.set(t.residentId, runningBalance)
@@ -226,7 +228,7 @@ export function transformToPrintData(
       label: t.description || "",
       payee: t.payee || "",
       income: isIncome ? amount : 0,
-      expense: isIncome ? 0 : amount,
+      expense: isExpense ? amount : 0,
       balance: runningBalance,
     }
   })
