@@ -2,8 +2,7 @@ import { Document, Page, StyleSheet } from "@react-pdf/renderer"
 import TextBlock from "./blocks/TextBlock"
 import TableBlock from "./blocks/TableBlock"
 import SummaryBlock from "./blocks/SummaryBlock"
-import NoticeBlock from "./blocks/NoticeBlock"
-import FooterBlock from "./blocks/FooterBlock"
+import UnitSummaryBlock from "./blocks/UnitSummaryBlock"
 import { PrintData, ResidentPrintData } from "../utils/transform"
 import depositStatementTemplate from "../templates/deposit-statement.json"
 import residentStatementTemplate from "../templates/resident-statement.json"
@@ -52,19 +51,8 @@ interface Template {
       label: string
       income: string
       expense: string
-      balance: string
+      balance?: string
     }>
-  }
-  notice?: {
-    title: string
-    lines: string[]
-    fontSize?: number
-    marginTop?: number
-  }
-  footer?: {
-    lines: string[]
-    align?: "left" | "center" | "right"
-    marginTop?: number
   }
 }
 
@@ -116,14 +104,14 @@ const renderPages = (
         />
       )}
 
-      {/* お知らせは最終ページのみ */}
-      {pageIndex === pages.length - 1 && template.notice && (
-        <NoticeBlock notice={template.notice} />
+      {/* 合計行の下に預り金総合計を表示（最終ページのみ、deposit-statementテンプレートの場合） */}
+      {pageIndex === pages.length - 1 && template.summary && template.templateId === "deposit-statement" && (
+        <SummaryBlock summary={template.summary} data={data} />
       )}
 
-      {/* フッターは最終ページのみ */}
-      {pageIndex === pages.length - 1 && template.footer && (
-        <FooterBlock footer={template.footer} data={data} />
+      {/* ユニット別・利用者別の合計を表示（最終ページのみ、deposit-statementテンプレートの場合） */}
+      {pageIndex === pages.length - 1 && data.unitSummaries && template.templateId === "deposit-statement" && (
+        <UnitSummaryBlock unitSummaries={data.unitSummaries} />
       )}
     </Page>
   ))

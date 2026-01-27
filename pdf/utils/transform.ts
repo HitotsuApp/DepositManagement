@@ -29,6 +29,25 @@ export interface PrintData {
     position: string
     staffName: string
   }
+  unitSummaries: Array<{
+    unitId: number
+    unitName: string
+    totalIncome: number
+    totalExpense: number
+    netAmount: number
+    residents: Array<{
+      residentId: number
+      residentName: string
+      totalIncome: number
+      totalExpense: number
+      netAmount: number
+    }>
+  }>
+  grandTotal: {
+    totalIncome: number
+    totalExpense: number
+    netAmount: number
+  }
 }
 
 interface FacilityWithRelations extends Facility {
@@ -218,6 +237,63 @@ export function transformToPrintData(
   // 各利用者の最終残高の合計を計算
   const currentBalance = Array.from(residentFinalBalances.values()).reduce((sum, balance) => sum + balance, 0)
 
+  // ユニット別・利用者別の当月合計を計算（繰越行は含めない）
+  const unitSummaries = facility.units.map((unit) => {
+    const unitResidents = facility.residents.filter((r) => r.unitId === unit.id)
+    
+    const unitResidentSummaries = unitResidents.map((resident) => {
+      // 当月の取引のみを取得（繰越行は含めない）
+      const monthTransactions = filterTransactionsByMonth(
+        resident.transactions,
+        year,
+        month
+      ).filter((t) => {
+        // correct_in と correct_out は除外（打ち消し処理）
+        return t.transactionType !== "correct_in" && t.transactionType !== "correct_out"
+      })
+
+      // 当月の入金・出金合計を計算
+      const residentIncome = monthTransactions.reduce((sum, t) => {
+        if (t.transactionType === "in" || t.transactionType === "past_correct_in") {
+          return sum + t.amount
+        }
+        return sum
+      }, 0)
+
+      const residentExpense = monthTransactions.reduce((sum, t) => {
+        if (t.transactionType === "out" || t.transactionType === "past_correct_out") {
+          return sum + t.amount
+        }
+        return sum
+      }, 0)
+
+      return {
+        residentId: resident.id,
+        residentName: resident.name,
+        totalIncome: residentIncome,
+        totalExpense: residentExpense,
+        netAmount: residentIncome - residentExpense,
+      }
+    })
+
+    // ユニット全体の合計
+    const unitTotalIncome = unitResidentSummaries.reduce((sum, r) => sum + r.totalIncome, 0)
+    const unitTotalExpense = unitResidentSummaries.reduce((sum, r) => sum + r.totalExpense, 0)
+
+    return {
+      unitId: unit.id,
+      unitName: unit.name,
+      totalIncome: unitTotalIncome,
+      totalExpense: unitTotalExpense,
+      netAmount: unitTotalIncome - unitTotalExpense,
+      residents: unitResidentSummaries,
+    }
+  })
+
+  // 預り金総合計（全ユニットの合計）
+  const grandTotalIncome = unitSummaries.reduce((sum, u) => sum + u.totalIncome, 0)
+  const grandTotalExpense = unitSummaries.reduce((sum, u) => sum + u.totalExpense, 0)
+
   // 年月を日本語形式に変換（例: "4月"）
   const monthStr = `${month}月`
 
@@ -238,6 +314,12 @@ export function transformToPrintData(
       name: facility.name,
       position: facility.positionName || "",
       staffName: facility.positionHolderName || "",
+    },
+    unitSummaries,
+    grandTotal: {
+      totalIncome: grandTotalIncome,
+      totalExpense: grandTotalExpense,
+      netAmount: grandTotalIncome - grandTotalExpense,
     },
   }
 }

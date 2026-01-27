@@ -1,8 +1,8 @@
 {
   "templateId": "deposit-statement",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "document": {
-    "title": "預り金明細書",
+    "title": "出納帳および預り金報告書",
     "paper": "A4",
     "orientation": "portrait",
     "margin": {
@@ -16,7 +16,7 @@
     "rows": [
       {
         "type": "text",
-        "value": "{{statement.month}}分　預り金明細書",
+        "value": "{{statement.month}}分　出納帳および預り金報告書",
         "align": "center",
         "fontSize": 16,
         "bold": true,
@@ -24,7 +24,7 @@
       },
       {
         "type": "text",
-        "value": "{{unit.name}}　様",
+        "value": "{{facility.name}}",
         "align": "right",
         "fontSize": 12
       }
@@ -40,8 +40,7 @@
         { "key": "label", "label": "摘要", "width": 20 },
         { "key": "payee", "label": "支払先", "width": 20 },
         { "key": "income", "label": "入金", "width": 10, "align": "right" },
-        { "key": "expense", "label": "出金", "width": 10, "align": "right" },
-        { "key": "balance", "label": "残高", "width": 10, "align": "right" }
+        { "key": "expense", "label": "出金", "width": 10, "align": "right" }
       ],
       "dataSource": "transactions"
     }
@@ -51,27 +50,8 @@
       {
         "label": "合計",
         "income": "{{summary.totalIncome}}",
-        "expense": "{{summary.totalExpense}}",
-        "balance": "{{summary.currentBalance}}"
+        "expense": "{{summary.totalExpense}}"
       }
     ]
-  },
-  "notice": {
-    "title": "【お知らせ】",
-    "lines": [
-      "いつもお世話になっております。",
-      "先月の【預り金明細書】を送付させて頂きます。",
-      "尚、残高が10,000円以下となられた方は、早急に補充の程よろしくお願い致します。"
-    ],
-    "fontSize": 10,
-    "marginTop": 20
-  },
-  "footer": {
-    "lines": [
-      "{{facility.name}}",
-      "{{facility.position}}　{{facility.staffName}}"
-    ],
-    "align": "right",
-    "marginTop": 30
   }
 }

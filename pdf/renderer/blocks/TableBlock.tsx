@@ -21,7 +21,7 @@ interface TableBlockProps {
       label: string
       income: string
       expense: string
-      balance: string
+      balance?: string
     }>
   }
   showSummary?: boolean
@@ -35,7 +35,7 @@ const TableBlock = ({ table, data, summary, showSummary }: TableBlockProps) => {
     const summaryData = summary.rows[0]
     const income = resolveTemplate(summaryData.income, data)
     const expense = resolveTemplate(summaryData.expense, data)
-    const balance = resolveTemplate(summaryData.balance, data)
+    const balance = summaryData.balance ? resolveTemplate(summaryData.balance, data) : null
 
     // テーブルの列構造に合わせて合計行を作成
     const summaryRowData: Record<string, any> = {}
@@ -44,7 +44,7 @@ const TableBlock = ({ table, data, summary, showSummary }: TableBlockProps) => {
         summaryRowData[col.key] = Number(income) || 0
       } else if (col.key === "expense") {
         summaryRowData[col.key] = Number(expense) || 0
-      } else if (col.key === "balance") {
+      } else if (col.key === "balance" && balance !== null) {
         summaryRowData[col.key] = Number(balance) || 0
       } else {
         // 最初の列に「合計（表示）」を表示、それ以外は空

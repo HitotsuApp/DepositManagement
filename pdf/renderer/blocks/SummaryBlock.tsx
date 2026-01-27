@@ -1,5 +1,4 @@
 import { View, Text, StyleSheet } from "@react-pdf/renderer"
-import { resolveTemplate } from "../../utils/resolve"
 import { formatYen } from "../../utils/format"
 
 interface SummaryBlockProps {
@@ -8,31 +7,26 @@ interface SummaryBlockProps {
       label: string
       income: string
       expense: string
-      balance: string
+      balance?: string
     }>
   }
   data: Record<string, any>
 }
 
 const SummaryBlock = ({ summary, data }: SummaryBlockProps) => {
+  // 預り金総合計のみを表示（合計行はTableBlock内で表示される）
+  if (!data.grandTotal) {
+    return null
+  }
+
   return (
     <View style={styles.container}>
-      {summary.rows.map((row, i) => {
-        const income = resolveTemplate(row.income, data)
-        const expense = resolveTemplate(row.expense, data)
-        const balance = resolveTemplate(row.balance, data)
-
-        return (
-          <View key={i} style={styles.row}>
-            <Text style={styles.label}>{row.label}</Text>
-            <Text style={styles.value}>
-              入金：{formatYen(Number(income) || 0)}　
-              出金：{formatYen(Number(expense) || 0)}　
-              残高：{formatYen(Number(balance) || 0)}
-            </Text>
-          </View>
-        )
-      })}
+      <View style={styles.grandTotalContainer}>
+        <Text style={styles.grandTotalLabel}>預り金総合計</Text>
+        <Text style={styles.grandTotalValue}>
+          {formatYen(data.grandTotal.netAmount || 0)}
+        </Text>
+      </View>
     </View>
   )
 }
@@ -40,22 +34,21 @@ const SummaryBlock = ({ summary, data }: SummaryBlockProps) => {
 const styles = StyleSheet.create({
   container: {
     marginTop: 10,
-    paddingTop: 8,
-    borderTop: "2px solid #000",
   },
-  row: {
-    flexDirection: "row",
+  grandTotalContainer: {
+    flexDirection: "column",
+  },
+  grandTotalLabel: {
+    fontSize: 14,
+    fontWeight: "bold",
+    fontFamily: "NotoSansJP",
     marginBottom: 4,
   },
-  label: {
-    fontSize: 10,
+  grandTotalValue: {
+    fontSize: 16,
     fontWeight: "bold",
-    marginRight: 8,
     fontFamily: "NotoSansJP",
-  },
-  value: {
-    fontSize: 10,
-    fontFamily: "NotoSansJP",
+    textAlign: "right",
   },
 })
 
