@@ -240,37 +240,27 @@ export function transformToPrintData(
   const currentBalance = Array.from(residentFinalBalances.values()).reduce((sum, balance) => sum + balance, 0)
 
   // ユニット別・利用者別の当月合計を計算（繰越行は含めない）
+  // transactionsから直接計算することで、past_correct_in と past_correct_out を確実に含める
   // unitIdが指定されている場合はそのユニットのみ、nullの場合は全ユニット
   const targetUnits = unitId ? facility.units.filter((u) => u.id === unitId) : facility.units
   
+  // transactionsから繰越行を除外した当月の取引のみを取得
+  const monthTransactionsOnly = transactions.filter((t) => !(t as any)._isCarryOver)
+  
   const unitSummaries = targetUnits.map((unit) => {
-    const unitResidents = facility.residents.filter((r) => r.unitId === unit.id)
+    // targetResidentsと同じフィルタリング条件を使用
+    const unitResidents = targetResidents.filter((r) => r.unitId === unit.id)
     
     const unitResidentSummaries = unitResidents.map((resident) => {
-      // 当月の取引のみを取得（繰越行は含めない）
-      const monthTransactions = filterTransactionsByMonth(
-        resident.transactions,
-        year,
-        month
-      ).filter((t) => {
-        // correct_in と correct_out は除外（打ち消し処理）
-        return t.transactionType !== "correct_in" && t.transactionType !== "correct_out"
-      })
+      // transactionsから該当利用者の当月の取引のみを取得（繰越行は除外済み）
+      const residentMonthTransactions = monthTransactionsOnly.filter(
+        (t) => t.residentId === resident.id
+      )
 
       // 当月の入金・出金合計を計算（past_correct_in と past_correct_out を含む）
-      const residentIncome = monthTransactions.reduce((sum, t) => {
-        if (t.transactionType === "in" || t.transactionType === "past_correct_in") {
-          return sum + t.amount
-        }
-        return sum
-      }, 0)
-
-      const residentExpense = monthTransactions.reduce((sum, t) => {
-        if (t.transactionType === "out" || t.transactionType === "past_correct_out") {
-          return sum + t.amount
-        }
-        return sum
-      }, 0)
+      // transactionsには既に正しく計算されたincomeとexpenseが含まれている
+      const residentIncome = residentMonthTransactions.reduce((sum, t) => sum + t.income, 0)
+      const residentExpense = residentMonthTransactions.reduce((sum, t) => sum + t.expense, 0)
 
       return {
         residentId: resident.id,
