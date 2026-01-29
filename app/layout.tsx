@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { FacilityProvider } from '@/contexts/FacilityContext'
+import SessionProvider from '@/components/SessionProvider'
+import Header from '@/components/Header'
 
 export const metadata: Metadata = {
   title: '預り金管理システム',
@@ -15,9 +17,12 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body>
-        <FacilityProvider>
-          {children}
-        </FacilityProvider>
+        <SessionProvider>
+          <FacilityProvider>
+            <Header />
+            {children}
+          </FacilityProvider>
+        </SessionProvider>
       </body>
     </html>
   )
