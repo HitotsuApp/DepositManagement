@@ -10,9 +10,12 @@ export default auth((req) => {
 
   // 認証関連のAPIルートは除外
   const isAuthApi = nextUrl.pathname.startsWith("/api/auth")
+  
+  // ログインページ自体へのアクセスは許可
+  const isSignInPage = nextUrl.pathname.startsWith("/api/auth/signin")
 
   // ログインしていないユーザーが保護されたページにアクセスした場合
-  if (!isLoggedIn && !isAuthApi) {
+  if (!isLoggedIn && !isAuthApi && !isSignInPage) {
     // ログイン画面にリダイレクト
     const signInUrl = new URL("/api/auth/signin", nextUrl.origin)
     signInUrl.searchParams.set("callbackUrl", nextUrl.pathname)
