@@ -1,11 +1,11 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from "next/server"
 import { renderToBuffer } from "@react-pdf/renderer"
 import React from "react"
 import { CashVerificationPdfRenderer } from "@/pdf/renderer/CashVerificationPdfRenderer"
 import { prisma } from "@/lib/prisma"
 import { calculateBalanceUpToMonth } from "@/lib/balance"
-
-export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
   try {

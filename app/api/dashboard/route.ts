@@ -1,8 +1,8 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { calculateBalanceUpToMonth } from '@/lib/balance'
-
-export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
   try {
