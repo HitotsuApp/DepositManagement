@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { PDFViewer } from "@react-pdf/renderer"
 import { PdfRenderer } from "@/pdf/renderer/PdfRenderer"
@@ -21,7 +21,7 @@ function isResidentPrintData(data: PrintData | ResidentPrintData): data is Resid
   return "resident" in data
 }
 
-export default function PrintPreviewPage() {
+function PrintPreviewPageContent() {
   const [isMounted, setIsMounted] = useState(false)
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -315,5 +315,13 @@ export default function PrintPreviewPage() {
         </div>
       </div>
     </MainLayout>
+  )
+}
+
+export default function PrintPreviewPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PrintPreviewPageContent />
+    </Suspense>
   )
 }

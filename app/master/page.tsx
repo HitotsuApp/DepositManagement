@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
 import Modal from '@/components/Modal'
@@ -44,7 +44,7 @@ interface Resident {
   endDate?: string | null
 }
 
-export default function MasterPage() {
+function MasterPageContent() {
   const [isMounted, setIsMounted] = useState(false)
   const searchParams = useSearchParams()
   const { selectedFacilityId } = useFacility()
@@ -1011,6 +1011,14 @@ export default function MasterPage() {
         )}
       </div>
     </MainLayout>
+  )
+}
+
+export default function MasterPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <MasterPageContent />
+    </Suspense>
   )
 }
 
