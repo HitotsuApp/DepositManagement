@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense } from 'react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
 import Modal from '@/components/Modal'
@@ -50,26 +50,8 @@ function MasterContent() {
   const [isMounted, setIsMounted] = useState(false)
   const searchParams = useSearchParams()
   const { selectedFacilityId } = useFacility()
-  const tabParam = searchParams.get('tab') as 'facility' | 'unit' | 'resident' | null
-  const [activeTab, setActiveTab] = useState<'facility' | 'unit' | 'resident'>(
-    tabParam && ['facility', 'unit', 'resident'].includes(tabParam) ? tabParam : 'facility'
-  )
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  if (!isMounted) {
-    return (
-      <MainLayout>
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <div className="text-xl mb-4">読み込み中...</div>
-          </div>
-        </div>
-      </MainLayout>
-    )
-  }
+  
+  // すべてのuseStateを条件分岐の前に配置
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [residents, setResidents] = useState<Resident[]>([])
@@ -90,28 +72,44 @@ function MasterContent() {
   const [residentForm, setResidentForm] = useState({ facilityId: 0, unitId: 0, name: '', startDate: '', endDate: '' })
   const [showResidentEndConfirm, setShowResidentEndConfirm] = useState<number | null>(null)
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([])
+  
+  const tabParam = searchParams.get('tab') as 'facility' | 'unit' | 'resident' | null
+  const [activeTab, setActiveTab] = useState<'facility' | 'unit' | 'resident'>(
+    tabParam && ['facility', 'unit', 'resident'].includes(tabParam) ? tabParam : 'facility'
+  )
 
   useEffect(() => {
-    // URLパラメータからタブを設定
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    // URLパラメータからタブを設定（現在の値と異なる場合のみ更新）
     const tabParam = searchParams.get('tab') as 'facility' | 'unit' | 'resident' | null
     if (tabParam && ['facility', 'unit', 'resident'].includes(tabParam)) {
-      setActiveTab(tabParam)
+      setActiveTab(prevTab => {
+        // 現在の値と異なる場合のみ更新
+        if (tabParam !== prevTab) {
+          return tabParam
+        }
+        return prevTab
+      })
     }
   }, [searchParams])
 
-  useEffect(() => {
-    if (activeTab === 'facility') {
-      fetchFacilities()
-    } else if (activeTab === 'unit') {
-      fetchFacilities() // ユニットマスタでも施設リストが必要
-      fetchUnits()
-    } else {
-      fetchFacilities() // 利用者マスタでも施設リストが必要
-      fetchResidents()
-    }
-  }, [activeTab, selectedFacilityId])
+  if (!isMounted) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="text-xl mb-4">読み込み中...</div>
+          </div>
+        </div>
+      </MainLayout>
+    )
+  }
 
-  const fetchFacilities = async () => {
+  // fetch関数をuseCallbackでメモ化して無限ループを防ぐ
+  const fetchFacilities = useCallback(async () => {
     try {
       // 施設マスタタブでは全施設を表示（選択された施設はハイライト）
       // 他のタブでは選択された施設のみを取得（ドロップダウン用）
@@ -140,9 +138,9 @@ function MasterContent() {
       setFacilities([])
       alert('施設データの取得に失敗しました')
     }
-  }
+  }, [activeTab, selectedFacilityId])
 
-  const fetchUnits = async () => {
+  const fetchUnits = useCallback(async () => {
     try {
       // 選択された施設がある場合、その施設のユニットのみを取得
       const url = selectedFacilityId
@@ -165,9 +163,9 @@ function MasterContent() {
       setUnits([])
       alert('ユニットデータの取得に失敗しました')
     }
-  }
+  }, [selectedFacilityId])
 
-  const fetchResidents = async () => {
+  const fetchResidents = useCallback(async () => {
     try {
       // 選択された施設がある場合、その施設の利用者のみを取得
       // includeInactive=trueで全利用者を取得し、endDateでフィルタリング
@@ -191,7 +189,19 @@ function MasterContent() {
       setResidents([])
       alert('利用者データの取得に失敗しました')
     }
-  }
+  }, [selectedFacilityId])
+
+  useEffect(() => {
+    if (activeTab === 'facility') {
+      fetchFacilities()
+    } else if (activeTab === 'unit') {
+      fetchFacilities() // ユニットマスタでも施設リストが必要
+      fetchUnits()
+    } else {
+      fetchFacilities() // 利用者マスタでも施設リストが必要
+      fetchResidents()
+    }
+  }, [activeTab, fetchFacilities, fetchUnits, fetchResidents])
 
   // 施設マスタの関数
   const handleAddFacility = () => {
