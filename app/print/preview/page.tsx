@@ -22,6 +22,7 @@ function isResidentPrintData(data: PrintData | ResidentPrintData): data is Resid
 }
 
 export default function PrintPreviewPage() {
+  const [isMounted, setIsMounted] = useState(false)
   const searchParams = useSearchParams()
   const router = useRouter()
   const facilityId = searchParams.get("facilityId")
@@ -48,6 +49,12 @@ export default function PrintPreviewPage() {
   const [nextResidentId, setNextResidentId] = useState<number | null>(null)
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted) return
+    
     if (printType === "batch") {
       if (facilityId) {
         fetchBatchPrintData()
@@ -70,7 +77,7 @@ export default function PrintPreviewPage() {
         setIsLoading(false)
       }
     }
-  }, [facilityId, unitId, residentId, printType, year, month])
+  }, [isMounted, facilityId, unitId, residentId, printType, year, month])
 
   const fetchUnitPrintData = async () => {
     setIsLoading(true)
@@ -193,7 +200,7 @@ export default function PrintPreviewPage() {
     window.print()
   }
 
-  if (isLoading) {
+  if (!isMounted || isLoading) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center h-screen">

@@ -45,12 +45,29 @@ interface Resident {
 }
 
 export default function MasterPage() {
+  const [isMounted, setIsMounted] = useState(false)
   const searchParams = useSearchParams()
   const { selectedFacilityId } = useFacility()
   const tabParam = searchParams.get('tab') as 'facility' | 'unit' | 'resident' | null
   const [activeTab, setActiveTab] = useState<'facility' | 'unit' | 'resident'>(
     tabParam && ['facility', 'unit', 'resident'].includes(tabParam) ? tabParam : 'facility'
   )
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  if (!isMounted) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="text-xl mb-4">読み込み中...</div>
+          </div>
+        </div>
+      </MainLayout>
+    )
+  }
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [residents, setResidents] = useState<Resident[]>([])
