@@ -1,5 +1,6 @@
 import { auth } from "@/auth"
 import { NextResponse } from "next/server"
+import { authConfig } from "@/auth.config"
 
 export default auth((req) => {
   const { nextUrl } = req
