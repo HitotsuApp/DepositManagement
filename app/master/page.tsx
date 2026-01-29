@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { Suspense } from 'react'
-import { useState, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { Suspense } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import MainLayout from '@/components/MainLayout'
 import Modal from '@/components/Modal'
 import { useFacility } from '@/contexts/FacilityContext'
@@ -45,13 +45,13 @@ interface Resident {
   endDate?: string | null
 }
 
-// useSearchParamsを使う中身だけのコンポーネント
+// 1. ロジック本体（ここで hooks を使う）
 function MasterContent() {
-  const [isMounted, setIsMounted] = useState(false)
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams();
   const { selectedFacilityId } = useFacility()
   
   // すべてのuseStateを条件分岐の前に配置
+  const [isMounted, setIsMounted] = useState(false)
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [residents, setResidents] = useState<Resident[]>([])
@@ -95,18 +95,6 @@ function MasterContent() {
       })
     }
   }, [searchParams])
-
-  if (!isMounted) {
-    return (
-      <MainLayout>
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <div className="text-xl mb-4">読み込み中...</div>
-          </div>
-        </div>
-      </MainLayout>
-    )
-  }
 
   // fetch関数をuseCallbackでメモ化して無限ループを防ぐ
   const fetchFacilities = useCallback(async () => {
@@ -452,6 +440,18 @@ function MasterContent() {
       console.error('Failed to end resident:', error)
       alert(error.message || '終了処理に失敗しました')
     }
+  }
+
+  if (!isMounted) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="text-xl mb-4">読み込み中...</div>
+          </div>
+        </div>
+      </MainLayout>
+    )
   }
 
   return (
@@ -1026,7 +1026,7 @@ function MasterContent() {
   )
 }
 
-// export defaultするPage自体はSuspenseで囲むだけのシンプルな構造
+// 2. ページのエントリポイント（ここにはロジックを書かない）
 export default function MasterPage() {
   return (
     <Suspense fallback={<div>読み込み中...</div>}>
