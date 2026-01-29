@@ -25,8 +25,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return true
     },
   },
-  pages: {
-    signIn: "/api/auth/signin",
-  },
   secret: process.env.AUTH_SECRET,
 })
