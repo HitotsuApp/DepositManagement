@@ -21,3 +21,17 @@ body {
   animation: slide-in 0.3s ease-out;
 }
 
+/* リサイズハンドルのスタイル */
+.resize-handle {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.resize-handle:hover {
+  background-color: rgba(59, 130, 246, 0.5);
+}
+
+.resize-handle:active {
+  background-color: rgba(59, 130, 246, 0.8);
+}
+

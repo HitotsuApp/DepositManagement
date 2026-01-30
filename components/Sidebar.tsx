@@ -37,7 +37,7 @@ export default function Sidebar() {
   const selectedFacility = facilities.find(f => f.id === selectedFacilityId)
 
   return (
-    <div className="w-64 text-white min-h-screen p-4" style={{ backgroundColor: 'rgba(62, 77, 101, 1)' }}>
+    <div className="text-white min-h-screen p-4" style={{ backgroundColor: 'rgba(62, 77, 101, 1)' }}>
       <h1 className="text-xl font-bold mb-6">預り金管理</h1>
       
       {/* 選択中の施設表示 */}
@@ -54,14 +54,17 @@ export default function Sidebar() {
       )}
       
       <nav className="space-y-2">
-        <Link
-          href="/"
-          className={`block px-4 py-2 rounded hover:bg-gray-700 ${
-            isActive('/') ? 'bg-gray-700' : ''
-          }`}
-        >
-          法人ダッシュボード
-        </Link>
+        {/* 法人ダッシュボード: 法人全体表示時のみ表示 */}
+        {selectedFacilityId === null && (
+          <Link
+            href="/"
+            className={`block px-4 py-2 rounded hover:bg-gray-700 ${
+              isActive('/') ? 'bg-gray-700' : ''
+            }`}
+          >
+            法人ダッシュボード
+          </Link>
+        )}
         
         <div className="pt-4 border-t border-gray-700">
           <div className="flex items-center justify-between px-4 py-2">
@@ -96,6 +99,17 @@ export default function Sidebar() {
         </div>
 
         <div className="pt-4 border-t border-gray-700">
+          {/* 施設TOP: 施設選択時のみ表示 */}
+          {selectedFacilityId !== null && (
+            <Link
+              href={`/facilities/${selectedFacilityId}`}
+              className={`block px-4 py-2 rounded hover:bg-gray-700 ${
+                isActive(`/facilities/${selectedFacilityId}`) ? 'bg-gray-700' : ''
+              }`}
+            >
+              施設TOP
+            </Link>
+          )}
           <Link
             href="/facility-select"
             className={`block px-4 py-2 rounded hover:bg-gray-700 ${
@@ -120,14 +134,17 @@ export default function Sidebar() {
           >
             マスタ管理
           </Link>
-          <Link
-            href="/import"
-            className={`block px-4 py-2 rounded hover:bg-gray-700 ${
-              isActive('/import') ? 'bg-gray-700' : ''
-            }`}
-          >
-            データインポート
-          </Link>
+          {/* データインポート: 法人全体表示時のみ表示 */}
+          {selectedFacilityId === null && (
+            <Link
+              href="/import"
+              className={`block px-4 py-2 rounded hover:bg-gray-700 ${
+                isActive('/import') ? 'bg-gray-700' : ''
+              }`}
+            >
+              データインポート
+            </Link>
+          )}
           <Link
             href="/cash-verification"
             className={`block px-4 py-2 rounded hover:bg-gray-700 ${
