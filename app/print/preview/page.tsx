@@ -241,7 +241,11 @@ function PrintPreviewContent() {
         <div className="bg-white border-b p-4 flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold mb-2">
-              {printType === "batch" ? "まとめて印刷 プレビュー" : "預り金明細書 印刷プレビュー"}
+              {printType === "batch" 
+                ? "まとめて印刷 プレビュー" 
+                : printType === "resident" 
+                  ? "預り金明細書 印刷プレビュー" 
+                  : "出納帳および預り金報告書印刷プレビュー"}
             </h1>
             <DateSelector
               year={year}

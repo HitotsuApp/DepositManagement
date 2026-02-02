@@ -175,6 +175,20 @@ export default function CashVerificationPage() {
       <div>
         <style jsx global>{`
           @media print {
+            /* ヘッダー（預り金管理システム・ユーザー名・ログアウト）を非表示 */
+            header,
+            header *,
+            body > header,
+            body > div > header {
+              display: none !important;
+              visibility: hidden !important;
+              width: 0 !important;
+              height: 0 !important;
+              overflow: hidden !important;
+              position: absolute !important;
+              left: -9999px !important;
+            }
+            
             /* サイドバーを非表示 - 最も確実な方法 */
             .no-print-sidebar,
             .no-print-sidebar *,
