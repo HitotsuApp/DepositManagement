@@ -112,10 +112,14 @@ export default function ResidentDetailPage() {
     }
   }, [residentFacilityId, residentId])
 
-  const fetchResidentData = async () => {
+  const fetchResidentData = async (skipCache = false) => {
     try {
+      // キャッシュを無効化するオプション
+      const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
+      
       const response = await fetch(
-        `/api/residents/${residentId}?year=${year}&month=${month}`
+        `/api/residents/${residentId}?year=${year}&month=${month}`,
+        fetchOptions
       )
       const data = await response.json()
       setResidentName(data.residentName || '')
@@ -268,12 +272,9 @@ export default function ResidentDetailPage() {
           ? (formData.transactionType === 'past_correct_in' ? '過去訂正入金' : '過去訂正出金')
           : (formData.transactionType === 'in' ? '入金' : '出金')
         
-        setToast({
-          message: `${transactionTypeLabel}を登録しました`,
-          type: 'success',
-          isVisible: true,
-        })
-        
+        // モーダルを先に閉じる
+        setShowInOutForm(false)
+        setShowCorrectForm(false)
         setFormData({
           transactionDate: '',
           transactionType: showCorrectForm ? 'past_correct_in' : 'in',
@@ -282,9 +283,15 @@ export default function ResidentDetailPage() {
           payee: '',
           reason: '',
         })
-        setShowInOutForm(false)
-        setShowCorrectForm(false)
-        fetchResidentData()
+        
+        // データを再取得（キャッシュを無効化して最新データを取得）
+        await fetchResidentData(true)
+        
+        setToast({
+          message: `${transactionTypeLabel}を登録しました`,
+          type: 'success',
+          isVisible: true,
+        })
       } else {
         setToast({
           message: data.error || '登録に失敗しました',
@@ -336,12 +343,14 @@ export default function ResidentDetailPage() {
       const data = await response.json()
 
       if (response.ok) {
+        // データを再取得（キャッシュを無効化して最新データを取得）
+        await fetchResidentData(true)
+        
         setToast({
           message: '取引を訂正としてマークしました',
           type: 'success',
           isVisible: true,
         })
-        fetchResidentData()
       } else {
         setToast({
           message: data.error || '訂正の処理に失敗しました',
