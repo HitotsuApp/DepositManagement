@@ -22,6 +22,10 @@ model Facility {
   residents         Resident[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  // パフォーマンス最適化のためのインデックス
+  // アクティブな施設をsortOrder順で取得するクエリを高速化
+  @@index([isActive, sortOrder])
 }
 
 model Unit {
@@ -33,6 +37,10 @@ model Unit {
   residents  Resident[]
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
+
+  // パフォーマンス最適化のためのインデックス
+  // 施設別のアクティブなユニットを取得するクエリを高速化
+  @@index([facilityId, isActive])
 }
 
 model Resident {
@@ -48,6 +56,10 @@ model Resident {
   transactions Transaction[]
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
+
+  // パフォーマンス最適化のためのインデックス
+  // 施設別のアクティブな利用者を取得するクエリを高速化
+  @@index([facilityId, isActive, endDate])
 }
 
 model Transaction {
@@ -61,5 +73,11 @@ model Transaction {
   reason          String?      // 最大100文字（アプリケーションレベルで制限）訂正入力時の理由
   resident        Resident     @relation(fields: [residentId], references: [id])
   createdAt       DateTime     @default(now())
+
+  // パフォーマンス最適化のためのインデックス
+  // 利用者別の取引を日付でフィルタリングするクエリを高速化
+  @@index([residentId, transactionDate])
+  // 日付範囲でのフィルタリングを高速化（前月残高計算など）
+  @@index([transactionDate])
 }
 
