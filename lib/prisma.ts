@@ -8,11 +8,13 @@ neonConfig.webSocketConstructor = ws
 const connectionString = process.env.DATABASE_URL
 if (!connectionString) throw new Error('DATABASE_URL is not set')
 
-// Poolを外で定義して再利用（高速化の鍵）
-const pool = new Pool({ connectionString })
-
 export const getPrisma = () => {
-  // PrismaClientはリクエストごとに新しく生成（I/Oエラー回避）
+  // 毎回Poolから作り直すことで、リクエスト間の衝突を完全に防ぐ
+  const pool = new Pool({ connectionString })
   const adapter = new PrismaNeon(pool)
   return new PrismaClient({ adapter })
 }
+
+// 既存コードへの影響を最小限にするため prisma インスタンスも export するが、
+// これも getPrisma() を呼び出すようにする
+export const prisma = getPrisma()
