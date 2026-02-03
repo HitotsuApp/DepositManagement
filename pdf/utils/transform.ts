@@ -119,8 +119,9 @@ export function transformToPrintData(
       return balance
     }, 0)
 
-    // 繰越行を追加（前月末残高が0でない場合、または当月に取引がある場合）
-    if (previousBalance !== 0 || monthTransactions.length > 0) {
+    // 繰越行を追加（前月末残高が0でない場合は必ず追加）
+    // 利用がなかった月でも、繰越残高があれば明細書を印刷する必要があるため
+    if (previousBalance !== 0) {
       allTransactions.push({
         id: -1, // 仮のID
         residentId: resident.id,
@@ -439,8 +440,9 @@ export function transformToResidentPrintData(
   // 取引リストを作成（繰越行 + 当月取引）
   const allTransactions: Array<Transaction & { _isCarryOver?: boolean; _previousBalance?: number }> = []
 
-  // 繰越行を追加（前月末残高が0でない場合、または当月に取引がある場合）
-  if (previousBalance !== 0 || monthTransactions.length > 0) {
+  // 繰越行を追加（前月末残高が0でない場合は必ず追加）
+  // 利用がなかった月でも、繰越残高があれば明細書を印刷する必要があるため
+  if (previousBalance !== 0) {
     allTransactions.push({
       id: -1,
       residentId: resident.id,
