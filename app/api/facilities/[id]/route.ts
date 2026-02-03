@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
-import { calculateBalanceUpToMonth } from '@/lib/balance'
+import { calculateBalanceUpToMonth, TransactionForBalance } from '@/lib/balance'
 import { validateId, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(
@@ -26,13 +26,20 @@ export async function GET(
     // 施設詳細画面用のリクエスト（yearとmonthが指定されている場合）
     if (year && month) {
       // ユニット別合計の計算には全ての利用者が必要なため、unitIdでフィルタリングせずに取得
+      // select を使用して必要なフィールドのみを取得（パフォーマンス最適化）
       const facility = await prisma.facility.findUnique({
         where: { id: facilityId },
-        include: {
+        select: {
+          id: true,
+          name: true,
           units: {
             where: { 
               isActive: true,
               facilityId: facilityId, // 明示的に施設IDでフィルタリング
+            },
+            select: {
+              id: true,
+              name: true,
             },
             orderBy: { name: 'asc' },
           },
@@ -42,8 +49,17 @@ export async function GET(
               endDate: null, // 終了日が設定されていない利用者のみ
               facilityId: facilityId, // 明示的に施設IDでフィルタリング
             },
-            include: {
+            select: {
+              id: true,
+              name: true,
+              unitId: true,
               transactions: {
+                select: {
+                  id: true,
+                  transactionDate: true,
+                  transactionType: true,
+                  amount: true,
+                },
                 orderBy: { transactionDate: 'asc' },
               },
             },
@@ -59,7 +75,7 @@ export async function GET(
       const unitSummaries = facility.units.map(unit => {
         const unitResidents = facility.residents.filter(r => r.unitId === unit.id)
         const totalAmount = unitResidents.reduce((sum, resident) => {
-          return sum + calculateBalanceUpToMonth(resident.transactions, Number(year), Number(month))
+          return sum + calculateBalanceUpToMonth(resident.transactions as TransactionForBalance[], Number(year), Number(month))
         }, 0)
         return {
           id: unit.id,
@@ -75,7 +91,7 @@ export async function GET(
 
       // 利用者別残高（表示用の利用者リストから計算）
       const residentSummaries = displayResidents.map(resident => {
-        const balance = calculateBalanceUpToMonth(resident.transactions, Number(year), Number(month))
+        const balance = calculateBalanceUpToMonth(resident.transactions as TransactionForBalance[], Number(year), Number(month))
         return {
           id: resident.id,
           name: resident.name,
@@ -85,15 +101,20 @@ export async function GET(
 
       // 施設合計（常に全利用者の合計を表示）
       const totalAmount = facility.residents.reduce((sum, resident) => {
-        return sum + calculateBalanceUpToMonth(resident.transactions, Number(year), Number(month))
+        return sum + calculateBalanceUpToMonth(resident.transactions as TransactionForBalance[], Number(year), Number(month))
       }, 0)
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         facilityName: facility.name,
         totalAmount,
         units: unitSummaries,
         residents: residentSummaries,
       })
+      
+      // キャッシュヘッダーの追加
+      response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=55')
+      
+      return response
     }
 
     // 通常の施設取得（マスタ管理用など）

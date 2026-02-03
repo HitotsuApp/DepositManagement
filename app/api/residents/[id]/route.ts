@@ -22,10 +22,25 @@ export async function GET(
     const year = Number(searchParams.get('year')) || new Date().getFullYear()
     const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
 
+    // select を使用して必要なフィールドのみを取得（パフォーマンス最適化）
     const resident = await prisma.resident.findUnique({
       where: { id: residentId },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        facilityId: true,
         transactions: {
+          select: {
+            id: true,
+            transactionDate: true,
+            transactionType: true,
+            amount: true,
+            description: true,
+            payee: true,
+            reason: true,
+            createdAt: true,
+            residentId: true,
+          },
           orderBy: { transactionDate: 'asc' },
         },
       },
@@ -36,10 +51,10 @@ export async function GET(
     }
 
     // 指定年月までの累積残高を計算
-    const balance = calculateBalanceUpToMonth(resident.transactions, year, month)
+    const balance = calculateBalanceUpToMonth(resident.transactions as any, year, month)
 
     // 全取引から累積残高を計算し、指定年月の取引のみをフィルタリング
-    const allTransactionsWithBalance = calculateBalance(resident.transactions)
+    const allTransactionsWithBalance = calculateBalance(resident.transactions as any)
     const transactionsWithBalance = allTransactionsWithBalance.filter(t => {
       const transactionDate = new Date(t.transactionDate)
       const startDate = new Date(year, month - 1, 1)
@@ -47,12 +62,17 @@ export async function GET(
       return transactionDate >= startDate && transactionDate <= endDate
     })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       residentName: resident.name,
       facilityId: resident.facilityId,
       balance,
       transactions: transactionsWithBalance,
     })
+    
+    // キャッシュヘッダーの追加
+    response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=55')
+    
+    return response
   } catch (error) {
     console.error('Failed to fetch resident:', error)
     return NextResponse.json({ error: 'Failed to fetch resident' }, { status: 500 })

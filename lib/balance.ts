@@ -5,6 +5,11 @@ export interface TransactionWithBalance extends Transaction {
 }
 
 /**
+ * 残高計算に必要な最小限の取引データ型
+ */
+export type TransactionForBalance = Pick<Transaction, 'id' | 'transactionDate' | 'transactionType' | 'amount'>
+
+/**
  * 取引リストから残高を計算する
  * 取引は日付順にソートされている必要がある
  * 訂正区分（correct_in, correct_out）は計算から除外される（打ち消し処理）
@@ -57,7 +62,7 @@ export function filterTransactionsByMonth<T extends Transaction>(
  * 取引は日付順にソートしてから計算する
  */
 export function calculateBalanceUpToMonth(
-  transactions: Transaction[],
+  transactions: Transaction[] | TransactionForBalance[],
   year: number,
   month: number
 ): number {
