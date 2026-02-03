@@ -72,6 +72,7 @@ function MasterContent() {
   const [residentForm, setResidentForm] = useState({ facilityId: 0, unitId: 0, name: '', startDate: '', endDate: '' })
   const [showResidentEndConfirm, setShowResidentEndConfirm] = useState<number | null>(null)
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([])
+  const [isSubmittingResident, setIsSubmittingResident] = useState(false)
   
   const tabParam = searchParams.get('tab') as 'facility' | 'unit' | 'resident' | null
   const [activeTab, setActiveTab] = useState<'facility' | 'unit' | 'resident'>(
@@ -375,8 +376,9 @@ function MasterContent() {
     }
   }
 
-  const handleSaveResident = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSaveResident = async () => {
+    if (isSubmittingResident) return
+    setIsSubmittingResident(true)
     try {
       if (editingResident) {
         const res = await fetch(`/api/residents/${editingResident.id}`, {
@@ -412,6 +414,8 @@ function MasterContent() {
     } catch (error: any) {
       console.error('Failed to save resident:', error)
       alert(error.message || '保存に失敗しました')
+    } finally {
+      setIsSubmittingResident(false)
     }
   }
 
@@ -832,10 +836,14 @@ function MasterContent() {
             {/* 利用者追加・編集モーダル */}
             <Modal
               isOpen={showResidentModal}
-              onClose={() => setShowResidentModal(false)}
+              onClose={() => {
+                if (!isSubmittingResident) {
+                  setShowResidentModal(false)
+                }
+              }}
               title={editingResident ? '利用者を編集' : '利用者を追加'}
             >
-              <form onSubmit={handleSaveResident}>
+              <form onSubmit={(e) => { e.preventDefault(); }}>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">施設 <span className="text-red-500">*</span></label>
@@ -915,16 +923,22 @@ function MasterContent() {
                   </div>
                   <div className="flex gap-4 pt-4">
                     <button
-                      type="submit"
-                      className="flex-1 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                      disabled={availableUnits.length === 0 && residentForm.facilityId > 0}
+                      type="button"
+                      onClick={handleSaveResident}
+                      className="flex-1 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      disabled={isSubmittingResident || (availableUnits.length === 0 && residentForm.facilityId > 0)}
                     >
-                      {editingResident ? '更新' : '追加'}
+                      {isSubmittingResident ? '追加中...' : (editingResident ? '更新' : '追加')}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowResidentModal(false)}
-                      className="flex-1 px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                      onClick={() => {
+                        if (!isSubmittingResident) {
+                          setShowResidentModal(false)
+                        }
+                      }}
+                      className="flex-1 px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
+                      disabled={isSubmittingResident}
                     >
                       キャンセル
                     </button>
