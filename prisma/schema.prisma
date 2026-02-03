@@ -1,65 +1,25 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+import { PrismaClient } from '@prisma/client'
+import { PrismaNeon } from '@prisma/adapter-neon'
+import { Pool, neonConfig } from '@neondatabase/serverless'
+import ws from 'ws'
 
-generator client {
-  provider = "prisma-client-js"
-  previewFeatures = ["driverAdapters"] // この行を追加！
+// Cloudflare PagesのEdge Runtimeではこれが必須です
+neonConfig.webSocketConstructor = ws
+
+const connectionString = process.env.DATABASE_URL
+
+if (!connectionString) {
+  throw new Error('DATABASE_URL is not set')
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+// 接続プールを作成
+const pool = new Pool({ connectionString })
+// Prisma用のアダプターを適用
+const adapter = new PrismaNeon(pool)
 
-model Facility {
-  id                Int      @id @default(autoincrement())
-  name              String   // 最大30文字（アプリケーションレベルで制限）
-  positionName      String?  // 最大30文字（アプリケーションレベルで制限）
-  positionHolderName String? // 最大30文字（アプリケーションレベルで制限）
-  sortOrder         Int      @default(0)
-  isActive          Boolean  @default(true)
-  units             Unit[]
-  residents         Resident[]
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
+// グローバルにインスタンスを保持（開発中のホットリロード対策）
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 
-model Unit {
-  id         Int        @id @default(autoincrement())
-  facilityId Int
-  name       String     // 最大30文字（アプリケーションレベルで制限）
-  isActive   Boolean    @default(true)
-  facility   Facility   @relation(fields: [facilityId], references: [id])
-  residents  Resident[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-}
+export const prisma = globalForPrisma.prisma || new PrismaClient({ adapter })
 
-model Resident {
-  id         Int          @id @default(autoincrement())
-  facilityId Int
-  unitId     Int
-  name       String       // 最大30文字（アプリケーションレベルで制限）
-  startDate  DateTime?
-  endDate    DateTime?
-  isActive   Boolean      @default(true)
-  facility   Facility     @relation(fields: [facilityId], references: [id])
-  unit       Unit         @relation(fields: [unitId], references: [id])
-  transactions Transaction[]
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-}
-
-model Transaction {
-  id              Int          @id @default(autoincrement())
-  residentId      Int
-  transactionDate DateTime
-  transactionType String       // "in", "out", "correct_in", "correct_out"
-  amount          Float
-  description     String?      // 最大100文字（アプリケーションレベルで制限）
-  payee           String?      // 最大30文字（アプリケーションレベルで制限）支払先
-  reason          String?      // 最大100文字（アプリケーションレベルで制限）訂正入力時の理由
-  resident        Resident     @relation(fields: [residentId], references: [id])
-  createdAt       DateTime     @default(now())
-}
-
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
