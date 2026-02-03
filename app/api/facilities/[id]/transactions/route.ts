@@ -91,7 +91,5 @@ export async function GET(
   } catch (error) {
     console.error('Failed to fetch facility transactions:', error)
     return NextResponse.json({ error: 'Failed to fetch facility transactions' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }

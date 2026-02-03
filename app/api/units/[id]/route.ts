@@ -32,8 +32,6 @@ export async function GET(
   } catch (error) {
     console.error('Failed to fetch unit:', error)
     return NextResponse.json({ error: 'Failed to fetch unit' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -101,8 +99,6 @@ export async function PUT(
   } catch (error) {
     console.error('Failed to update unit:', error)
     return NextResponse.json({ error: 'Failed to update unit' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -132,8 +128,6 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update unit status:', error)
     return NextResponse.json({ error: 'Failed to update unit status' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

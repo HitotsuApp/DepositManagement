@@ -69,8 +69,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Failed to reorder facilities:', error)
     return NextResponse.json({ error: 'Failed to reorder facilities' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

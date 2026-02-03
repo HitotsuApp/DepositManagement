@@ -63,7 +63,5 @@ export async function GET(request: Request) {
       { error: "Failed to generate print data" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

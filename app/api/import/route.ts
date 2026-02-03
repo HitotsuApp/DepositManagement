@@ -274,8 +274,6 @@ export async function POST(request: Request) {
       { error: 'Failed to import data', details: error.message },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

@@ -27,8 +27,6 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('Failed to fetch residents:', error)
     return NextResponse.json({ error: 'Failed to fetch residents' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -66,8 +64,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Failed to create resident:', error)
     return NextResponse.json({ error: 'Failed to create resident' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

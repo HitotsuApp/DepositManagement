@@ -109,8 +109,6 @@ export async function GET(
   } catch (error) {
     console.error('Failed to fetch facility:', error)
     return NextResponse.json({ error: 'Failed to fetch facility' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -172,8 +170,6 @@ export async function PUT(
   } catch (error) {
     console.error('Failed to update facility:', error)
     return NextResponse.json({ error: 'Failed to update facility' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -203,7 +199,5 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update facility status:', error)
     return NextResponse.json({ error: 'Failed to update facility status' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }

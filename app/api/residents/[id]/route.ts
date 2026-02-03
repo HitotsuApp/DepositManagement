@@ -56,8 +56,6 @@ export async function GET(
   } catch (error) {
     console.error('Failed to fetch resident:', error)
     return NextResponse.json({ error: 'Failed to fetch resident' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -106,8 +104,6 @@ export async function PUT(
   } catch (error) {
     console.error('Failed to update resident:', error)
     return NextResponse.json({ error: 'Failed to update resident' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -137,7 +133,5 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update resident status:', error)
     return NextResponse.json({ error: 'Failed to update resident status' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }

@@ -56,8 +56,6 @@ export async function GET(request: Request) {
     console.error('Failed to fetch dashboard:', error)
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch dashboard'
     return NextResponse.json({ error: errorMessage }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

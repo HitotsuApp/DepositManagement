@@ -26,8 +26,6 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('Failed to fetch units:', error)
     return NextResponse.json({ error: 'Failed to fetch units' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -84,8 +82,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Failed to create unit:', error)
     return NextResponse.json({ error: 'Failed to create unit' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

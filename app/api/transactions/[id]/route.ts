@@ -69,7 +69,5 @@ export async function PATCH(
       { error: '取引の更新に失敗しました' },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }
