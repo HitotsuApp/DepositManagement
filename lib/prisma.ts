@@ -1,10 +1,12 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaNeon } from '@prisma/adapter-neon'
 import { Pool, neonConfig } from '@neondatabase/serverless'
-import ws from 'ws'
+import ws from 'isomorphic-ws' // 4行目：ここを変更！
 
-// Cloudflare PagesのEdge Runtimeではこれが必須です
-neonConfig.webSocketConstructor = ws
+// 7行目：Cloudflare Pagesの環境で確実にWebSocketを使えるようにする
+if (ws) {
+  neonConfig.webSocketConstructor = ws
+}
 
 const connectionString = process.env.DATABASE_URL
 
