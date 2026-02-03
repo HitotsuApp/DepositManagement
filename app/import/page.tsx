@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
+import { invalidateMasterCache } from '@/lib/cache'
 
 interface ImportResult {
   facilitiesCreated: number
@@ -12,6 +14,7 @@ interface ImportResult {
 }
 
 export default function ImportPage() {
+  const router = useRouter()
   const [csvData, setCsvData] = useState('')
   const [isImporting, setIsImporting] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -117,6 +120,13 @@ export default function ImportPage() {
       if (response.ok) {
         setResult(data.results)
         setCsvData('')
+        
+        // マスタデータのキャッシュを無効化（すべての施設）
+        await invalidateMasterCache()
+        
+        // Next.jsのサーバーコンポーネントのキャッシュも無効化
+        router.refresh()
+        
         alert('インポートが完了しました')
       } else {
         alert(`インポートエラー: ${data.error}`)

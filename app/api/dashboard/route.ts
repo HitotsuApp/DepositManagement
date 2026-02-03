@@ -75,8 +75,8 @@ export async function GET(request: Request) {
       facilities: facilitySummaries,
     })
     
-    // キャッシュヘッダーの追加
-    response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=55')
+    // キャッシュヘッダーの追加（更新頻度が高いため短いキャッシュ時間）
+    response.headers.set('Cache-Control', 'public, s-maxage=1, stale-while-revalidate=59')
     
     return response
   } catch (error) {

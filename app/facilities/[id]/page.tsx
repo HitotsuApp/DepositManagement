@@ -46,14 +46,47 @@ export default function FacilityDetailPage() {
 
   useEffect(() => {
     fetchFacilityData()
+    // URLパラメータのタイムスタンプを削除（クリーンなURLを保つ）
+    const currentUrl = new URL(window.location.href)
+    if (currentUrl.searchParams.has('_t')) {
+      currentUrl.searchParams.delete('_t')
+      window.history.replaceState({}, '', currentUrl.toString())
+    }
   }, [facilityId, year, month, selectedUnitId])
 
-  const fetchFacilityData = async () => {
+  // ページがフォーカスされた時（戻るボタンで戻ってきた時など）に最新データを取得
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // ページが表示された時にキャッシュを無効化して再取得
+        fetchFacilityData(true)
+      }
+    }
+
+    const handleFocus = () => {
+      // ウィンドウがフォーカスされた時にキャッシュを無効化して再取得
+      fetchFacilityData(true)
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [facilityId, year, month, selectedUnitId])
+
+  const fetchFacilityData = async (skipCache = false) => {
     setIsLoading(true)
     try {
       const unitParam = selectedUnitId ? `&unitId=${selectedUnitId}` : ''
+      // キャッシュを無効化するオプション
+      const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
+      
       const response = await fetch(
-        `/api/facilities/${facilityId}?year=${year}&month=${month}${unitParam}`
+        `/api/facilities/${facilityId}?year=${year}&month=${month}${unitParam}`,
+        fetchOptions
       )
       if (!response.ok) {
         throw new Error('Failed to fetch facility data')

@@ -11,6 +11,7 @@ import Modal from '@/components/Modal'
 import Toast from '@/components/Toast'
 import { useFacility } from '@/contexts/FacilityContext'
 import { isValidDate } from '@/lib/validation'
+import { invalidateTransactionCache } from '@/lib/cache'
 
 interface Transaction {
   id: number
@@ -287,6 +288,12 @@ export default function ResidentDetailPage() {
         // データを再取得（キャッシュを無効化して最新データを取得）
         await fetchResidentData(true)
         
+        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
+        await invalidateTransactionCache(residentFacilityId || undefined, residentId, year, month)
+        
+        // Next.jsのサーバーコンポーネントのキャッシュも無効化
+        router.refresh()
+        
         setToast({
           message: `${transactionTypeLabel}を登録しました`,
           type: 'success',
@@ -345,6 +352,12 @@ export default function ResidentDetailPage() {
       if (response.ok) {
         // データを再取得（キャッシュを無効化して最新データを取得）
         await fetchResidentData(true)
+        
+        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
+        await invalidateTransactionCache(residentFacilityId || undefined, residentId, year, month)
+        
+        // Next.jsのサーバーコンポーネントのキャッシュも無効化
+        router.refresh()
         
         setToast({
           message: '取引を訂正としてマークしました',

@@ -2,10 +2,11 @@
 
 import { Suspense } from "react";
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import MainLayout from '@/components/MainLayout'
 import Modal from '@/components/Modal'
 import { useFacility } from '@/contexts/FacilityContext'
+import { invalidateMasterCache } from '@/lib/cache'
 
 interface Facility {
   id: number
@@ -48,6 +49,7 @@ interface Resident {
 // 1. ロジック本体（ここで hooks を使う）
 function MasterContent() {
   const searchParams = useSearchParams();
+  const router = useRouter()
   const { selectedFacilityId } = useFacility()
   
   // すべてのuseStateを条件分岐の前に配置
@@ -243,6 +245,13 @@ function MasterContent() {
         alert('施設を追加しました')
       }
       setShowFacilityModal(false)
+      
+      // マスタデータのキャッシュを無効化
+      await invalidateMasterCache(editingFacility?.id || undefined)
+      
+      // Next.jsのサーバーコンポーネントのキャッシュも無効化
+      router.refresh()
+      
       fetchFacilities()
     } catch (error: any) {
       console.error('Failed to save facility:', error)
@@ -264,6 +273,12 @@ function MasterContent() {
       }
       const updatedFacilities = await res.json()
       setFacilities(updatedFacilities)
+      
+      // マスタデータのキャッシュを無効化
+      await invalidateMasterCache(facilityId)
+      
+      // Next.jsのサーバーコンポーネントのキャッシュも無効化
+      router.refresh()
     } catch (error: any) {
       console.error('Failed to reorder facility:', error)
       alert(error.message || '順序変更に失敗しました')
@@ -324,6 +339,13 @@ function MasterContent() {
         alert('ユニットを追加しました')
       }
       setShowUnitModal(false)
+      
+      // マスタデータのキャッシュを無効化
+      await invalidateMasterCache(unitForm.facilityId)
+      
+      // Next.jsのサーバーコンポーネントのキャッシュも無効化
+      router.refresh()
+      
       fetchUnits()
     } catch (error: any) {
       console.error('Failed to save unit:', error)
@@ -410,6 +432,13 @@ function MasterContent() {
         alert('利用者を追加しました')
       }
       setShowResidentModal(false)
+      
+      // マスタデータのキャッシュを無効化
+      await invalidateMasterCache(residentForm.facilityId)
+      
+      // Next.jsのサーバーコンポーネントのキャッシュも無効化
+      router.refresh()
+      
       fetchResidents()
     } catch (error: any) {
       console.error('Failed to save resident:', error)
@@ -439,6 +468,14 @@ function MasterContent() {
       }
       alert('利用者を終了しました')
       setShowResidentEndConfirm(null)
+      
+      // マスタデータのキャッシュを無効化
+      const endedResident = residents.find(r => r.id === residentId)
+      await invalidateMasterCache(endedResident?.facilityId)
+      
+      // Next.jsのサーバーコンポーネントのキャッシュも無効化
+      router.refresh()
+      
       fetchResidents()
     } catch (error: any) {
       console.error('Failed to end resident:', error)

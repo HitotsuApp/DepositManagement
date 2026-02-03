@@ -47,13 +47,40 @@ export default function DashboardPage() {
     }
   }, [year, month, isChecking, hasCompletedSelection, selectedFacilityId])
 
-  const fetchDashboardData = async () => {
+  // ページがフォーカスされた時（戻るボタンで戻ってきた時など）に最新データを取得
+  useEffect(() => {
+    if (!isChecking && hasCompletedSelection) {
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          // ページが表示された時にキャッシュを無効化して再取得
+          fetchDashboardData(true)
+        }
+      }
+
+      const handleFocus = () => {
+        // ウィンドウがフォーカスされた時にキャッシュを無効化して再取得
+        fetchDashboardData(true)
+      }
+
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+      window.addEventListener('focus', handleFocus)
+
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
+        window.removeEventListener('focus', handleFocus)
+      }
+    }
+  }, [isChecking, hasCompletedSelection, year, month, selectedFacilityId])
+
+  const fetchDashboardData = async (skipCache = false) => {
     try {
       // 選択された施設IDがある場合はフィルタリング
       const url = selectedFacilityId
         ? `/api/dashboard?year=${year}&month=${month}&facilityId=${selectedFacilityId}`
         : `/api/dashboard?year=${year}&month=${month}`
-      const response = await fetch(url)
+      // キャッシュを無効化するオプション
+      const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
+      const response = await fetch(url, fetchOptions)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }

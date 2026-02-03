@@ -9,6 +9,7 @@ import Modal from '@/components/Modal'
 import Toast from '@/components/Toast'
 import { useFacility } from '@/contexts/FacilityContext'
 import { isValidDate } from '@/lib/validation'
+import { invalidateTransactionCache } from '@/lib/cache'
 
 interface Transaction {
   id: number
@@ -302,6 +303,12 @@ export default function BulkInputPage() {
         // データを再取得（キャッシュを無効化して最新データを取得）
         await fetchBulkData(true)
         
+        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
+        await invalidateTransactionCache(facilityId, undefined, year, month)
+        
+        // Next.jsのサーバーコンポーネントのキャッシュも無効化
+        router.refresh()
+        
         setToast({
           message: `${transactionTypeLabel}を登録しました`,
           type: 'success',
@@ -361,6 +368,12 @@ export default function BulkInputPage() {
         // データを再取得（キャッシュを無効化して最新データを取得）
         await fetchBulkData(true)
         
+        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
+        await invalidateTransactionCache(facilityId, undefined, year, month)
+        
+        // Next.jsのサーバーコンポーネントのキャッシュも無効化
+        router.refresh()
+        
         setToast({
           message: '取引を訂正としてマークしました',
           type: 'success',
@@ -391,7 +404,11 @@ export default function BulkInputPage() {
       <div>
         <div className="flex items-center gap-4 mb-6">
           <button
-            onClick={() => router.push(`/facilities/${facilityId}?year=${year}&month=${month}`)}
+            onClick={() => {
+              // キャッシュを無効化するためにタイムスタンプを追加
+              const timestamp = Date.now()
+              router.push(`/facilities/${facilityId}?year=${year}&month=${month}&_t=${timestamp}`)
+            }}
             className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
             title="施設詳細に戻る"
           >
