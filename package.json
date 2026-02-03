@@ -13,8 +13,8 @@
     "db:reset": "bash scripts/clear-db.sh && npm run db:push"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.9.4",
-    "@prisma/adapter-neon": "^5.19.1",
+    "@neondatabase/serverless": "^0.9.5",
+    "@prisma/adapter-neon": "^5.22.0",
     "@prisma/client": "^5.7.1",
     "@react-pdf/font": "^4.0.4",
     "@react-pdf/renderer": "^4.3.2",
