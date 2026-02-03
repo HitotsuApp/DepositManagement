@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isValidDate, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'

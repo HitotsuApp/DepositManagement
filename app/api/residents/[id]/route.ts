@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { calculateBalance, filterTransactionsByMonth, calculateBalanceUpToMonth } from '@/lib/balance'
