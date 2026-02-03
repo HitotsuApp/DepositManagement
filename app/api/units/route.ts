@@ -5,24 +5,38 @@ import { getPrisma } from '@/lib/prisma'
 import { validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(request: Request) {
+  console.time('prisma-init')
   const prisma = getPrisma()
+  console.timeEnd('prisma-init')
+
   try {
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
     const facilityIdParam = searchParams.get('facilityId')
     const facilityId = facilityIdParam ? Number(facilityIdParam) : null
 
+    console.time('main-query')
+    // 必要なフィールドのみをselectで取得
     const units = await prisma.unit.findMany({
       where: {
         ...(includeInactive ? {} : { isActive: true }),
         ...(facilityId ? { facilityId } : {}),
       },
-      include: {
-        facility: true,
+      select: {
+        id: true,
+        name: true,
+        facilityId: true,
       },
       orderBy: { name: 'asc' },
     })
-    return NextResponse.json(units)
+    console.timeEnd('main-query')
+
+    const response = NextResponse.json(units)
+    
+    // SWRキャッシュ設定
+    response.headers.set('Cache-Control', 'public, s-maxage=2, stale-while-revalidate=30')
+    
+    return response
   } catch (error) {
     console.error('Failed to fetch units:', error)
     return NextResponse.json({ error: 'Failed to fetch units' }, { status: 500 })
