@@ -285,11 +285,12 @@ export default function ResidentDetailPage() {
           reason: '',
         })
         
+        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
+        // データ再取得の前にキャッシュを無効化することで、確実に最新データを取得
+        await invalidateTransactionCache(residentFacilityId || undefined, residentId, year, month)
+        
         // データを再取得（キャッシュを無効化して最新データを取得）
         await fetchResidentData(true)
-        
-        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
-        await invalidateTransactionCache(residentFacilityId || undefined, residentId, year, month)
         
         // Next.jsのサーバーコンポーネントのキャッシュも無効化
         router.refresh()
@@ -350,11 +351,12 @@ export default function ResidentDetailPage() {
       const data = await response.json()
 
       if (response.ok) {
+        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
+        // データ再取得の前にキャッシュを無効化することで、確実に最新データを取得
+        await invalidateTransactionCache(residentFacilityId || undefined, residentId, year, month)
+        
         // データを再取得（キャッシュを無効化して最新データを取得）
         await fetchResidentData(true)
-        
-        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
-        await invalidateTransactionCache(residentFacilityId || undefined, residentId, year, month)
         
         // Next.jsのサーバーコンポーネントのキャッシュも無効化
         router.refresh()

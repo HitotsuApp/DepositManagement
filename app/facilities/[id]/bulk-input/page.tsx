@@ -300,11 +300,12 @@ export default function BulkInputPage() {
           reason: '',
         })
         
+        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
+        // データ再取得の前にキャッシュを無効化することで、確実に最新データを取得
+        await invalidateTransactionCache(facilityId, undefined, year, month)
+        
         // データを再取得（キャッシュを無効化して最新データを取得）
         await fetchBulkData(true)
-        
-        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
-        await invalidateTransactionCache(facilityId, undefined, year, month)
         
         // Next.jsのサーバーコンポーネントのキャッシュも無効化
         router.refresh()
@@ -365,11 +366,12 @@ export default function BulkInputPage() {
       const data = await response.json()
 
       if (response.ok) {
+        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
+        // データ再取得の前にキャッシュを無効化することで、確実に最新データを取得
+        await invalidateTransactionCache(facilityId, undefined, year, month)
+        
         // データを再取得（キャッシュを無効化して最新データを取得）
         await fetchBulkData(true)
-        
-        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
-        await invalidateTransactionCache(facilityId, undefined, year, month)
         
         // Next.jsのサーバーコンポーネントのキャッシュも無効化
         router.refresh()
