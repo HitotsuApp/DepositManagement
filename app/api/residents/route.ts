@@ -25,7 +25,17 @@ export async function GET(request: Request) {
       select: {
         id: true,
         name: true,
+        facilityId: true,
         unitId: true,
+        isActive: true,
+        startDate: true,
+        endDate: true,
+        facility: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         unit: {
           select: {
             id: true,

@@ -26,6 +26,13 @@ export async function GET(request: Request) {
         id: true,
         name: true,
         facilityId: true,
+        isActive: true,
+        facility: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
       orderBy: { name: 'asc' },
     })
