@@ -33,8 +33,8 @@ export async function GET(request: Request) {
 
     const response = NextResponse.json(units)
     
-    // SWRキャッシュ設定
-    response.headers.set('Cache-Control', 'public, s-maxage=2, stale-while-revalidate=30')
+    // キャッシュヘッダーの追加
+    response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=55')
     
     return response
   } catch (error) {

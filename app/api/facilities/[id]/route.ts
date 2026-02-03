@@ -2,8 +2,8 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
-import { calculateBalanceUpToMonth, TransactionForBalance } from '@/lib/balance'
 import { validateId, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
+import { Prisma } from '@prisma/client'
 
 export async function GET(
   request: Request,
@@ -71,38 +71,70 @@ export async function GET(
         return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
       }
 
-      // ユニット別合計（全ての利用者を使用して計算）
-      const unitSummaries = facility.units.map(unit => {
-        const unitResidents = facility.residents.filter(r => r.unitId === unit.id)
-        const totalAmount = unitResidents.reduce((sum, resident) => {
-          return sum + calculateBalanceUpToMonth(resident.transactions as TransactionForBalance[], Number(year), Number(month))
-        }, 0)
-        return {
-          id: unit.id,
-          name: unit.name,
-          totalAmount,
+      // ユニット別・利用者別・施設別の残高をDB側で一括集計（パフォーマンス最適化）
+      const targetDate = new Date(Number(year), Number(month), 0, 23, 59, 59, 999)
+      interface BalanceRow {
+        unitId: number | null
+        residentId: number
+        balance: number | string
+      }
+
+      const balancesRaw = await prisma.$queryRaw<BalanceRow[]>`
+        SELECT 
+          r."unitId",
+          r.id as "residentId",
+          COALESCE(SUM(
+            CASE 
+              WHEN t."transactionType" IN ('in', 'past_correct_in') THEN t.amount
+              WHEN t."transactionType" IN ('out', 'past_correct_out') THEN -t.amount
+              ELSE 0
+            END
+          ), 0) as balance
+        FROM "Resident" r
+        LEFT JOIN "Transaction" t ON t."residentId" = r.id
+        WHERE r."facilityId" = ${facilityId}
+          AND r."isActive" = true
+          AND r."endDate" IS NULL
+          AND (t."transactionDate" IS NULL OR t."transactionDate" <= ${targetDate})
+          AND (t."transactionType" IS NULL OR t."transactionType" NOT IN ('correct_in', 'correct_out'))
+        GROUP BY r."unitId", r.id
+      `
+
+      // ユニット別合計と利用者別残高を計算
+      const unitBalancesMap = new Map<number, number>()
+      const residentBalancesMap = new Map<number, number>()
+      let facilityTotal = 0
+
+      balancesRaw.forEach(row => {
+        const balance = Number(row.balance)
+        facilityTotal += balance
+        residentBalancesMap.set(row.residentId, balance)
+        if (row.unitId) {
+          unitBalancesMap.set(row.unitId, (unitBalancesMap.get(row.unitId) || 0) + balance)
         }
       })
+
+      // ユニット別合計
+      const unitSummaries = facility.units.map(unit => ({
+        id: unit.id,
+        name: unit.name,
+        totalAmount: unitBalancesMap.get(unit.id) || 0,
+      }))
 
       // 表示用の利用者リスト（unitIdが指定されている場合は絞り込み）
       const displayResidents = unitId 
         ? facility.residents.filter(r => r.unitId === Number(unitId))
         : facility.residents
 
-      // 利用者別残高（表示用の利用者リストから計算）
-      const residentSummaries = displayResidents.map(resident => {
-        const balance = calculateBalanceUpToMonth(resident.transactions as TransactionForBalance[], Number(year), Number(month))
-        return {
-          id: resident.id,
-          name: resident.name,
-          balance,
-        }
-      })
+      // 利用者別残高（DB側で集計した結果を使用）
+      const residentSummaries = displayResidents.map(resident => ({
+        id: resident.id,
+        name: resident.name,
+        balance: residentBalancesMap.get(resident.id) || 0,
+      }))
 
-      // 施設合計（常に全利用者の合計を表示）
-      const totalAmount = facility.residents.reduce((sum, resident) => {
-        return sum + calculateBalanceUpToMonth(resident.transactions as TransactionForBalance[], Number(year), Number(month))
-      }, 0)
+      // 施設合計（DB側で集計した結果を使用）
+      const totalAmount = facilityTotal
 
       const response = NextResponse.json({
         facilityName: facility.name,
@@ -126,7 +158,12 @@ export async function GET(
       return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
     }
 
-    return NextResponse.json(facility)
+    const response = NextResponse.json(facility)
+    
+    // キャッシュヘッダーの追加
+    response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=55')
+    
+    return response
   } catch (error) {
     console.error('Failed to fetch facility:', error)
     return NextResponse.json({ error: 'Failed to fetch facility' }, { status: 500 })

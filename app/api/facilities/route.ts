@@ -19,7 +19,13 @@ export async function GET(request: Request) {
       },
       orderBy: { sortOrder: 'asc' },
     })
-    return NextResponse.json(facilities)
+    
+    const response = NextResponse.json(facilities)
+    
+    // キャッシュヘッダーの追加
+    response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=55')
+    
+    return response
   } catch (error) {
     console.error('Failed to fetch facilities:', error)
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch facilities'

@@ -6,7 +6,6 @@ import { renderToBuffer } from "@react-pdf/renderer"
 import React from "react"
 import { CashVerificationPdfRenderer } from "@/pdf/renderer/CashVerificationPdfRenderer"
 import { getPrisma } from "@/lib/prisma"
-import { calculateBalanceUpToMonth } from "@/lib/balance"
 
 export async function GET(request: Request) {
   const prisma = getPrisma()
@@ -39,35 +38,31 @@ export async function GET(request: Request) {
       )
     }
 
-    // 施設の預り金合計を取得
-    const facilityDetail = await prisma.facility.findUnique({
-      where: { id: Number(facilityId) },
-      include: {
-        residents: {
-          where: {
-            isActive: true,
-            endDate: null,
-          },
-          include: {
-            transactions: {
-              orderBy: { transactionDate: "asc" },
-            },
-          },
-        },
-      },
-    })
-
-    if (!facilityDetail) {
-      return NextResponse.json(
-        { error: "Facility detail not found" },
-        { status: 404 }
-      )
+    // 施設の預り金合計をDB側で集計（パフォーマンス最適化）
+    const targetDate = new Date(Number(year), Number(month), 0, 23, 59, 59, 999)
+    interface FacilityBalanceRow {
+      balance: number | string
     }
 
-    // 預り金合計を計算（指定年月までの累計）
-    const facilityBalance = facilityDetail.residents.reduce((sum, resident) => {
-      return sum + calculateBalanceUpToMonth(resident.transactions, Number(year), Number(month))
-    }, 0)
+    const facilityBalanceRaw = await prisma.$queryRaw<FacilityBalanceRow[]>`
+      SELECT 
+        COALESCE(SUM(
+          CASE 
+            WHEN t."transactionType" IN ('in', 'past_correct_in') THEN t.amount
+            WHEN t."transactionType" IN ('out', 'past_correct_out') THEN -t.amount
+            ELSE 0
+          END
+        ), 0) as balance
+      FROM "Resident" r
+      LEFT JOIN "Transaction" t ON t."residentId" = r.id
+      WHERE r."facilityId" = ${Number(facilityId)}
+        AND r."isActive" = true
+        AND r."endDate" IS NULL
+        AND (t."transactionDate" IS NULL OR t."transactionDate" <= ${targetDate})
+        AND (t."transactionType" IS NULL OR t."transactionType" NOT IN ('correct_in', 'correct_out'))
+    `
+
+    const facilityBalance = Number(facilityBalanceRaw[0]?.balance || 0)
 
     // 紙幣・硬貨のデータをパース
     const bills = billsParam ? JSON.parse(decodeURIComponent(billsParam)) : []

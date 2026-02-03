@@ -28,7 +28,12 @@ export async function GET(
       return NextResponse.json({ error: 'Unit not found' }, { status: 404 })
     }
 
-    return NextResponse.json(unit)
+    const response = NextResponse.json(unit)
+    
+    // キャッシュヘッダーの追加
+    response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=55')
+    
+    return response
   } catch (error) {
     console.error('Failed to fetch unit:', error)
     return NextResponse.json({ error: 'Failed to fetch unit' }, { status: 500 })
