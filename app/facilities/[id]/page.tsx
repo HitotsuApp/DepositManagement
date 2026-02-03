@@ -45,13 +45,19 @@ export default function FacilityDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    fetchFacilityData()
     // URLパラメータのタイムスタンプを削除（クリーンなURLを保つ）
     const currentUrl = new URL(window.location.href)
-    if (currentUrl.searchParams.has('_t')) {
+    const hasTimestamp = currentUrl.searchParams.has('_t')
+    if (hasTimestamp) {
       currentUrl.searchParams.delete('_t')
       window.history.replaceState({}, '', currentUrl.toString())
     }
+    
+    // タイムスタンプパラメータがある場合（戻るボタンから遷移）または
+    // year/monthパラメータがない場合（Sidebarの「施設TOP」から遷移）は
+    // キャッシュを無効化して最新データを取得
+    const shouldSkipCache = hasTimestamp || !searchParams.get('year') || !searchParams.get('month')
+    fetchFacilityData(shouldSkipCache)
   }, [facilityId, year, month, selectedUnitId])
 
   // ページがフォーカスされた時（戻るボタンで戻ってきた時など）に最新データを取得

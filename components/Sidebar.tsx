@@ -15,6 +15,19 @@ export default function Sidebar() {
   const pathname = usePathname()
   const { selectedFacilityId } = useFacility()
   const [facilities, setFacilities] = useState<Facility[]>([])
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1)
+  
+  // 現在のURLパラメータからyear, monthを取得（クライアントサイドのみ）
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const year = params.get('year')
+      const month = params.get('month')
+      if (year) setCurrentYear(Number(year))
+      if (month) setCurrentMonth(Number(month))
+    }
+  }, [pathname])
 
   useEffect(() => {
     fetch('/api/facilities')
@@ -102,7 +115,7 @@ export default function Sidebar() {
           {/* 施設TOP: 施設選択時のみ表示 */}
           {selectedFacilityId !== null && (
             <Link
-              href={`/facilities/${selectedFacilityId}`}
+              href={`/facilities/${selectedFacilityId}?year=${currentYear}&month=${currentMonth}&_t=${Date.now()}`}
               className={`block px-4 py-2 rounded hover:bg-gray-700 ${
                 isActive(`/facilities/${selectedFacilityId}`) ? 'bg-gray-700' : ''
               }`}
