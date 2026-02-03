@@ -1,10 +1,11 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import { validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(request: Request) {
+  const prisma = getPrisma()
   try {
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
@@ -23,10 +24,13 @@ export async function GET(request: Request) {
     console.error('Failed to fetch facilities:', error)
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch facilities'
     return NextResponse.json({ error: errorMessage }, { status: 500 })
+  } finally {
+    await prisma.$disconnect()
   }
 }
 
 export async function POST(request: Request) {
+  const prisma = getPrisma()
   try {
     const body = await request.json()
     
@@ -83,6 +87,8 @@ export async function POST(request: Request) {
       { error: errorMessage },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect()
   }
 }
 

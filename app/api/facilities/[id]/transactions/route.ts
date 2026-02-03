@@ -1,7 +1,7 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import { calculateBalance, filterTransactionsByMonth } from '@/lib/balance'
 import { validateId } from '@/lib/validation'
 
@@ -9,6 +9,7 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const prisma = getPrisma()
   try {
     const facilityId = validateId(params.id)
     if (!facilityId) {
@@ -90,5 +91,7 @@ export async function GET(
   } catch (error) {
     console.error('Failed to fetch facility transactions:', error)
     return NextResponse.json({ error: 'Failed to fetch facility transactions' }, { status: 500 })
+  } finally {
+    await prisma.$disconnect()
   }
 }

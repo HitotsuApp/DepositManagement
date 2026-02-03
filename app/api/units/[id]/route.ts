@@ -1,13 +1,14 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import { validateId, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const prisma = getPrisma()
   try {
     const unitId = validateId(params.id)
     if (!unitId) {
@@ -31,6 +32,8 @@ export async function GET(
   } catch (error) {
     console.error('Failed to fetch unit:', error)
     return NextResponse.json({ error: 'Failed to fetch unit' }, { status: 500 })
+  } finally {
+    await prisma.$disconnect()
   }
 }
 
@@ -38,6 +41,7 @@ export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const prisma = getPrisma()
   try {
     const unitId = validateId(params.id)
     if (!unitId) {
@@ -97,6 +101,8 @@ export async function PUT(
   } catch (error) {
     console.error('Failed to update unit:', error)
     return NextResponse.json({ error: 'Failed to update unit' }, { status: 500 })
+  } finally {
+    await prisma.$disconnect()
   }
 }
 
@@ -104,6 +110,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const prisma = getPrisma()
   try {
     const unitId = validateId(params.id)
     if (!unitId) {
@@ -125,6 +132,8 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update unit status:', error)
     return NextResponse.json({ error: 'Failed to update unit status' }, { status: 500 })
+  } finally {
+    await prisma.$disconnect()
   }
 }
 

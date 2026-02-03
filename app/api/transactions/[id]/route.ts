@@ -1,13 +1,14 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import { validateId } from '@/lib/validation'
 
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const prisma = getPrisma()
   try {
     const transactionId = validateId(params.id)
     if (!transactionId) {
@@ -68,5 +69,7 @@ export async function PATCH(
       { error: '取引の更新に失敗しました' },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect()
   }
 }

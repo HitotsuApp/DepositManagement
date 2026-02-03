@@ -1,9 +1,10 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function POST(request: Request) {
+  const prisma = getPrisma()
   try {
     const body = await request.json()
     const { facilityId, direction } = body // direction: 'up' | 'down'
@@ -68,6 +69,8 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Failed to reorder facilities:', error)
     return NextResponse.json({ error: 'Failed to reorder facilities' }, { status: 500 })
+  } finally {
+    await prisma.$disconnect()
   }
 }
 

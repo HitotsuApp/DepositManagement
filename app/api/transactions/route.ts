@@ -1,10 +1,11 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import { isValidDate, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 export async function POST(request: Request) {
+  const prisma = getPrisma()
   try {
     const body = await request.json()
     
@@ -119,6 +120,8 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Failed to create transaction:', error)
     return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 })
+  } finally {
+    await prisma.$disconnect()
   }
 }
 

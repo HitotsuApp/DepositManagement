@@ -2,10 +2,11 @@ export const runtime = 'edge';
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { getPrisma } from "@/lib/prisma"
 import { transformToResidentPrintData } from "@/pdf/utils/transform"
 
 export async function GET(request: Request) {
+  const prisma = getPrisma()
   try {
     const { searchParams } = new URL(request.url)
     const residentId = searchParams.get("residentId")
@@ -50,5 +51,7 @@ export async function GET(request: Request) {
       { error: "Failed to generate print data" },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect()
   }
 }

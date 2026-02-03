@@ -1,7 +1,7 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 interface ImportRow {
   facilityName: string
@@ -16,6 +16,7 @@ interface ImportRow {
 }
 
 export async function POST(request: Request) {
+  const prisma = getPrisma()
   try {
     const body = await request.json()
     const rows: ImportRow[] = body.rows || []
@@ -273,6 +274,8 @@ export async function POST(request: Request) {
       { error: 'Failed to import data', details: error.message },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect()
   }
 }
 

@@ -2,10 +2,11 @@ export const runtime = 'edge';
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import { calculateBalanceUpToMonth } from '@/lib/balance'
 
 export async function GET(request: Request) {
+  const prisma = getPrisma()
   try {
     const { searchParams } = new URL(request.url)
     const year = Number(searchParams.get('year')) || new Date().getFullYear()
@@ -55,6 +56,8 @@ export async function GET(request: Request) {
     console.error('Failed to fetch dashboard:', error)
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch dashboard'
     return NextResponse.json({ error: errorMessage }, { status: 500 })
+  } finally {
+    await prisma.$disconnect()
   }
 }
 

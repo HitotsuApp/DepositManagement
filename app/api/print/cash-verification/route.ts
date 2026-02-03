@@ -5,10 +5,11 @@ import { NextResponse } from "next/server"
 import { renderToBuffer } from "@react-pdf/renderer"
 import React from "react"
 import { CashVerificationPdfRenderer } from "@/pdf/renderer/CashVerificationPdfRenderer"
-import { prisma } from "@/lib/prisma"
+import { getPrisma } from "@/lib/prisma"
 import { calculateBalanceUpToMonth } from "@/lib/balance"
 
 export async function GET(request: Request) {
+  const prisma = getPrisma()
   try {
     const { searchParams } = new URL(request.url)
     const facilityId = searchParams.get("facilityId")
@@ -116,5 +117,7 @@ export async function GET(request: Request) {
       { error: "Failed to generate PDF" },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect()
   }
 }
