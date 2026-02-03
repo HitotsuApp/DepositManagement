@@ -110,17 +110,28 @@ export default function BulkInputPage() {
     fetchBulkData()
   }, [facilityId, year, month])
 
-  const fetchBulkData = async () => {
+  const fetchBulkData = async (skipCache = false) => {
     setIsLoading(true)
+    console.log('🚀 [パフォーマンス計測] まとめて入力画面のデータ取得を開始')
+    console.time('📊 まとめて入力画面 - データ取得全体')
     try {
+      // キャッシュを無効化するオプション
+      const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
+
       // 施設情報を取得
-      const facilityResponse = await fetch(`/api/facilities/${facilityId}`)
+      console.log('🏢 [パフォーマンス計測] 施設情報取得を開始')
+      console.time('🏢 施設情報取得')
+      const facilityResponse = await fetch(`/api/facilities/${facilityId}`, fetchOptions)
       const facilityData = await facilityResponse.json()
+      console.timeEnd('🏢 施設情報取得')
       setFacilityName(facilityData.name || '')
 
       // 施設内の全利用者を取得
-      const residentsResponse = await fetch(`/api/residents?facilityId=${facilityId}`)
+      console.log('👥 [パフォーマンス計測] 利用者一覧取得を開始')
+      console.time('👥 利用者一覧取得')
+      const residentsResponse = await fetch(`/api/residents?facilityId=${facilityId}`, fetchOptions)
       const residentsData = await residentsResponse.json()
+      console.timeEnd('👥 利用者一覧取得')
       setResidents(residentsData.map((r: { id: number; name: string; unitId: number | null; unit: { id: number; name: string } | null }) => ({
         id: r.id,
         name: r.name,
@@ -129,27 +140,37 @@ export default function BulkInputPage() {
       })).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)))
 
       // 施設内の全ユニットを取得
-      const unitsResponse = await fetch(`/api/units?facilityId=${facilityId}`)
+      console.log('🏠 [パフォーマンス計測] ユニット一覧取得を開始')
+      console.time('🏠 ユニット一覧取得')
+      const unitsResponse = await fetch(`/api/units?facilityId=${facilityId}`, fetchOptions)
       const unitsData = await unitsResponse.json()
+      console.timeEnd('🏠 ユニット一覧取得')
       setUnits(unitsData.map((u: { id: number; name: string }) => ({
         id: u.id,
         name: u.name,
       })).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)))
 
-      // 施設内の全利用者の取引を取得
+      // 施設内の全利用者の取引を取得（最も重い処理）
+      console.log('💰 [パフォーマンス計測] 取引一覧取得を開始（最重要）')
+      console.time('💰 取引一覧取得（最重要）')
       const transactionsResponse = await fetch(
-        `/api/facilities/${facilityId}/transactions?year=${year}&month=${month}`
+        `/api/facilities/${facilityId}/transactions?year=${year}&month=${month}`,
+        fetchOptions
       )
       const transactionsData = await transactionsResponse.json()
+      console.timeEnd('💰 取引一覧取得（最重要）')
       setTransactions(transactionsData.transactions || [])
+      
+      console.log('✅ [パフォーマンス計測] すべてのデータ取得が完了')
     } catch (error) {
-      console.error('Failed to fetch bulk data:', error)
+      console.error('❌ [パフォーマンス計測] データ取得エラー:', error)
       setToast({
         message: 'データの取得に失敗しました',
         type: 'error',
         isVisible: true,
       })
     } finally {
+      console.timeEnd('📊 まとめて入力画面 - データ取得全体')
       setIsLoading(false)
     }
   }
@@ -265,12 +286,9 @@ export default function BulkInputPage() {
           ? (formData.transactionType === 'past_correct_in' ? '過去訂正入金' : '過去訂正出金')
           : (formData.transactionType === 'in' ? '入金' : '出金')
         
-        setToast({
-          message: `${transactionTypeLabel}を登録しました`,
-          type: 'success',
-          isVisible: true,
-        })
-        
+        // モーダルを先に閉じる
+        setShowInOutForm(false)
+        setShowCorrectForm(false)
         setFormData({
           residentId: '',
           transactionDate: '',
@@ -280,9 +298,15 @@ export default function BulkInputPage() {
           payee: '',
           reason: '',
         })
-        setShowInOutForm(false)
-        setShowCorrectForm(false)
-        fetchBulkData()
+        
+        // データを再取得（キャッシュを無効化して最新データを取得）
+        await fetchBulkData(true)
+        
+        setToast({
+          message: `${transactionTypeLabel}を登録しました`,
+          type: 'success',
+          isVisible: true,
+        })
       } else {
         setToast({
           message: data.error || '登録に失敗しました',
@@ -334,12 +358,14 @@ export default function BulkInputPage() {
       const data = await response.json()
 
       if (response.ok) {
+        // データを再取得（キャッシュを無効化して最新データを取得）
+        await fetchBulkData(true)
+        
         setToast({
           message: '取引を訂正としてマークしました',
           type: 'success',
           isVisible: true,
         })
-        fetchBulkData()
       } else {
         setToast({
           message: data.error || '訂正の処理に失敗しました',
