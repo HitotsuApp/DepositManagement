@@ -54,6 +54,7 @@ function MasterContent() {
   
   // すべてのuseStateを条件分岐の前に配置
   const [isMounted, setIsMounted] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [residents, setResidents] = useState<Resident[]>([])
@@ -101,6 +102,7 @@ function MasterContent() {
 
   // fetch関数をuseCallbackでメモ化して無限ループを防ぐ
   const fetchFacilities = useCallback(async () => {
+    setIsLoading(true)
     try {
       // 施設マスタタブでは全施設を表示（選択された施設はハイライト）
       // 他のタブでは選択された施設のみを取得（ドロップダウン用）
@@ -128,10 +130,13 @@ function MasterContent() {
       console.error('Failed to fetch facilities:', error)
       setFacilities([])
       alert('施設データの取得に失敗しました')
+    } finally {
+      setIsLoading(false)
     }
   }, [activeTab, selectedFacilityId])
 
   const fetchUnits = useCallback(async () => {
+    setIsLoading(true)
     try {
       // 選択された施設がある場合、その施設のユニットのみを取得
       const url = selectedFacilityId
@@ -153,10 +158,13 @@ function MasterContent() {
       console.error('Failed to fetch units:', error)
       setUnits([])
       alert('ユニットデータの取得に失敗しました')
+    } finally {
+      setIsLoading(false)
     }
   }, [selectedFacilityId])
 
   const fetchResidents = useCallback(async () => {
+    setIsLoading(true)
     try {
       // 選択された施設がある場合、その施設の利用者のみを取得
       // includeInactive=trueで全利用者を取得し、endDateでフィルタリング
@@ -179,6 +187,8 @@ function MasterContent() {
       console.error('Failed to fetch residents:', error)
       setResidents([])
       alert('利用者データの取得に失敗しました')
+    } finally {
+      setIsLoading(false)
     }
   }, [selectedFacilityId])
 
@@ -556,7 +566,24 @@ function MasterContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {facilities.length === 0 ? (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8">
+                        <div className="animate-pulse space-y-2">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className="flex gap-4">
+                              <div className="h-4 bg-gray-200 rounded w-32"></div>
+                              <div className="h-4 bg-gray-200 rounded w-24"></div>
+                              <div className="h-4 bg-gray-200 rounded w-32"></div>
+                              <div className="h-4 bg-gray-200 rounded w-16"></div>
+                              <div className="h-4 bg-gray-200 rounded w-16"></div>
+                              <div className="h-4 bg-gray-200 rounded w-24"></div>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : facilities.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                         施設が登録されていません
@@ -714,7 +741,22 @@ function MasterContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {units.length === 0 ? (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8">
+                        <div className="animate-pulse space-y-2">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className="flex gap-4">
+                              <div className="h-4 bg-gray-200 rounded w-32"></div>
+                              <div className="h-4 bg-gray-200 rounded w-32"></div>
+                              <div className="h-4 bg-gray-200 rounded w-16"></div>
+                              <div className="h-4 bg-gray-200 rounded w-24"></div>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : units.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
                         ユニットが登録されていません
@@ -830,7 +872,23 @@ function MasterContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {residents.length === 0 ? (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8">
+                        <div className="animate-pulse space-y-2">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className="flex gap-4">
+                              <div className="h-4 bg-gray-200 rounded w-32"></div>
+                              <div className="h-4 bg-gray-200 rounded w-24"></div>
+                              <div className="h-4 bg-gray-200 rounded w-24"></div>
+                              <div className="h-4 bg-gray-200 rounded w-24"></div>
+                              <div className="h-4 bg-gray-200 rounded w-24"></div>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : residents.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                         利用者が登録されていません

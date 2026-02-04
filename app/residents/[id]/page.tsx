@@ -82,6 +82,7 @@ export default function ResidentDetailPage() {
     isVisible: false,
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [pendingTransactions, setPendingTransactions] = useState<PendingTransaction[]>([])
   const [editingPendingId, setEditingPendingId] = useState<string | null>(null)
 
@@ -126,6 +127,7 @@ export default function ResidentDetailPage() {
   }, [residentFacilityId, residentId])
 
   const fetchResidentData = async (skipCache = false) => {
+    setIsLoading(true)
     try {
       // キャッシュを無効化するオプション
       const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
@@ -141,6 +143,8 @@ export default function ResidentDetailPage() {
       setTransactions(data.transactions || [])
     } catch (error) {
       console.error('Failed to fetch resident data:', error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -1082,28 +1086,46 @@ export default function ResidentDetailPage() {
         />
 
         <h2 className="text-xl font-semibold mb-4">明細</h2>
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-semibold">日付</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold">区分</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold">摘要</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold">支払先</th>
-                  <th className="px-4 py-3 text-right text-sm font-semibold">金額</th>
-                  <th className="px-4 py-3 text-right text-sm font-semibold">残高</th>
-                  <th className="px-4 py-3 text-center text-sm font-semibold">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.length === 0 ? (
+        {isLoading ? (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="p-8">
+              <div className="animate-pulse space-y-4">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="flex gap-4">
+                    <div className="h-4 bg-gray-200 rounded w-24"></div>
+                    <div className="h-4 bg-gray-200 rounded w-20"></div>
+                    <div className="h-4 bg-gray-200 rounded flex-1"></div>
+                    <div className="h-4 bg-gray-200 rounded w-24"></div>
+                    <div className="h-4 bg-gray-200 rounded w-32"></div>
+                    <div className="h-4 bg-gray-200 rounded w-32"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-100">
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                      明細がありません
-                    </td>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">日付</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">区分</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">摘要</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">支払先</th>
+                    <th className="px-4 py-3 text-right text-sm font-semibold">金額</th>
+                    <th className="px-4 py-3 text-right text-sm font-semibold">残高</th>
+                    <th className="px-4 py-3 text-center text-sm font-semibold">操作</th>
                   </tr>
-                ) : (
+                </thead>
+                <tbody>
+                  {transactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                        明細がありません
+                      </td>
+                    </tr>
+                  ) : (
                   transactions.map((transaction) => {
                     const isIn = transaction.transactionType === 'in' || transaction.transactionType === 'correct_in' || transaction.transactionType === 'past_correct_in'
                     const isCorrect = transaction.transactionType === 'correct_in' || transaction.transactionType === 'correct_out'
@@ -1175,10 +1197,11 @@ export default function ResidentDetailPage() {
                     )
                   })
                 )}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </MainLayout>
   )

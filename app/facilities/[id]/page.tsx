@@ -58,7 +58,34 @@ export default function FacilityDetailPage() {
     // キャッシュを無効化して最新データを取得
     const shouldSkipCache = hasTimestamp || !searchParams.get('year') || !searchParams.get('month')
     fetchFacilityData(shouldSkipCache)
+    
+    // まとめて入力に必要なデータをプリフェッチ
+    prefetchBulkInputData()
   }, [facilityId, year, month, selectedUnitId])
+
+  // まとめて入力に必要なデータをプリフェッチ
+  const prefetchBulkInputData = async () => {
+    try {
+      const currentDate = new Date()
+      const currentYear = currentDate.getFullYear()
+      const currentMonth = currentDate.getMonth() + 1
+      
+      // 並列でデータをプリフェッチ（バックグラウンドで実行）
+      Promise.all([
+        // 施設情報
+        fetch(`/api/facilities/${facilityId}`).catch(() => null),
+        // 利用者一覧
+        fetch(`/api/residents?facilityId=${facilityId}`).catch(() => null),
+        // ユニット一覧
+        fetch(`/api/units?facilityId=${facilityId}`).catch(() => null),
+        // 取引データ（当月）
+        fetch(`/api/facilities/${facilityId}/transactions?year=${currentYear}&month=${currentMonth}`).catch(() => null),
+      ])
+    } catch (error) {
+      // プリフェッチのエラーは無視（本番のデータ取得には影響しない）
+      console.debug('Prefetch error (ignored):', error)
+    }
+  }
 
   // ページがフォーカスされた時（戻るボタンで戻ってきた時など）に最新データを取得
   useEffect(() => {
@@ -197,17 +224,28 @@ export default function FacilityDetailPage() {
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {units.map(unit => (
-            <Card
-              key={unit.id}
-              title={unit.name}
-              amount={unit.totalAmount}
-              onClick={() => handleUnitClick(unit.id)}
-              className={`bg-[#EFF6FF] ${selectedUnitId === unit.id ? 'ring-2 ring-blue-500' : ''}`}
-            />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white rounded-lg shadow-md p-6 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
+                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            {units.map(unit => (
+              <Card
+                key={unit.id}
+                title={unit.name}
+                amount={unit.totalAmount}
+                onClick={() => handleUnitClick(unit.id)}
+                className={`bg-[#EFF6FF] ${selectedUnitId === unit.id ? 'ring-2 ring-blue-500' : ''}`}
+              />
+            ))}
+          </div>
+        )}
 
         {selectedUnitId && (
           <div className="mb-4">
@@ -242,7 +280,16 @@ export default function FacilityDetailPage() {
             ✏️ 利用者を編集
           </button>
         </div>
-        {residents.length === 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="bg-white rounded-lg shadow-md p-6 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
+                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        ) : residents.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
             {selectedUnitId ? 'このユニットに利用者が登録されていません' : '利用者が登録されていません'}
           </div>

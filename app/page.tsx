@@ -39,7 +39,15 @@ export default function DashboardPage() {
         router.push('/facility-select')
       }
     }
-  }, [isChecking, hasCompletedSelection, router])
+    // 施設が選択されている場合は施設TOP画面にリダイレクト
+    if (!isChecking && hasCompletedSelection && selectedFacilityId !== null) {
+      const currentPath = window.location.pathname
+      // 施設TOP画面やその他の画面にいない場合のみリダイレクト
+      if (currentPath === '/' || currentPath === '/dashboard') {
+        router.push(`/facilities/${selectedFacilityId}`)
+      }
+    }
+  }, [isChecking, hasCompletedSelection, selectedFacilityId, router])
 
   useEffect(() => {
     if (!isChecking && hasCompletedSelection) {
