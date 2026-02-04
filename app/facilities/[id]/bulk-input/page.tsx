@@ -307,15 +307,12 @@ export default function BulkInputPage() {
       reason: formData.reason,
     }
 
+    // 編集モードの場合は既にカードが削除されているので、新規追加として扱う
+    setPendingTransactions(prev => [...prev, newPending])
+    
+    // 編集モードを解除
     if (editingPendingId) {
-      // 編集モード
-      setPendingTransactions(prev => 
-        prev.map(t => t.id === editingPendingId ? newPending : t)
-      )
       setEditingPendingId(null)
-    } else {
-      // 新規追加
-      setPendingTransactions(prev => [...prev, newPending])
     }
 
     // フォームをリセット
@@ -497,6 +494,8 @@ export default function BulkInputPage() {
     const pending = pendingTransactions.find(t => t.id === id)
     if (!pending) return
 
+    // 編集モードに入る際に、カードを一時的に削除（重複を防ぐため）
+    setPendingTransactions(prev => prev.filter(t => t.id !== id))
     setEditingPendingId(id)
     setFormData({
       residentId: String(pending.residentId),
