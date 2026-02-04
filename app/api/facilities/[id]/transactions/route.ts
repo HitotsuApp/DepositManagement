@@ -1,6 +1,7 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { getPrisma } from '@/lib/prisma'
 import { validateId } from '@/lib/validation'
 
@@ -31,8 +32,7 @@ export async function GET(
     const previousMonthEndDate = new Date(year, month - 1, 0, 23, 59, 59, 999)
 
     console.time('main-query')
-    // 施設内の全利用者とその取引を取得（必要なフィールドのみselect）
-    // 当月の取引と、前月までの取引（残高計算用）を別々に取得
+    // 施設の存在確認と利用者一覧を取得（取引は別クエリで取得するため簡略化）
     const facility = await prisma.facility.findUnique({
       where: { id: facilityId },
       select: {
@@ -44,25 +44,6 @@ export async function GET(
           select: {
             id: true,
             name: true,
-            // 当月の取引のみ取得
-            transactions: {
-              where: {
-                transactionDate: {
-                  gte: startDate,
-                  lte: endDate,
-                },
-              },
-              select: {
-                id: true,
-                transactionDate: true,
-                transactionType: true,
-                amount: true,
-                description: true,
-                payee: true,
-                reason: true,
-              },
-              orderBy: { transactionDate: 'asc' },
-            },
           },
           orderBy: { name: 'asc' },
         },
@@ -77,7 +58,6 @@ export async function GET(
 
     console.time('previous-balance-aggregate')
     // 前月までの残高をDB側で一括集計（パフォーマンス最適化）
-    // 数千件のデータ転送を削減し、DB側で集計することで処理時間を大幅に短縮
     interface PreviousBalanceRow {
       residentId: number
       balance: number | string // PostgreSQLのSUMはnumeric型を返すため
@@ -112,73 +92,117 @@ export async function GET(
       })
     } catch (error) {
       console.error('Failed to calculate previous balances with aggregate query:', error)
-      // フォールバック: 既存の方法に戻す（エラー時のみ）
-      // 通常は発生しないが、念のため
       throw new Error('前月残高の計算に失敗しました')
     }
     console.timeEnd('previous-balance-aggregate')
 
-    console.time('processing-logic')
-
-    // 全利用者の取引を統合し、利用者名を含める
-    const allTransactions: Array<{
+    console.time('balance-calculation-query')
+    // DB側で残高を計算（ウィンドウ関数を使用してパフォーマンス最適化）
+    // JavaScript側のループ処理を削減し、DB側で効率的に計算
+    interface TransactionWithBalanceRow {
       id: number
-      transactionDate: string
+      transactionDate: Date
       transactionType: string
       amount: number
       description: string | null
       payee: string | null
       reason: string | null
-      balance: number
       residentId: number
       residentName: string
-    }> = []
+      balance: number | string // PostgreSQLのSUMはnumeric型を返すため
+    }
 
+    // 利用者IDと名前のマップを作成
+    const residentMap = new Map<number, string>()
     facility.residents.forEach(resident => {
-      // 前月の残高を取得
-      const previousBalance = previousBalances.get(resident.id) || 0
-      
-      // 当月の取引から累積残高を計算（前月の残高から開始）
-      let currentBalance = previousBalance
-      const transactionsWithBalance = resident.transactions.map(transaction => {
-        // 通常の入金・出金は計算に含める
-        if (transaction.transactionType === 'in') {
-          currentBalance += transaction.amount
-        } else if (transaction.transactionType === 'out') {
-          currentBalance -= transaction.amount
-        } else if (transaction.transactionType === 'past_correct_in') {
-          // 過去訂正入金は計算に含める
-          currentBalance += transaction.amount
-        } else if (transaction.transactionType === 'past_correct_out') {
-          // 過去訂正出金は計算に含める
-          currentBalance -= transaction.amount
-        }
-        // correct_in と correct_out は計算しない（打ち消し処理）
-        
-        return {
-          id: transaction.id,
-          transactionDate: transaction.transactionDate.toISOString(),
-          transactionType: transaction.transactionType,
-          amount: transaction.amount,
-          description: transaction.description,
-          payee: transaction.payee,
-          reason: transaction.reason,
-          balance: currentBalance,
-          residentId: resident.id,
-          residentName: resident.name,
-        }
-      })
-
-      allTransactions.push(...transactionsWithBalance)
+      residentMap.set(resident.id, resident.name)
     })
 
-    // 日付順にソート（同じ日付の場合はID順）
-    allTransactions.sort((a, b) => {
-      const dateA = new Date(a.transactionDate).getTime()
-      const dateB = new Date(b.transactionDate).getTime()
-      if (dateA !== dateB) return dateA - dateB
-      return a.id - b.id
-    })
+    // 利用者IDのリストを作成
+    const residentIds = Array.from(residentMap.keys())
+
+    let transactionsWithBalance: TransactionWithBalanceRow[] = []
+    if (residentIds.length > 0) {
+      // 前月残高をサブクエリで取得し、ウィンドウ関数で累積残高を計算
+      // Prismaの$queryRawでは配列を直接渡せるが、IN句を使用する方が安全
+      transactionsWithBalance = await prisma.$queryRaw<TransactionWithBalanceRow[]>`
+        WITH previous_balances AS (
+          SELECT 
+            "residentId",
+            COALESCE(SUM(
+              CASE 
+                WHEN "transactionType" IN ('in', 'past_correct_in') THEN amount
+                WHEN "transactionType" IN ('out', 'past_correct_out') THEN -amount
+                ELSE 0
+              END
+            ), 0) as balance
+          FROM "Transaction"
+          WHERE "transactionDate" <= ${previousMonthEndDate}
+            AND "transactionType" NOT IN ('correct_in', 'correct_out')
+            AND "residentId" IN (${Prisma.join(residentIds)})
+          GROUP BY "residentId"
+        ),
+        current_transactions AS (
+          SELECT 
+            t.id,
+            t."transactionDate",
+            t."transactionType",
+            t.amount,
+            t.description,
+            t.payee,
+            t.reason,
+            t."residentId",
+            r.name as "residentName",
+            COALESCE(pb.balance, 0) as previous_balance,
+            CASE 
+              WHEN t."transactionType" IN ('in', 'past_correct_in') THEN t.amount
+              WHEN t."transactionType" IN ('out', 'past_correct_out') THEN -t.amount
+              ELSE 0
+            END as transaction_amount
+          FROM "Transaction" t
+          INNER JOIN "Resident" r ON t."residentId" = r.id
+          LEFT JOIN previous_balances pb ON t."residentId" = pb."residentId"
+          WHERE t."transactionDate" >= ${startDate}
+            AND t."transactionDate" <= ${endDate}
+            AND t."residentId" IN (${Prisma.join(residentIds)})
+            AND r."facilityId" = ${facilityId}
+            AND r."isActive" = true
+        )
+        SELECT 
+          id,
+          "transactionDate",
+          "transactionType",
+          amount,
+          description,
+          payee,
+          reason,
+          "residentId",
+          "residentName",
+          (previous_balance + SUM(transaction_amount) OVER (
+            PARTITION BY "residentId" 
+            ORDER BY "transactionDate" ASC, id ASC
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+          ))::numeric as balance
+        FROM current_transactions
+        ORDER BY "transactionDate" ASC, id ASC
+      `
+    }
+    console.timeEnd('balance-calculation-query')
+
+    console.time('processing-logic')
+    // データを整形（PostgreSQLのnumeric型をNumberに変換）
+    const allTransactions = transactionsWithBalance.map(t => ({
+      id: t.id,
+      transactionDate: t.transactionDate.toISOString(),
+      transactionType: t.transactionType,
+      amount: t.amount,
+      description: t.description,
+      payee: t.payee,
+      reason: t.reason,
+      balance: Number(t.balance),
+      residentId: t.residentId,
+      residentName: t.residentName,
+    }))
     console.timeEnd('processing-logic')
 
     const response = NextResponse.json({
