@@ -34,6 +34,18 @@ interface TransactionFormData {
   reason: string
 }
 
+interface PendingTransaction {
+  id: string // 一時的なID
+  residentId: number
+  residentName: string
+  transactionDate: string
+  transactionType: string
+  amount: number
+  description: string
+  payee: string
+  reason: string
+}
+
 export default function BulkInputPage() {
   const params = useParams()
   const searchParams = useSearchParams()
@@ -76,6 +88,8 @@ export default function BulkInputPage() {
   const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null)
   const [correctResidentSearchQuery, setCorrectResidentSearchQuery] = useState('')
   const [selectedCorrectUnitId, setSelectedCorrectUnitId] = useState<number | null>(null)
+  const [pendingTransactions, setPendingTransactions] = useState<PendingTransaction[]>([])
+  const [editingPendingId, setEditingPendingId] = useState<string | null>(null)
 
   const currentDate = new Date()
   const currentYear = currentDate.getFullYear()
@@ -176,15 +190,15 @@ export default function BulkInputPage() {
     }
   }
 
-  const handleFormSubmit = async () => {
-    // バリデーション
+  // フォームのバリデーション
+  const validateForm = (): boolean => {
     if (!formData.residentId) {
       setToast({
         message: '利用者を選択してください',
         type: 'error',
         isVisible: true,
       })
-      return
+      return false
     }
 
     if (!formData.transactionDate) {
@@ -193,7 +207,7 @@ export default function BulkInputPage() {
         type: 'error',
         isVisible: true,
       })
-      return
+      return false
     }
 
     // 日付の妥当性チェック
@@ -203,7 +217,7 @@ export default function BulkInputPage() {
         type: 'error',
         isVisible: true,
       })
-      return
+      return false
     }
 
     // 入金・出金の場合、対象日が許可された範囲内かチェック
@@ -226,7 +240,7 @@ export default function BulkInputPage() {
             isVisible: true,
           })
         }
-        return
+        return false
       }
     }
 
@@ -237,7 +251,7 @@ export default function BulkInputPage() {
         type: 'error',
         isVisible: true,
       })
-      return
+      return false
     }
 
     if (showCorrectForm && !formData.reason) {
@@ -246,7 +260,7 @@ export default function BulkInputPage() {
         type: 'error',
         isVisible: true,
       })
-      return
+      return false
     }
 
     // 過去訂正入力の場合、対象日が過去月であることを確認（今月の日付は許可しない）
@@ -262,34 +276,190 @@ export default function BulkInputPage() {
           type: 'error',
           isVisible: true,
         })
-        return
+        return false
       }
     }
 
+    return true
+  }
+
+  // 次の入力ボタンの処理
+  const handleAddNext = () => {
+    if (!validateForm()) {
+      return
+    }
+
+    const selectedResident = residents.find(r => r.id === Number(formData.residentId))
+    if (!selectedResident) {
+      return
+    }
+
+    const amount = parseFloat(formData.amount)
+    const newPending: PendingTransaction = {
+      id: editingPendingId || `pending-${Date.now()}-${Math.random()}`,
+      residentId: Number(formData.residentId),
+      residentName: selectedResident.name,
+      transactionDate: formData.transactionDate,
+      transactionType: formData.transactionType,
+      amount: amount,
+      description: formData.description,
+      payee: formData.payee,
+      reason: formData.reason,
+    }
+
+    if (editingPendingId) {
+      // 編集モード
+      setPendingTransactions(prev => 
+        prev.map(t => t.id === editingPendingId ? newPending : t)
+      )
+      setEditingPendingId(null)
+    } else {
+      // 新規追加
+      setPendingTransactions(prev => [...prev, newPending])
+    }
+
+    // フォームをリセット
+    setFormData({
+      residentId: '',
+      transactionDate: new Date().toISOString().split('T')[0],
+      transactionType: formData.transactionType, // 区分は維持
+      amount: '',
+      description: '',
+      payee: '',
+      reason: '',
+    })
+    setResidentSearchQuery('')
+    setSelectedUnitId(null)
+  }
+
+  // 一括登録の処理
+  const handleBulkSubmit = async () => {
+    if (pendingTransactions.length === 0) {
+      // フォームに入力がある場合は単一登録
+      if (!validateForm()) {
+        return
+      }
+
+      const amount = parseFloat(formData.amount)
+      setIsSubmitting(true)
+      
+      try {
+        const { residentId: _, amount: __, ...restFormData } = formData
+        const response = await fetch(`/api/transactions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...restFormData,
+            residentId: Number(formData.residentId),
+            amount: amount,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (response.ok) {
+          const transactionTypeLabel = showCorrectForm 
+            ? (formData.transactionType === 'past_correct_in' ? '過去訂正入金' : '過去訂正出金')
+            : (formData.transactionType === 'in' ? '入金' : '出金')
+          
+          setShowInOutForm(false)
+          setShowCorrectForm(false)
+          setFormData({
+            residentId: '',
+            transactionDate: '',
+            transactionType: showCorrectForm ? 'past_correct_in' : 'in',
+            amount: '',
+            description: '',
+            payee: '',
+            reason: '',
+          })
+          
+          await invalidateTransactionCache(facilityId, undefined, year, month)
+          await fetchBulkData(true)
+          router.refresh()
+          
+          setToast({
+            message: `${transactionTypeLabel}を登録しました`,
+            type: 'success',
+            isVisible: true,
+          })
+        } else {
+          setToast({
+            message: data.error || '登録に失敗しました',
+            type: 'error',
+            isVisible: true,
+          })
+        }
+      } catch (error) {
+        console.error('Failed to create transaction:', error)
+        setToast({
+          message: '登録に失敗しました',
+          type: 'error',
+          isVisible: true,
+        })
+      } finally {
+        setIsSubmitting(false)
+      }
+      return
+    }
+
+    // 複数件の一括登録
     setIsSubmitting(true)
     
     try {
-      const { residentId: _, amount: __, ...restFormData } = formData
-      const response = await fetch(`/api/transactions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...restFormData,
-          residentId: Number(formData.residentId),
-          amount: amount,
-        }),
-      })
+      // フォームに入力がある場合はそれも追加
+      const transactionsToSubmit = [...pendingTransactions]
+      if (formData.residentId && formData.transactionDate && formData.amount) {
+        if (validateForm()) {
+          const selectedResident = residents.find(r => r.id === Number(formData.residentId))
+          if (selectedResident) {
+            const amount = parseFloat(formData.amount)
+            transactionsToSubmit.push({
+              id: `pending-${Date.now()}-${Math.random()}`,
+              residentId: Number(formData.residentId),
+              residentName: selectedResident.name,
+              transactionDate: formData.transactionDate,
+              transactionType: formData.transactionType,
+              amount: amount,
+              description: formData.description,
+              payee: formData.payee,
+              reason: formData.reason,
+            })
+          }
+        }
+      }
 
-      const data = await response.json()
+      // すべての取引を順次登録
+      const results = await Promise.allSettled(
+        transactionsToSubmit.map(t => 
+          fetch(`/api/transactions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              residentId: t.residentId,
+              transactionDate: t.transactionDate,
+              transactionType: t.transactionType,
+              amount: t.amount,
+              description: t.description || '',
+              payee: t.payee || '',
+              reason: t.reason || '',
+            }),
+          })
+        )
+      )
 
-      if (response.ok) {
-        const transactionTypeLabel = showCorrectForm 
-          ? (formData.transactionType === 'past_correct_in' ? '過去訂正入金' : '過去訂正出金')
-          : (formData.transactionType === 'in' ? '入金' : '出金')
+      const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok))
+      
+      if (failed.length === 0) {
+        setToast({
+          message: `${transactionsToSubmit.length}件の取引を登録しました`,
+          type: 'success',
+          isVisible: true,
+        })
         
-        // モーダルを先に閉じる
         setShowInOutForm(false)
         setShowCorrectForm(false)
+        setPendingTransactions([])
         setFormData({
           residentId: '',
           transactionDate: '',
@@ -300,30 +470,18 @@ export default function BulkInputPage() {
           reason: '',
         })
         
-        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
-        // データ再取得の前にキャッシュを無効化することで、確実に最新データを取得
         await invalidateTransactionCache(facilityId, undefined, year, month)
-        
-        // データを再取得（キャッシュを無効化して最新データを取得）
         await fetchBulkData(true)
-        
-        // Next.jsのサーバーコンポーネントのキャッシュも無効化
         router.refresh()
-        
-        setToast({
-          message: `${transactionTypeLabel}を登録しました`,
-          type: 'success',
-          isVisible: true,
-        })
       } else {
         setToast({
-          message: data.error || '登録に失敗しました',
+          message: `${failed.length}件の登録に失敗しました`,
           type: 'error',
           isVisible: true,
         })
       }
     } catch (error) {
-      console.error('Failed to create transaction:', error)
+      console.error('Failed to create transactions:', error)
       setToast({
         message: '登録に失敗しました',
         type: 'error',
@@ -332,6 +490,53 @@ export default function BulkInputPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // カードの編集
+  const handleEditPending = (id: string) => {
+    const pending = pendingTransactions.find(t => t.id === id)
+    if (!pending) return
+
+    setEditingPendingId(id)
+    setFormData({
+      residentId: String(pending.residentId),
+      transactionDate: pending.transactionDate,
+      transactionType: pending.transactionType,
+      amount: String(pending.amount),
+      description: pending.description,
+      payee: pending.payee,
+      reason: pending.reason,
+    })
+    
+    // 該当する利用者を検索
+    const resident = residents.find(r => r.id === pending.residentId)
+    if (resident) {
+      setResidentSearchQuery(resident.name)
+      if (resident.unitId) {
+        setSelectedUnitId(resident.unitId)
+      }
+    }
+  }
+
+  // カードの削除
+  const handleDeletePending = (id: string) => {
+    setPendingTransactions(prev => prev.filter(t => t.id !== id))
+    if (editingPendingId === id) {
+      setEditingPendingId(null)
+      setFormData({
+        residentId: '',
+        transactionDate: new Date().toISOString().split('T')[0],
+        transactionType: formData.transactionType,
+        amount: '',
+        description: '',
+        payee: '',
+        reason: '',
+      })
+    }
+  }
+
+  const handleFormSubmit = async () => {
+    await handleBulkSubmit()
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -639,6 +844,8 @@ export default function BulkInputPage() {
           isOpen={showInOutForm}
           onClose={() => {
             setShowInOutForm(false)
+            setPendingTransactions([])
+            setEditingPendingId(null)
             setResidentSearchQuery('')
             setSelectedUnitId(null)
             setFormData({
@@ -654,19 +861,20 @@ export default function BulkInputPage() {
           title={formData.transactionType === 'in' ? '💰 入金登録' : '💸 出金登録'}
         >
           <form onSubmit={(e) => { e.preventDefault(); }}>
-            <div className="space-y-4">
+            <div className="space-y-2.5">
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="block text-sm font-medium mb-0.5">
                   利用者 <span className="text-red-500">*</span>
                 </label>
-                <div className="space-y-2">
-                  <div className="space-y-2">
+                <div className="space-y-1.5">
+                  {/* ユニット絞り込みと検索を横並び */}
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-xs font-medium mb-1 text-gray-600">ユニットで絞り込み</label>
+                      <label className="block text-xs font-medium mb-0.5 text-gray-600">ユニットで絞り込み</label>
                       <select
                         value={selectedUnitId || ''}
                         onChange={(e) => setSelectedUnitId(e.target.value ? Number(e.target.value) : null)}
-                        className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                       >
                         <option value="">すべてのユニット</option>
                         {units.map(unit => (
@@ -677,46 +885,46 @@ export default function BulkInputPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium mb-1 text-gray-600">利用者名で検索</label>
+                      <label className="block text-xs font-medium mb-0.5 text-gray-600">利用者名で検索</label>
                       <input
                         type="text"
                         maxLength={30}
                         value={residentSearchQuery}
                         onChange={(e) => setResidentSearchQuery(e.target.value)}
                         placeholder="利用者名で検索..."
-                        className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                     </div>
-                    {(() => {
-                      let filteredResidents = residents
-                      if (selectedUnitId !== null) {
-                        filteredResidents = filteredResidents.filter(r => r.unitId === selectedUnitId)
-                      }
-                      if (residentSearchQuery) {
-                        filteredResidents = filteredResidents.filter(r => r.name.includes(residentSearchQuery))
-                      }
-                      return filteredResidents.length
-                    })() !== residents.length && (
-                      <p className="text-xs text-gray-500">
-                        {(() => {
-                          let filteredResidents = residents
-                          if (selectedUnitId !== null) {
-                            filteredResidents = filteredResidents.filter(r => r.unitId === selectedUnitId)
-                          }
-                          if (residentSearchQuery) {
-                            filteredResidents = filteredResidents.filter(r => r.name.includes(residentSearchQuery))
-                          }
-                          return filteredResidents.length
-                        })()}件が見つかりました
-                      </p>
-                    )}
                   </div>
+                  {(() => {
+                    let filteredResidents = residents
+                    if (selectedUnitId !== null) {
+                      filteredResidents = filteredResidents.filter(r => r.unitId === selectedUnitId)
+                    }
+                    if (residentSearchQuery) {
+                      filteredResidents = filteredResidents.filter(r => r.name.includes(residentSearchQuery))
+                    }
+                    return filteredResidents.length
+                  })() !== residents.length && (
+                    <p className="text-xs text-gray-500">
+                      {(() => {
+                        let filteredResidents = residents
+                        if (selectedUnitId !== null) {
+                          filteredResidents = filteredResidents.filter(r => r.unitId === selectedUnitId)
+                        }
+                        if (residentSearchQuery) {
+                          filteredResidents = filteredResidents.filter(r => r.name.includes(residentSearchQuery))
+                        }
+                        return filteredResidents.length
+                      })()}件が見つかりました
+                    </p>
+                  )}
                   <div>
                     <select
                       required
                       value={formData.residentId}
                       onChange={(e) => setFormData({ ...formData, residentId: e.target.value })}
-                      className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     >
                       <option value="">選択してください</option>
                       {(() => {
@@ -741,13 +949,13 @@ export default function BulkInputPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="block text-sm font-medium mb-0.5">
                   区分 <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.transactionType}
                   onChange={(e) => setFormData({ ...formData, transactionType: e.target.value })}
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
                   <option value="in">入金</option>
                   <option value="out">出金</option>
@@ -755,7 +963,7 @@ export default function BulkInputPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="block text-sm font-medium mb-0.5">
                   対象日 <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -763,14 +971,14 @@ export default function BulkInputPage() {
                   required
                   value={formData.transactionDate}
                   onChange={(e) => setFormData({ ...formData, transactionDate: e.target.value })}
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   min={isCurrentMonth ? inOutDateRange.min : undefined}
                   max={isCurrentMonth ? inOutDateRange.max : undefined}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="block text-sm font-medium mb-0.5">
                   金額 <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -781,54 +989,64 @@ export default function BulkInputPage() {
                     step="1"
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2 py-1.5 pr-8 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     placeholder="0"
                   />
-                  <span className="absolute right-3 top-2 text-gray-500">円</span>
+                  <span className="absolute right-2 top-1.5 text-gray-500 text-sm">円</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">内容（備考）</label>
+                <label className="block text-sm font-medium mb-0.5">内容（備考）</label>
                 <input
                   type="text"
                   maxLength={100}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   placeholder="例: 預り金、返金など"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">支払先</label>
+                <label className="block text-sm font-medium mb-0.5">支払先</label>
                 <input
                   type="text"
                   maxLength={30}
                   value={formData.payee}
                   onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   placeholder="支払先を入力"
                 />
               </div>
 
-              <div className="flex gap-4 pt-4">
+              <div className="flex gap-2 pt-2 border-t">
                 <button
                   type="button"
                   onClick={handleFormSubmit}
                   disabled={isSubmitting}
-                  className={`flex-1 px-4 py-2 rounded text-white ${
+                  className={`flex-1 px-3 py-1.5 rounded text-white text-sm ${
                     formData.transactionType === 'in'
                       ? 'bg-blue-500 hover:bg-blue-600'
                       : 'bg-red-500 hover:bg-red-600'
                   } disabled:bg-gray-400 disabled:cursor-not-allowed`}
                 >
-                  {isSubmitting ? '登録中...' : '登録'}
+                  {isSubmitting ? '登録中...' : pendingTransactions.length > 0 ? `登録 (${pendingTransactions.length + (formData.residentId ? 1 : 0)}件)` : '登録'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddNext}
+                  disabled={isSubmitting}
+                  className="flex-1 px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                >
+                  {editingPendingId ? '更新' : '次の入力'}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setShowInOutForm(false)
+                    setPendingTransactions([])
+                    setEditingPendingId(null)
                     setFormData({
                       residentId: '',
                       transactionDate: '',
@@ -838,14 +1056,63 @@ export default function BulkInputPage() {
                       payee: '',
                       reason: '',
                     })
+                    setResidentSearchQuery('')
+                    setSelectedUnitId(null)
                   }}
-                  className="flex-1 px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                  className="flex-1 px-3 py-1.5 bg-gray-300 rounded hover:bg-gray-400 text-sm"
                 >
                   キャンセル
                 </button>
               </div>
             </div>
           </form>
+
+          {/* 入力済みカード一覧 */}
+          {pendingTransactions.length > 0 && (
+            <div className="mt-4 pt-4 border-t">
+              <div className="text-sm font-semibold mb-2 text-gray-700">
+                入力済み ({pendingTransactions.length}件)
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {pendingTransactions.map((pending) => {
+                  const isIn = pending.transactionType === 'in'
+                  return (
+                    <div
+                      key={pending.id}
+                      className="bg-gray-50 border border-gray-200 rounded p-2 flex justify-between items-center"
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-sm text-gray-900">{pending.residentName}</div>
+                        <div className="text-xs text-gray-600 flex gap-3 mt-0.5">
+                          <span>{new Date(pending.transactionDate).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' })}</span>
+                          <span>{isIn ? '入金' : '出金'}</span>
+                          <span className={`font-medium ${isIn ? 'text-blue-600' : 'text-red-600'}`}>
+                            {isIn ? '+' : '-'}¥{new Intl.NumberFormat('ja-JP').format(pending.amount)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleEditPending(pending.id)}
+                          className="px-2 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600"
+                        >
+                          編集
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePending(pending.id)}
+                          className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </Modal>
 
         {/* 訂正入力モーダル */}

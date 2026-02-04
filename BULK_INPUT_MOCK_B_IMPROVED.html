@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>まとめて入力 - 方向性B（改善版）モック</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      max-height: 90vh;
+    }
+    
+    .modal-header {
+      background: #3b82f6;
+      color: white;
+      padding: 16px 20px;
+      font-size: 18px;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+    
+    .modal-body {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex: 1;
+    }
+    
+    .form-section {
+      background: #f9fafb;
+      padding: 20px;
+      border-bottom: 2px solid #e5e7eb;
+      overflow-y: auto;
+      flex-shrink: 0;
+      max-height: 50vh;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: #374151;
+    }
+    
+    /* ユニット絞り込みと検索を横並び */
+    .filter-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .filter-group label {
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: #6b7280;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .filter-group select,
+    .filter-group input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .filter-group select:focus,
+    .filter-group input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .filter-result {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+    }
+    
+    .btn {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+    
+    .btn-secondary {
+      background: #10b981;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: #059669;
+    }
+    
+    .btn-cancel {
+      background: #d1d5db;
+      color: #374151;
+    }
+    
+    .btn-cancel:hover {
+      background: #9ca3af;
+    }
+    
+    .pending-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: white;
+    }
+    
+    .pending-header {
+      font-size: 16px;
+      font-weight: 600;
+      color: #374151;
+      padding: 16px 20px;
+      border-bottom: 1px solid #e5e7eb;
+      flex-shrink: 0;
+    }
+    
+    .card-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      flex-shrink: 0;
+    }
+    
+    .card-info {
+      flex: 1;
+    }
+    
+    .card-title {
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 4px;
+    }
+    
+    .card-details {
+      font-size: 13px;
+      color: #6b7280;
+      display: flex;
+      gap: 16px;
+    }
+    
+    .card-amount {
+      font-weight: 600;
+      color: #3b82f6;
+    }
+    
+    .card-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn-small {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-edit {
+      background: #fbbf24;
+      color: white;
+    }
+    
+    .btn-edit:hover {
+      background: #f59e0b;
+    }
+    
+    .btn-delete {
+      background: #ef4444;
+      color: white;
+    }
+    
+    .btn-delete:hover {
+      background: #dc2626;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #9ca3af;
+      font-size: 14px;
+    }
+    
+    /* スクロールバーのスタイリング */
+    .form-section::-webkit-scrollbar,
+    .card-list::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .form-section::-webkit-scrollbar-track,
+    .card-list::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    
+    .form-section::-webkit-scrollbar-thumb,
+    .card-list::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 4px;
+    }
+    
+    .form-section::-webkit-scrollbar-thumb:hover,
+    .card-list::-webkit-scrollbar-thumb:hover {
+      background: #a8a8a8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="modal-header">💰 入金登録</div>
+    <div class="modal-body">
+      <!-- フォーム部分（スクロール可能） -->
+      <div class="form-section">
+        <div class="form-group">
+          <label>利用者 <span style="color: red;">*</span></label>
+          
+          <!-- ユニット絞り込みと検索を横並び -->
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>ユニットで絞り込み</label>
+              <select>
+                <option>すべてのユニット</option>
+                <option>ユニットA</option>
+                <option>ユニットB</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>利用者名で検索</label>
+              <input type="text" placeholder="利用者名で検索...">
+            </div>
+          </div>
+          <div class="filter-result">2件が見つかりました</div>
+          
+          <select style="margin-top: 12px;">
+            <option>選択してください</option>
+            <option>山田太郎 (ユニットA)</option>
+            <option>佐藤花子 (ユニットB)</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>区分 <span style="color: red;">*</span></label>
+          <select>
+            <option>入金</option>
+            <option>出金</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>対象日 <span style="color: red;">*</span></label>
+          <input type="date" value="2026-02-04">
+        </div>
+        
+        <div class="form-group">
+          <label>金額 <span style="color: red;">*</span></label>
+          <input type="number" placeholder="0" value="10000">
+        </div>
+        
+        <div class="form-group">
+          <label>内容（備考）</label>
+          <input type="text" placeholder="例: 預り金、返金など">
+        </div>
+        
+        <div class="form-group">
+          <label>支払先</label>
+          <input type="text" placeholder="支払先を入力">
+        </div>
+        
+        <div class="button-group">
+          <button class="btn btn-primary">登録</button>
+          <button class="btn btn-secondary">次の入力</button>
+          <button class="btn btn-cancel">キャンセル</button>
+        </div>
+      </div>
+      
+      <!-- カード部分（別のスクロール領域） -->
+      <div class="pending-section">
+        <div class="pending-header">入力済み (2件)</div>
+        <div class="card-list">
+          <div class="card">
+            <div class="card-info">
+              <div class="card-title">山田太郎</div>
+              <div class="card-details">
+                <span>2026/02/01</span>
+                <span>入金</span>
+                <span class="card-amount">¥10,000</span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="btn-small btn-edit">編集</button>
+              <button class="btn-small btn-delete">削除</button>
+            </div>
+          </div>
+          
+          <div class="card">
+            <div class="card-info">
+              <div class="card-title">佐藤花子</div>
+              <div class="card-details">
+                <span>2026/02/02</span>
+                <span>出金</span>
+                <span class="card-amount" style="color: #ef4444;">¥5,000</span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="btn-small btn-edit">編集</button>
+              <button class="btn-small btn-delete">削除</button>
+            </div>
+          </div>
+          
+          <!-- 追加のカード（スクロール確認用） -->
+          <div class="card">
+            <div class="card-info">
+              <div class="card-title">鈴木一郎</div>
+              <div class="card-details">
+                <span>2026/02/03</span>
+                <span>入金</span>
+                <span class="card-amount">¥15,000</span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="btn-small btn-edit">編集</button>
+              <button class="btn-small btn-delete">削除</button>
+            </div>
+          </div>
+          
+          <div class="card">
+            <div class="card-info">
+              <div class="card-title">田中二郎</div>
+              <div class="card-details">
+                <span>2026/02/04</span>
+                <span>出金</span>
+                <span class="card-amount" style="color: #ef4444;">¥8,000</span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="btn-small btn-edit">編集</button>
+              <button class="btn-small btn-delete">削除</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>まとめて入力 - 方向性B（カード形式）モック</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    
+    .modal-header {
+      background: #3b82f6;
+      color: white;
+      padding: 16px 20px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    
+    .modal-body {
+      padding: 20px;
+      max-height: calc(100vh - 200px);
+      overflow-y: auto;
+    }
+    
+    .form-section {
+      background: #f9fafb;
+      padding: 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: #374151;
+    }
+    
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    
+    .btn {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+    
+    .btn-secondary {
+      background: #10b981;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: #059669;
+    }
+    
+    .btn-cancel {
+      background: #d1d5db;
+      color: #374151;
+    }
+    
+    .btn-cancel:hover {
+      background: #9ca3af;
+    }
+    
+    .pending-section {
+      margin-top: 24px;
+      border-top: 2px solid #e5e7eb;
+      padding-top: 20px;
+    }
+    
+    .pending-header {
+      font-size: 16px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 12px;
+    }
+    
+    .card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .card-info {
+      flex: 1;
+    }
+    
+    .card-title {
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 4px;
+    }
+    
+    .card-details {
+      font-size: 13px;
+      color: #6b7280;
+      display: flex;
+      gap: 16px;
+    }
+    
+    .card-amount {
+      font-weight: 600;
+      color: #3b82f6;
+    }
+    
+    .card-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn-small {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-edit {
+      background: #fbbf24;
+      color: white;
+    }
+    
+    .btn-edit:hover {
+      background: #f59e0b;
+    }
+    
+    .btn-delete {
+      background: #ef4444;
+      color: white;
+    }
+    
+    .btn-delete:hover {
+      background: #dc2626;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #9ca3af;
+      font-size: 14px;
+    }
+    
+    .scroll-indicator {
+      position: sticky;
+      bottom: 0;
+      background: linear-gradient(to top, rgba(255,255,255,0.95), transparent);
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="modal-header">💰 入金登録</div>
+    <div class="modal-body">
+      <div class="form-section">
+        <div class="form-group">
+          <label>利用者 <span style="color: red;">*</span></label>
+          <select>
+            <option>選択してください</option>
+            <option>山田太郎 (ユニットA)</option>
+            <option>佐藤花子 (ユニットB)</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>区分 <span style="color: red;">*</span></label>
+          <select>
+            <option>入金</option>
+            <option>出金</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>対象日 <span style="color: red;">*</span></label>
+          <input type="date" value="2026-02-04">
+        </div>
+        
+        <div class="form-group">
+          <label>金額 <span style="color: red;">*</span></label>
+          <input type="number" placeholder="0" value="10000">
+        </div>
+        
+        <div class="form-group">
+          <label>内容（備考）</label>
+          <input type="text" placeholder="例: 預り金、返金など">
+        </div>
+        
+        <div class="form-group">
+          <label>支払先</label>
+          <input type="text" placeholder="支払先を入力">
+        </div>
+        
+        <div class="button-group">
+          <button class="btn btn-primary">登録</button>
+          <button class="btn btn-secondary">次の入力</button>
+          <button class="btn btn-cancel">キャンセル</button>
+        </div>
+      </div>
+      
+      <div class="pending-section">
+        <div class="pending-header">入力済み (2件)</div>
+        <div class="card-list">
+          <div class="card">
+            <div class="card-info">
+              <div class="card-title">山田太郎</div>
+              <div class="card-details">
+                <span>2026/02/01</span>
+                <span>入金</span>
+                <span class="card-amount">¥10,000</span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="btn-small btn-edit">編集</button>
+              <button class="btn-small btn-delete">削除</button>
+            </div>
+          </div>
+          
+          <div class="card">
+            <div class="card-info">
+              <div class="card-title">佐藤花子</div>
+              <div class="card-details">
+                <span>2026/02/02</span>
+                <span>出金</span>
+                <span class="card-amount" style="color: #ef4444;">¥5,000</span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="btn-small btn-edit">編集</button>
+              <button class="btn-small btn-delete">削除</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="scroll-indicator">
+        ↓ スクロールしてカードを確認 ↓
+      </div>
+    </div>
+  </div>
+</body>
+</html>
