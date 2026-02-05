@@ -102,7 +102,10 @@ function MasterContent() {
 
   // fetch関数をuseCallbackでメモ化して無限ループを防ぐ
   const fetchFacilities = useCallback(async () => {
-    setIsLoading(true)
+    // 施設マスタタブの場合のみisLoadingを設定（他のタブでは親で管理）
+    if (activeTab === 'facility') {
+      setIsLoading(true)
+    }
     try {
       // 施設マスタタブでは全施設を表示（選択された施設はハイライト）
       // 他のタブでは選択された施設のみを取得（ドロップダウン用）
@@ -131,12 +134,15 @@ function MasterContent() {
       setFacilities([])
       alert('施設データの取得に失敗しました')
     } finally {
-      setIsLoading(false)
+      // 施設マスタタブの場合のみisLoadingを解除（他のタブでは親で管理）
+      if (activeTab === 'facility') {
+        setIsLoading(false)
+      }
     }
   }, [activeTab, selectedFacilityId])
 
   const fetchUnits = useCallback(async () => {
-    setIsLoading(true)
+    // isLoadingは親のuseEffectで管理
     try {
       // 選択された施設がある場合、その施設のユニットのみを取得
       const url = selectedFacilityId
@@ -158,13 +164,13 @@ function MasterContent() {
       console.error('Failed to fetch units:', error)
       setUnits([])
       alert('ユニットデータの取得に失敗しました')
-    } finally {
-      setIsLoading(false)
+    } catch (error) {
+      // エラーは既に処理済み
     }
   }, [selectedFacilityId])
 
   const fetchResidents = useCallback(async () => {
-    setIsLoading(true)
+    // isLoadingは親のuseEffectで管理
     try {
       // 選択された施設がある場合、その施設の利用者のみを取得
       // includeInactive=trueで全利用者を取得し、endDateでフィルタリング
@@ -187,8 +193,8 @@ function MasterContent() {
       console.error('Failed to fetch residents:', error)
       setResidents([])
       alert('利用者データの取得に失敗しました')
-    } finally {
-      setIsLoading(false)
+    } catch (error) {
+      // エラーは既に処理済み
     }
   }, [selectedFacilityId])
 
@@ -196,11 +202,13 @@ function MasterContent() {
     if (activeTab === 'facility') {
       fetchFacilities()
     } else if (activeTab === 'unit') {
-      fetchFacilities() // ユニットマスタでも施設リストが必要
-      fetchUnits()
+      // ユニットマスタでも施設リストが必要
+      setIsLoading(true)
+      Promise.all([fetchFacilities(), fetchUnits()]).finally(() => setIsLoading(false))
     } else {
-      fetchFacilities() // 利用者マスタでも施設リストが必要
-      fetchResidents()
+      // 利用者マスタでも施設リストが必要
+      setIsLoading(true)
+      Promise.all([fetchFacilities(), fetchResidents()]).finally(() => setIsLoading(false))
     }
   }, [activeTab, fetchFacilities, fetchUnits, fetchResidents])
 

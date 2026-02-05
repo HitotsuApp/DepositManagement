@@ -61,6 +61,8 @@ export default function FacilityDetailPage() {
     
     // まとめて入力に必要なデータをプリフェッチ
     prefetchBulkInputData()
+    // 現金確認画面に必要なデータをプリフェッチ
+    prefetchCashVerificationData()
   }, [facilityId, year, month, selectedUnitId])
 
   // まとめて入力に必要なデータをプリフェッチ
@@ -80,6 +82,28 @@ export default function FacilityDetailPage() {
         fetch(`/api/units?facilityId=${facilityId}`).catch(() => null),
         // 取引データ（当月）
         fetch(`/api/facilities/${facilityId}/transactions?year=${currentYear}&month=${currentMonth}`).catch(() => null),
+      ])
+    } catch (error) {
+      // プリフェッチのエラーは無視（本番のデータ取得には影響しない）
+      console.debug('Prefetch error (ignored):', error)
+    }
+  }
+
+  // 現金確認画面に必要なデータをプリフェッチ
+  const prefetchCashVerificationData = async () => {
+    try {
+      const currentDate = new Date()
+      const currentYear = currentDate.getFullYear()
+      const currentMonth = currentDate.getMonth() + 1
+      
+      // 並列でデータをプリフェッチ（バックグラウンドで実行）
+      Promise.all([
+        // 施設一覧（アクティブな施設のみ）
+        fetch('/api/facilities').catch(() => null),
+        // 施設情報（選択された施設）
+        fetch(`/api/facilities/${facilityId}`).catch(() => null),
+        // 施設残高（選択された施設、当月）
+        fetch(`/api/facilities/${facilityId}?year=${currentYear}&month=${currentMonth}`).catch(() => null),
       ])
     } catch (error) {
       // プリフェッチのエラーは無視（本番のデータ取得には影響しない）
