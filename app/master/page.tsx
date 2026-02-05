@@ -164,8 +164,6 @@ function MasterContent() {
       console.error('Failed to fetch units:', error)
       setUnits([])
       alert('ユニットデータの取得に失敗しました')
-    } catch (error) {
-      // エラーは既に処理済み
     }
   }, [selectedFacilityId])
 
@@ -193,8 +191,6 @@ function MasterContent() {
       console.error('Failed to fetch residents:', error)
       setResidents([])
       alert('利用者データの取得に失敗しました')
-    } catch (error) {
-      // エラーは既に処理済み
     }
   }, [selectedFacilityId])
 
