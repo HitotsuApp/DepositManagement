@@ -44,11 +44,20 @@ export async function POST(request: Request) {
       }
       // 複数の日付形式に対応
       // YYYY-MM-DD, YYYY/MM/DD, YYYY年MM月DD日
-      const normalized = dateString.trim()
+      let normalized = dateString.trim()
         .replace(/\//g, '-')
         .replace(/年/g, '-')
         .replace(/月/g, '-')
         .replace(/日/g, '')
+      
+      // 0埋め処理: YYYY-M-D を YYYY-MM-DD に変換
+      const parts = normalized.split('-')
+      if (parts.length === 3) {
+        const year = parts[0]
+        const month = parts[1].padStart(2, '0')
+        const day = parts[2].padStart(2, '0')
+        normalized = `${year}-${month}-${day}`
+      }
       
       const datePattern = /^\d{4}-\d{2}-\d{2}$/
       if (!datePattern.test(normalized)) {
