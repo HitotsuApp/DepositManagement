@@ -167,7 +167,7 @@ export async function POST(request: Request) {
                 unitId,
                 name: group.residentName,
                 endDate,
-                isActive: false, // 終了者として復元
+                isActive: true, // インポート時はisActiveをtrueにする
               },
             })
             results.residentsRestored++
