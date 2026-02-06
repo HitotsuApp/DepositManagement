@@ -167,6 +167,20 @@ export default function Sidebar() {
             現金確認
           </Link>
         </div>
+
+        {/* メンテナンス: 法人全体表示時のみ表示 */}
+        {selectedFacilityId === null && (
+          <div className="pt-4 border-t border-gray-700">
+            <Link
+              href="/maintenance"
+              className={`block px-4 py-2 rounded hover:bg-gray-700 ${
+                isActive('/maintenance') ? 'bg-gray-700' : ''
+              }`}
+            >
+              メンテナンス
+            </Link>
+          </div>
+        )}
       </nav>
     </div>
   )
