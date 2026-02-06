@@ -141,17 +141,26 @@ export default function MaintenancePage() {
       // CSVデータ
       const csvRows: string[] = [headers.join(',')]
       
+      // 日付をYYYY-MM-DD形式にフォーマットする関数
+      const formatDate = (date: Date | string | null | undefined): string => {
+        if (!date) return ''
+        const d = typeof date === 'string' ? new Date(date) : date
+        if (isNaN(d.getTime())) return ''
+        const year = d.getFullYear()
+        const month = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+
       for (const resident of residentsWithTransactions) {
-        const endDateStr = resident.endDate
-          ? new Date(resident.endDate).toLocaleDateString('ja-JP')
-          : ''
+        const endDateStr = formatDate(resident.endDate ? new Date(resident.endDate) : null)
         
         // Transactionデータがある場合
         if (resident.transactions && resident.transactions.length > 0) {
           for (const transaction of resident.transactions) {
-            const transactionDateStr = transaction.transactionDate
-              ? new Date(transaction.transactionDate).toLocaleDateString('ja-JP')
-              : ''
+            const transactionDateStr = formatDate(
+              transaction.transactionDate ? new Date(transaction.transactionDate) : null
+            )
             
             csvRows.push([
               resident.facility?.name || '',
