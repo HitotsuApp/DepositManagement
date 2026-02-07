@@ -1113,6 +1113,9 @@ export default function ResidentDetailPage() {
                     <th className="px-4 py-3 text-left text-sm font-semibold">区分</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold">摘要</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold">支払先</th>
+                    {isPastMonth && (
+                      <th className="px-4 py-3 text-left text-sm font-semibold">理由</th>
+                    )}
                     <th className="px-4 py-3 text-right text-sm font-semibold">金額</th>
                     <th className="px-4 py-3 text-right text-sm font-semibold">残高</th>
                     <th className="px-4 py-3 text-center text-sm font-semibold">操作</th>
@@ -1121,7 +1124,7 @@ export default function ResidentDetailPage() {
                 <tbody>
                   {transactions.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={isPastMonth ? 8 : 7} className="px-4 py-8 text-center text-gray-500">
                         明細がありません
                       </td>
                     </tr>
@@ -1167,6 +1170,11 @@ export default function ResidentDetailPage() {
                         <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
                           {transaction.payee || '-'}
                         </td>
+                        {isPastMonth && (
+                          <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
+                            {transaction.reason || '-'}
+                          </td>
+                        )}
                         <td className={`px-4 py-3 text-sm text-right font-medium ${
                           isIn ? 'text-blue-600' : 'text-red-600'
                         } ${isCorrect ? 'line-through' : ''}`}>
