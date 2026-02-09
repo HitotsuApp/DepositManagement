@@ -7,6 +7,9 @@ import Header from '@/components/Header'
 export const metadata: Metadata = {
   title: '預り金管理システム',
   description: '介護法人向け預り金管理Webアプリ',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
