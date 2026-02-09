@@ -7,8 +7,15 @@ import Header from '@/components/Header'
 export const metadata: Metadata = {
   title: '預り金管理システム',
   description: '介護法人向け預り金管理Webアプリ',
+  manifest: '/manifest.json',
   icons: {
     icon: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: '預り金管理システム',
   },
 }
 
