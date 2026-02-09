@@ -1089,6 +1089,13 @@ export default function BulkInputPage() {
                             {isIn ? '+' : '-'}¥{new Intl.NumberFormat('ja-JP').format(pending.amount)}
                           </span>
                         </div>
+                        {(pending.description || pending.payee) && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {pending.description && <span>{pending.description}</span>}
+                            {pending.description && pending.payee && <span className="mx-1">/</span>}
+                            {pending.payee && <span>支払先: {pending.payee}</span>}
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-1">
                         <button

@@ -619,7 +619,7 @@ export default function ResidentDetailPage() {
 
         <div className="mb-8 flex items-center justify-between">
           <Card
-            title="現在残高"
+            title="残高"
             amount={balance}
             className="bg-purple-50 border-2 border-purple-200"
           />
@@ -858,6 +858,13 @@ export default function ResidentDetailPage() {
                             {isIn ? '+' : '-'}¥{new Intl.NumberFormat('ja-JP').format(pending.amount)}
                           </span>
                         </div>
+                        {(pending.description || pending.payee) && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {pending.description && <span>{pending.description}</span>}
+                            {pending.description && pending.payee && <span className="mx-1">/</span>}
+                            {pending.payee && <span>支払先: {pending.payee}</span>}
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-1">
                         <button
@@ -1052,6 +1059,19 @@ export default function ResidentDetailPage() {
                             {isIn ? '+' : '-'}¥{new Intl.NumberFormat('ja-JP').format(pending.amount)}
                           </span>
                         </div>
+                        {(pending.description || pending.payee || pending.reason) && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {pending.description && <span>{pending.description}</span>}
+                            {pending.description && pending.payee && <span className="mx-1">/</span>}
+                            {pending.payee && <span>支払先: {pending.payee}</span>}
+                            {pending.reason && (
+                              <>
+                                {(pending.description || pending.payee) && <span className="mx-1">/</span>}
+                                <span>理由: {pending.reason}</span>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-1">
                         <button
