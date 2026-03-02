@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
-import { validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
+import { validateMaxLength, validateSortOrder, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(request: Request) {
   console.time('prisma-init')
@@ -26,6 +26,8 @@ export async function GET(request: Request) {
         id: true,
         name: true,
         facilityId: true,
+        displaySortOrder: true,
+        printSortOrder: true,
         isActive: true,
         facility: {
           select: {
@@ -34,7 +36,7 @@ export async function GET(request: Request) {
           },
         },
       },
-      orderBy: { name: 'asc' },
+      orderBy: [{ displaySortOrder: 'asc' }, { id: 'asc' }],
     })
     console.timeEnd('main-query')
 
@@ -89,10 +91,15 @@ export async function POST(request: Request) {
       )
     }
 
+    const displaySortOrder = validateSortOrder(body.displaySortOrder)
+    const printSortOrder = validateSortOrder(body.printSortOrder)
+
     const unit = await prisma.unit.create({
       data: {
         facilityId: body.facilityId,
         name: body.name.trim(),
+        displaySortOrder,
+        printSortOrder,
         isActive: body.isActive !== undefined ? body.isActive : true,
       },
       include: {

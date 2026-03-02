@@ -14,6 +14,8 @@ interface Facility {
   positionName?: string | null
   positionHolderName?: string | null
   sortOrder: number
+  useSameOrderForDisplayAndPrint?: boolean
+  useUnitOrderForPrint?: boolean
   isActive: boolean
 }
 
@@ -21,6 +23,8 @@ interface Unit {
   id: number
   facilityId: number
   name: string
+  displaySortOrder?: number | null
+  printSortOrder?: number | null
   isActive: boolean
   facility?: {
     id: number
@@ -33,6 +37,8 @@ interface Resident {
   facilityId: number
   unitId: number
   name: string
+  displaySortOrder?: number | null
+  printSortOrder?: number | null
   isActive: boolean
   facility?: {
     id: number
@@ -62,17 +68,32 @@ function MasterContent() {
   // 施設マスタ用の状態
   const [showFacilityModal, setShowFacilityModal] = useState(false)
   const [editingFacility, setEditingFacility] = useState<Facility | null>(null)
-  const [facilityForm, setFacilityForm] = useState({ name: '', positionName: '', positionHolderName: '', sortOrder: 0 })
+  const [facilityForm, setFacilityForm] = useState({
+    name: '',
+    positionName: '',
+    positionHolderName: '',
+    sortOrder: 0,
+    useSameOrderForDisplayAndPrint: true,
+    useUnitOrderForPrint: true,
+  })
 
   // ユニットマスタ用の状態
   const [showUnitModal, setShowUnitModal] = useState(false)
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null)
-  const [unitForm, setUnitForm] = useState({ facilityId: 0, name: '' })
+  const [unitForm, setUnitForm] = useState({ facilityId: 0, name: '', displaySortOrder: '', printSortOrder: '' })
 
   // 利用者マスタ用の状態
   const [showResidentModal, setShowResidentModal] = useState(false)
   const [editingResident, setEditingResident] = useState<Resident | null>(null)
-  const [residentForm, setResidentForm] = useState({ facilityId: 0, unitId: 0, name: '', startDate: '', endDate: '' })
+  const [residentForm, setResidentForm] = useState({
+    facilityId: 0,
+    unitId: 0,
+    name: '',
+    startDate: '',
+    endDate: '',
+    displaySortOrder: '',
+    printSortOrder: '',
+  })
   const [showResidentEndConfirm, setShowResidentEndConfirm] = useState<number | null>(null)
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([])
   const [isSubmittingResident, setIsSubmittingResident] = useState(false)
@@ -215,7 +236,14 @@ function MasterContent() {
     const maxSortOrder = facilities.length > 0 
       ? Math.max(...facilities.map(f => f.sortOrder)) 
       : -1
-    setFacilityForm({ name: '', positionName: '', positionHolderName: '', sortOrder: maxSortOrder + 1 })
+    setFacilityForm({
+      name: '',
+      positionName: '',
+      positionHolderName: '',
+      sortOrder: maxSortOrder + 1,
+      useSameOrderForDisplayAndPrint: true,
+      useUnitOrderForPrint: true,
+    })
     setShowFacilityModal(true)
   }
 
@@ -225,7 +253,9 @@ function MasterContent() {
       name: facility.name, 
       positionName: facility.positionName || '', 
       positionHolderName: facility.positionHolderName || '', 
-      sortOrder: facility.sortOrder 
+      sortOrder: facility.sortOrder,
+      useSameOrderForDisplayAndPrint: facility.useSameOrderForDisplayAndPrint ?? true,
+      useUnitOrderForPrint: facility.useUnitOrderForPrint ?? true,
     })
     setShowFacilityModal(true)
   }
@@ -238,7 +268,11 @@ function MasterContent() {
         const res = await fetch(`/api/facilities/${editingFacility.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(facilityForm),
+          body: JSON.stringify({
+            ...facilityForm,
+            useSameOrderForDisplayAndPrint: facilityForm.useSameOrderForDisplayAndPrint,
+            useUnitOrderForPrint: facilityForm.useUnitOrderForPrint,
+          }),
         })
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({ error: '更新に失敗しました' }))
@@ -250,7 +284,11 @@ function MasterContent() {
         const res = await fetch('/api/facilities', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(facilityForm),
+          body: JSON.stringify({
+            ...facilityForm,
+            useSameOrderForDisplayAndPrint: facilityForm.useSameOrderForDisplayAndPrint,
+            useUnitOrderForPrint: facilityForm.useUnitOrderForPrint,
+          }),
         })
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({ error: '追加に失敗しました' }))
@@ -304,13 +342,18 @@ function MasterContent() {
     setEditingUnit(null)
     // 選択された施設がある場合はそれをデフォルトで選択
     const defaultFacilityId = selectedFacilityId || (facilities.length > 0 ? facilities[0].id : 0)
-    setUnitForm({ facilityId: defaultFacilityId, name: '' })
+    setUnitForm({ facilityId: defaultFacilityId, name: '', displaySortOrder: '', printSortOrder: '' })
     setShowUnitModal(true)
   }
 
   const handleEditUnit = (unit: Unit) => {
     setEditingUnit(unit)
-    setUnitForm({ facilityId: unit.facilityId, name: unit.name })
+    setUnitForm({
+      facilityId: unit.facilityId,
+      name: unit.name,
+      displaySortOrder: unit.displaySortOrder != null ? String(unit.displaySortOrder) : '',
+      printSortOrder: unit.printSortOrder != null ? String(unit.printSortOrder) : '',
+    })
     setShowUnitModal(true)
   }
 
@@ -329,11 +372,16 @@ function MasterContent() {
     }
 
     try {
+      const unitPayload = {
+        ...unitForm,
+        displaySortOrder: unitForm.displaySortOrder === '' ? null : Number(unitForm.displaySortOrder),
+        printSortOrder: unitForm.printSortOrder === '' ? null : Number(unitForm.printSortOrder),
+      }
       if (editingUnit) {
         const res = await fetch(`/api/units/${editingUnit.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(unitForm),
+          body: JSON.stringify(unitPayload),
         })
         if (!res.ok) {
           const errorData = await res.json()
@@ -344,7 +392,7 @@ function MasterContent() {
         const res = await fetch('/api/units', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(unitForm),
+          body: JSON.stringify(unitPayload),
         })
         if (!res.ok) {
           const errorData = await res.json()
@@ -372,12 +420,14 @@ function MasterContent() {
     setEditingResident(null)
     // 選択された施設がある場合はそれをデフォルトで選択
     const defaultFacilityId = selectedFacilityId || (facilities.length > 0 ? facilities[0].id : 0)
-    setResidentForm({ 
-      facilityId: defaultFacilityId, 
-      unitId: 0, 
-      name: '', 
-      startDate: '', 
-      endDate: '' 
+    setResidentForm({
+      facilityId: defaultFacilityId,
+      unitId: 0,
+      name: '',
+      startDate: '',
+      endDate: '',
+      displaySortOrder: '',
+      printSortOrder: '',
     })
     setShowResidentModal(true)
     if (defaultFacilityId > 0) {
@@ -387,12 +437,14 @@ function MasterContent() {
 
   const handleEditResident = (resident: Resident) => {
     setEditingResident(resident)
-    setResidentForm({ 
-      facilityId: resident.facilityId, 
-      unitId: resident.unitId, 
+    setResidentForm({
+      facilityId: resident.facilityId,
+      unitId: resident.unitId,
       name: resident.name,
       startDate: resident.startDate ? resident.startDate.split('T')[0] : '',
       endDate: resident.endDate ? resident.endDate.split('T')[0] : '',
+      displaySortOrder: resident.displaySortOrder != null ? String(resident.displaySortOrder) : '',
+      printSortOrder: resident.printSortOrder != null ? String(resident.printSortOrder) : '',
     })
     setShowResidentModal(true)
     loadUnitsForFacility(resident.facilityId)
@@ -416,29 +468,29 @@ function MasterContent() {
     if (isSubmittingResident) return
     setIsSubmittingResident(true)
     try {
+      const residentPayload = {
+        ...residentForm,
+        startDate: residentForm.startDate || null,
+        endDate: residentForm.endDate || null,
+        displaySortOrder: residentForm.displaySortOrder === '' ? null : Number(residentForm.displaySortOrder),
+        printSortOrder: residentForm.printSortOrder === '' ? null : Number(residentForm.printSortOrder),
+      }
       if (editingResident) {
         const res = await fetch(`/api/residents/${editingResident.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...residentForm,
-            startDate: residentForm.startDate || null,
-            endDate: residentForm.endDate || null,
-          }),
+          body: JSON.stringify(residentPayload),
         })
         if (!res.ok) {
-          throw new Error('更新に失敗しました')
+          const errorData = await res.json().catch(() => ({}))
+          throw new Error(errorData.error || '更新に失敗しました')
         }
         alert('利用者を更新しました')
       } else {
         const res = await fetch('/api/residents', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...residentForm,
-            startDate: residentForm.startDate || null,
-            endDate: residentForm.endDate || null,
-          }),
+          body: JSON.stringify(residentPayload),
         })
         if (!res.ok) {
           throw new Error('追加に失敗しました')
@@ -704,6 +756,27 @@ function MasterContent() {
                       placeholder="役職者の名前を入力"
                     />
                   </div>
+                  <div className="space-y-2 pt-2">
+                    <label className="block text-sm font-medium">表示・印刷の順序設定</label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={facilityForm.useSameOrderForDisplayAndPrint}
+                        onChange={(e) => setFacilityForm({ ...facilityForm, useSameOrderForDisplayAndPrint: e.target.checked })}
+                        className="rounded"
+                      />
+                      <span className="text-sm">表示順と印刷順を同じにする</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={facilityForm.useUnitOrderForPrint}
+                        onChange={(e) => setFacilityForm({ ...facilityForm, useUnitOrderForPrint: e.target.checked })}
+                        className="rounded"
+                      />
+                      <span className="text-sm">印刷時にユニット順を適用する</span>
+                    </label>
+                  </div>
                   <div className="flex gap-4 pt-4">
                     <button
                       type="submit"
@@ -834,6 +907,34 @@ function MasterContent() {
                       className="w-full px-3 py-2 border rounded"
                       placeholder="ユニット名を入力"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">表示順</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      inputMode="numeric"
+                      value={unitForm.displaySortOrder}
+                      onChange={(e) => setUnitForm({ ...unitForm, displaySortOrder: e.target.value })}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="空欄で従来通り"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">0以上の整数。空欄の場合は従来通りの並びになります。</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">印刷順</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      inputMode="numeric"
+                      value={unitForm.printSortOrder}
+                      onChange={(e) => setUnitForm({ ...unitForm, printSortOrder: e.target.value })}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="空欄で従来通り"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">施設で「表示順と印刷順を別にする」の場合に使用。</p>
                   </div>
                   <div className="flex gap-4 pt-4">
                     <button
@@ -1019,6 +1120,34 @@ function MasterContent() {
                       onChange={(e) => setResidentForm({ ...residentForm, endDate: e.target.value })}
                       className="w-full px-3 py-2 border rounded"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">表示順</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      inputMode="numeric"
+                      value={residentForm.displaySortOrder}
+                      onChange={(e) => setResidentForm({ ...residentForm, displaySortOrder: e.target.value })}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="空欄で従来通り"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">0以上の整数。空欄の場合は従来通りの並びになります。</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">印刷順</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      inputMode="numeric"
+                      value={residentForm.printSortOrder}
+                      onChange={(e) => setResidentForm({ ...residentForm, printSortOrder: e.target.value })}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="空欄で従来通り"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">施設で「表示順と印刷順を別にする」の場合に使用。</p>
                   </div>
                   <div className="flex gap-4 pt-4">
                     <button

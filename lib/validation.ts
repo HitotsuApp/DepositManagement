@@ -41,6 +41,24 @@ export function validateMaxLength(value: string | null | undefined, maxLength: n
 }
 
 /**
+ * ソート順の値（整数）をバリデーション
+ * 空文字・null・undefinedはnullを返す（未設定として扱う）
+ * 整数以外はnullを返す
+ * @param value チェックする値
+ * @returns 有効な整数、またはnull（未設定）
+ */
+export function validateSortOrder(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+  const num = Number(value)
+  if (isNaN(num) || !Number.isInteger(num) || num < 0) {
+    return null
+  }
+  return num
+}
+
+/**
  * 入力長制限の定数
  */
 export const MAX_LENGTHS = {

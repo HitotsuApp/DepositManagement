@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
 import { transformToPrintData } from "@/pdf/utils/transform"
+import { sortResidentsForPrint, sortUnitsForPrint } from "@/lib/sortOrder"
 
 export async function GET(request: Request) {
   const prisma = getPrisma()
@@ -49,8 +50,24 @@ export async function GET(request: Request) {
       )
     }
 
+    // 施設設定に応じてユニット・利用者をソート
+    const useSameOrder = facility.useSameOrderForDisplayAndPrint ?? true
+    const useUnitOrder = facility.useUnitOrderForPrint ?? true
+    const sortedUnits = sortUnitsForPrint(facility.units, useSameOrder)
+    const sortedResidents = sortResidentsForPrint(
+      facility.residents,
+      facility.units,
+      useSameOrder,
+      useUnitOrder
+    )
+    const sortedFacility = {
+      ...facility,
+      units: sortedUnits,
+      residents: sortedResidents,
+    }
+
     const printData = transformToPrintData(
-      facility,
+      sortedFacility,
       unitId ? Number(unitId) : null,
       Number(year),
       Number(month)

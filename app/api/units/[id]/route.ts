@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
-import { validateId, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
+import { validateId, validateMaxLength, validateSortOrder, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(
   request: Request,
@@ -77,6 +77,24 @@ export async function PUT(
       )
     }
 
+    const displaySortOrder = body.displaySortOrder !== undefined ? validateSortOrder(body.displaySortOrder) : undefined
+    const printSortOrder = body.printSortOrder !== undefined ? validateSortOrder(body.printSortOrder) : undefined
+    // 空でない値が入力されたがバリデーションに失敗した場合のみエラー（null/''はクリアとして許可）
+    const hasDisplayValue = body.displaySortOrder !== undefined && body.displaySortOrder !== null && body.displaySortOrder !== ''
+    const hasPrintValue = body.printSortOrder !== undefined && body.printSortOrder !== null && body.printSortOrder !== ''
+    if (hasDisplayValue && displaySortOrder === null) {
+      return NextResponse.json(
+        { error: '表示順は0以上の整数で入力してください' },
+        { status: 400 }
+      )
+    }
+    if (hasPrintValue && printSortOrder === null) {
+      return NextResponse.json(
+        { error: '印刷順は0以上の整数で入力してください' },
+        { status: 400 }
+      )
+    }
+
     // 施設が存在するか確認
     const facility = await prisma.facility.findUnique({
       where: { id: body.facilityId },
@@ -89,12 +107,16 @@ export async function PUT(
       )
     }
 
+    const updateData: Record<string, unknown> = {
+      facilityId: body.facilityId,
+      name: body.name.trim(),
+    }
+    if (displaySortOrder !== undefined) updateData.displaySortOrder = displaySortOrder
+    if (printSortOrder !== undefined) updateData.printSortOrder = printSortOrder
+
     const unit = await prisma.unit.update({
       where: { id: unitId },
-      data: {
-        facilityId: body.facilityId,
-        name: body.name.trim(),
-      },
+      data: updateData as any,
       include: {
         facility: true,
       },

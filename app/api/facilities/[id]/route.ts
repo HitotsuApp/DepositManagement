@@ -41,7 +41,7 @@ export async function GET(
               id: true,
               name: true,
             },
-            orderBy: { name: 'asc' },
+            orderBy: [{ displaySortOrder: 'asc' }, { id: 'asc' }],
           },
           residents: {
             where: {
@@ -63,6 +63,7 @@ export async function GET(
                 orderBy: { transactionDate: 'asc' },
               },
             },
+            orderBy: [{ displaySortOrder: 'asc' }, { id: 'asc' }],
           },
         },
       })
@@ -221,6 +222,8 @@ export async function PUT(
         positionName: body.positionName !== undefined ? (body.positionName ? body.positionName.trim() : null) : undefined,
         positionHolderName: body.positionHolderName !== undefined ? (body.positionHolderName ? body.positionHolderName.trim() : null) : undefined,
         sortOrder: body.sortOrder !== undefined ? body.sortOrder : undefined,
+        useSameOrderForDisplayAndPrint: body.useSameOrderForDisplayAndPrint !== undefined ? body.useSameOrderForDisplayAndPrint : undefined,
+        useUnitOrderForPrint: body.useUnitOrderForPrint !== undefined ? body.useUnitOrderForPrint : undefined,
       },
     })
 

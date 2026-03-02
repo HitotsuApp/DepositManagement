@@ -73,6 +73,8 @@ export async function POST(request: Request) {
         positionName: body.positionName ? body.positionName.trim() : null,
         positionHolderName: body.positionHolderName ? body.positionHolderName.trim() : null,
         sortOrder: body.sortOrder || 0,
+        useSameOrderForDisplayAndPrint: body.useSameOrderForDisplayAndPrint ?? true,
+        useUnitOrderForPrint: body.useUnitOrderForPrint ?? true,
         isActive: body.isActive !== undefined ? body.isActive : true,
       },
     })
