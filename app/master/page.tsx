@@ -813,6 +813,8 @@ function MasterContent() {
                   <tr>
                     <th className="px-4 py-3 text-left">施設</th>
                     <th className="px-4 py-3 text-left">ユニット名</th>
+                    <th className="px-4 py-3 text-left">表示順</th>
+                    <th className="px-4 py-3 text-left">印刷順</th>
                     <th className="px-4 py-3 text-left">状態</th>
                     <th className="px-4 py-3 text-left">操作</th>
                   </tr>
@@ -820,12 +822,14 @@ function MasterContent() {
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8">
+                      <td colSpan={6} className="px-4 py-8">
                         <div className="animate-pulse space-y-2">
                           {[1, 2, 3].map(i => (
                             <div key={i} className="flex gap-4">
                               <div className="h-4 bg-gray-200 rounded w-32"></div>
                               <div className="h-4 bg-gray-200 rounded w-32"></div>
+                              <div className="h-4 bg-gray-200 rounded w-12"></div>
+                              <div className="h-4 bg-gray-200 rounded w-12"></div>
                               <div className="h-4 bg-gray-200 rounded w-16"></div>
                               <div className="h-4 bg-gray-200 rounded w-24"></div>
                             </div>
@@ -835,7 +839,7 @@ function MasterContent() {
                     </tr>
                   ) : units.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                         ユニットが登録されていません
                       </td>
                     </tr>
@@ -844,6 +848,8 @@ function MasterContent() {
                       <tr key={unit.id} className="border-t">
                         <td className="px-4 py-3">{unit.facility?.name || `施設ID: ${unit.facilityId}`}</td>
                         <td className="px-4 py-3">{unit.name}</td>
+                        <td className="px-4 py-3">{unit.displaySortOrder != null ? unit.displaySortOrder : '—'}</td>
+                        <td className="px-4 py-3">{unit.printSortOrder != null ? unit.printSortOrder : '—'}</td>
                         <td className="px-4 py-3">
                           <span className={`px-2 py-1 rounded text-sm ${
                             unit.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
@@ -972,6 +978,8 @@ function MasterContent() {
                     <th className="px-4 py-3 text-left">施設</th>
                     <th className="px-4 py-3 text-left">ユニット</th>
                     <th className="px-4 py-3 text-left">利用者名</th>
+                    <th className="px-4 py-3 text-left">表示順</th>
+                    <th className="px-4 py-3 text-left">印刷順</th>
                     <th className="px-4 py-3 text-left">状態</th>
                     <th className="px-4 py-3 text-left">操作</th>
                   </tr>
@@ -979,13 +987,15 @@ function MasterContent() {
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8">
+                      <td colSpan={7} className="px-4 py-8">
                         <div className="animate-pulse space-y-2">
                           {[1, 2, 3].map(i => (
                             <div key={i} className="flex gap-4">
                               <div className="h-4 bg-gray-200 rounded w-32"></div>
                               <div className="h-4 bg-gray-200 rounded w-24"></div>
                               <div className="h-4 bg-gray-200 rounded w-24"></div>
+                              <div className="h-4 bg-gray-200 rounded w-12"></div>
+                              <div className="h-4 bg-gray-200 rounded w-12"></div>
                               <div className="h-4 bg-gray-200 rounded w-24"></div>
                               <div className="h-4 bg-gray-200 rounded w-24"></div>
                             </div>
@@ -995,7 +1005,7 @@ function MasterContent() {
                     </tr>
                   ) : residents.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                         利用者が登録されていません
                       </td>
                     </tr>
@@ -1007,6 +1017,8 @@ function MasterContent() {
                         <td className="px-4 py-3">{resident.facility?.name || `施設ID: ${resident.facilityId}`}</td>
                         <td className="px-4 py-3">{resident.unit?.name || `ユニットID: ${resident.unitId}`}</td>
                         <td className="px-4 py-3">{resident.name}</td>
+                        <td className="px-4 py-3">{resident.displaySortOrder != null ? resident.displaySortOrder : '—'}</td>
+                        <td className="px-4 py-3">{resident.printSortOrder != null ? resident.printSortOrder : '—'}</td>
                         <td className="px-4 py-3">
                           <span className="px-2 py-1 rounded text-sm bg-green-100 text-green-800">
                             利用中
