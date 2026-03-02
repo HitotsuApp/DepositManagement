@@ -1,6 +1,7 @@
 import { Facility, Unit, Resident, Transaction } from "@prisma/client"
 import { filterTransactionsByMonth } from "@/lib/balance"
 import { formatDate } from "./format"
+import { getResidentDisplayName } from "@/lib/displayName"
 
 export interface PrintData {
   statement: {
@@ -191,7 +192,7 @@ export function transformToPrintData(
         : (t.resident.unit?.name || facility.name)
       return {
         category: categoryName,
-        userName: t.resident.name,
+        userName: getResidentDisplayName(t.resident as any, "print"),
         date: "",
         label: "前月より繰越",
         payee: "",
@@ -224,7 +225,7 @@ export function transformToPrintData(
     
     return {
       category: categoryName,
-      userName: t.resident.name,
+      userName: getResidentDisplayName(t.resident as any, "print"),
       date: formatDate(t.transactionDate),
       label: t.description || "",
       payee: t.payee || "",
@@ -294,7 +295,7 @@ export function transformToPrintData(
 
       return {
         residentId: resident.id,
-        residentName: resident.name,
+        residentName: getResidentDisplayName(resident as any, "print"),
         totalIncome: residentIncome,
         totalExpense: residentExpense,
         netAmount: residentIncome - residentExpense,
@@ -554,7 +555,7 @@ export function transformToResidentPrintData(
       name: resident.unit.name,
     },
     resident: {
-      name: resident.name,
+      name: getResidentDisplayName(resident as any, "print"),
     },
     transactions,
     summary: {

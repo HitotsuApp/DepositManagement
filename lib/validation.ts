@@ -67,7 +67,11 @@ export const MAX_LENGTHS = {
   POSITION_HOLDER_NAME: 30,
   UNIT_NAME: 30,
   RESIDENT_NAME: 30,
+  DISPLAY_NAME_PREFIX: 10,
   TRANSACTION_DESCRIPTION: 100,
   TRANSACTION_PAYEE: 30,
   TRANSACTION_REASON: 100,
 } as const
+
+/** 表示オプションの値 */
+export const NAME_PREFIX_DISPLAY_OPTIONS = ['screen_only', 'print_only', 'none'] as const

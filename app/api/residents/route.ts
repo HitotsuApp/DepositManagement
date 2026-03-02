@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
-import { validateMaxLength, validateSortOrder, MAX_LENGTHS } from '@/lib/validation'
+import { validateMaxLength, validateSortOrder, MAX_LENGTHS, NAME_PREFIX_DISPLAY_OPTIONS } from '@/lib/validation'
 
 export async function GET(request: Request) {
   console.time('prisma-init')
@@ -29,6 +29,8 @@ export async function GET(request: Request) {
         unitId: true,
         displaySortOrder: true,
         printSortOrder: true,
+        displayNamePrefix: true,
+        namePrefixDisplayOption: true,
         isActive: true,
         startDate: true,
         endDate: true,
@@ -84,6 +86,17 @@ export async function POST(request: Request) {
     const displaySortOrder = validateSortOrder(body.displaySortOrder)
     const printSortOrder = validateSortOrder(body.printSortOrder)
 
+    const displayNamePrefix = body.displayNamePrefix?.trim() || null
+    if (displayNamePrefix && !validateMaxLength(displayNamePrefix, MAX_LENGTHS.DISPLAY_NAME_PREFIX)) {
+      return NextResponse.json(
+        { error: `表示オプションの文言は${MAX_LENGTHS.DISPLAY_NAME_PREFIX}文字以内で入力してください` },
+        { status: 400 }
+      )
+    }
+    const namePrefixDisplayOption = NAME_PREFIX_DISPLAY_OPTIONS.includes(body.namePrefixDisplayOption)
+      ? body.namePrefixDisplayOption
+      : 'none'
+
     const resident = await prisma.resident.create({
       data: {
         facilityId: body.facilityId,
@@ -91,6 +104,8 @@ export async function POST(request: Request) {
         name: body.name.trim(),
         displaySortOrder,
         printSortOrder,
+        displayNamePrefix: displayNamePrefix || null,
+        namePrefixDisplayOption: displayNamePrefix ? namePrefixDisplayOption : 'none',
         startDate: body.startDate ? new Date(body.startDate) : null,
         endDate: body.endDate ? new Date(body.endDate) : null,
         isActive: body.isActive !== undefined ? body.isActive : true,

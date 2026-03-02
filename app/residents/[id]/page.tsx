@@ -12,6 +12,7 @@ import Toast from '@/components/Toast'
 import { useFacility } from '@/contexts/FacilityContext'
 import { isValidDate } from '@/lib/validation'
 import { invalidateTransactionCache } from '@/lib/cache'
+import { getResidentDisplayName } from '@/lib/displayName'
 
 interface Transaction {
   id: number
@@ -60,6 +61,10 @@ export default function ResidentDetailPage() {
   })
   
   const [residentName, setResidentName] = useState('')
+  const [residentDisplayOptions, setResidentDisplayOptions] = useState<{
+    displayNamePrefix?: string | null
+    namePrefixDisplayOption?: string | null
+  }>({})
   const [residentFacilityId, setResidentFacilityId] = useState<number | null>(null)
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -138,6 +143,10 @@ export default function ResidentDetailPage() {
       )
       const data = await response.json()
       setResidentName(data.residentName || '')
+      setResidentDisplayOptions({
+        displayNamePrefix: data.displayNamePrefix,
+        namePrefixDisplayOption: data.namePrefixDisplayOption,
+      })
       setResidentFacilityId(data.facilityId || null)
       setBalance(data.balance || 0)
       setTransactions(data.transactions || [])
@@ -579,7 +588,7 @@ export default function ResidentDetailPage() {
           >
             ◀
           </button>
-          <h1 className="text-3xl font-bold">利用者詳細: {residentName}</h1>
+          <h1 className="text-3xl font-bold">利用者詳細: {getResidentDisplayName({ name: residentName, ...residentDisplayOptions }, 'screen')}</h1>
           <button
             onClick={() => nextResidentId && handleResidentChange(nextResidentId)}
             disabled={!nextResidentId}

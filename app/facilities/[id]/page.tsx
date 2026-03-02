@@ -8,6 +8,7 @@ import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
 import { useFacility } from '@/contexts/FacilityContext'
+import { getResidentDisplayName } from '@/lib/displayName'
 
 interface UnitSummary {
   id: number
@@ -18,6 +19,8 @@ interface UnitSummary {
 interface ResidentSummary {
   id: number
   name: string
+  displayNamePrefix?: string | null
+  namePrefixDisplayOption?: string | null
   balance: number
 }
 
@@ -322,7 +325,7 @@ export default function FacilityDetailPage() {
             {residents.map(resident => (
               <Card
                 key={resident.id}
-                title={resident.name}
+                title={getResidentDisplayName(resident, 'screen')}
                 amount={resident.balance}
                 onClick={() => handleResidentClick(resident.id)}
                 className="bg-[#FFF0F0]"

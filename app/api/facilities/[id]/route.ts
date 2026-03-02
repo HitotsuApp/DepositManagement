@@ -53,6 +53,8 @@ export async function GET(
               id: true,
               name: true,
               unitId: true,
+              displayNamePrefix: true,
+              namePrefixDisplayOption: true,
               transactions: {
                 select: {
                   id: true,
@@ -131,6 +133,8 @@ export async function GET(
       const residentSummaries = displayResidents.map(resident => ({
         id: resident.id,
         name: resident.name,
+        displayNamePrefix: resident.displayNamePrefix,
+        namePrefixDisplayOption: resident.namePrefixDisplayOption,
         balance: residentBalancesMap.get(resident.id) || 0,
       }))
 

@@ -48,13 +48,15 @@ model Unit {
 }
 
 model Resident {
-  id               Int           @id @default(autoincrement())
-  facilityId       Int
-  unitId           Int
-  name             String        // 最大30文字（アプリケーションレベルで制限）
-  displaySortOrder Int?          // 表示順（NULL=従来通りid順）
-  printSortOrder   Int?          // 印刷順（NULL=従来通りid順）
-  startDate        DateTime?
+  id                    Int           @id @default(autoincrement())
+  facilityId            Int
+  unitId                Int
+  name                  String        // 最大30文字（アプリケーションレベルで制限）
+  displaySortOrder      Int?          // 表示順（NULL=従来通りid順）
+  printSortOrder        Int?          // 印刷順（NULL=従来通りid順）
+  displayNamePrefix     String?       // 利用者名の前に表示する文言（最大10文字）
+  namePrefixDisplayOption String?     // "screen_only" | "print_only" | "none"
+  startDate             DateTime?
   endDate    DateTime?
   isActive   Boolean      @default(true)
   facility   Facility     @relation(fields: [facilityId], references: [id])

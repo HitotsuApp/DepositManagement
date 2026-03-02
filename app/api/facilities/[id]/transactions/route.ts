@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { getPrisma } from '@/lib/prisma'
 import { validateId } from '@/lib/validation'
+import { getResidentDisplayName } from '@/lib/displayName'
 
 export async function GET(
   request: Request,
@@ -44,6 +45,8 @@ export async function GET(
           select: {
             id: true,
             name: true,
+            displayNamePrefix: true,
+            namePrefixDisplayOption: true,
           },
           orderBy: { name: 'asc' },
         },
@@ -112,14 +115,17 @@ export async function GET(
       balance: number | string // PostgreSQLのSUMはnumeric型を返すため
     }
 
-    // 利用者IDと名前のマップを作成
-    const residentMap = new Map<number, string>()
+    // 利用者IDと表示名のマップを作成（画面表示用）
+    const residentDisplayNameMap = new Map<number, string>()
     facility.residents.forEach(resident => {
-      residentMap.set(resident.id, resident.name)
+      residentDisplayNameMap.set(
+        resident.id,
+        getResidentDisplayName(resident as any, 'screen')
+      )
     })
 
     // 利用者IDのリストを作成
-    const residentIds = Array.from(residentMap.keys())
+    const residentIds = Array.from(residentDisplayNameMap.keys())
 
     let transactionsWithBalance: TransactionWithBalanceRow[] = []
     if (residentIds.length > 0) {
@@ -190,7 +196,7 @@ export async function GET(
     console.timeEnd('balance-calculation-query')
 
     console.time('processing-logic')
-    // データを整形（PostgreSQLのnumeric型をNumberに変換）
+    // データを整形（PostgreSQLのnumeric型をNumberに変換、表示名を適用）
     const allTransactions = transactionsWithBalance.map(t => ({
       id: t.id,
       transactionDate: t.transactionDate.toISOString(),
@@ -201,7 +207,7 @@ export async function GET(
       reason: t.reason,
       balance: Number(t.balance),
       residentId: t.residentId,
-      residentName: t.residentName,
+      residentName: residentDisplayNameMap.get(t.residentId) ?? t.residentName,
     }))
     console.timeEnd('processing-logic')
 

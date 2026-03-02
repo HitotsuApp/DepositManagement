@@ -39,6 +39,8 @@ interface Resident {
   name: string
   displaySortOrder?: number | null
   printSortOrder?: number | null
+  displayNamePrefix?: string | null
+  namePrefixDisplayOption?: string | null
   isActive: boolean
   facility?: {
     id: number
@@ -93,6 +95,8 @@ function MasterContent() {
     endDate: '',
     displaySortOrder: '',
     printSortOrder: '',
+    displayNamePrefix: '',
+    namePrefixDisplayOption: 'none' as 'screen_only' | 'print_only' | 'none',
   })
   const [showResidentEndConfirm, setShowResidentEndConfirm] = useState<number | null>(null)
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([])
@@ -428,6 +432,8 @@ function MasterContent() {
       endDate: '',
       displaySortOrder: '',
       printSortOrder: '',
+      displayNamePrefix: '',
+      namePrefixDisplayOption: 'none',
     })
     setShowResidentModal(true)
     if (defaultFacilityId > 0) {
@@ -445,6 +451,8 @@ function MasterContent() {
       endDate: resident.endDate ? resident.endDate.split('T')[0] : '',
       displaySortOrder: resident.displaySortOrder != null ? String(resident.displaySortOrder) : '',
       printSortOrder: resident.printSortOrder != null ? String(resident.printSortOrder) : '',
+      displayNamePrefix: resident.displayNamePrefix || '',
+      namePrefixDisplayOption: (resident.namePrefixDisplayOption as 'screen_only' | 'print_only' | 'none') || 'none',
     })
     setShowResidentModal(true)
     loadUnitsForFacility(resident.facilityId)
@@ -474,6 +482,8 @@ function MasterContent() {
         endDate: residentForm.endDate || null,
         displaySortOrder: residentForm.displaySortOrder === '' ? null : Number(residentForm.displaySortOrder),
         printSortOrder: residentForm.printSortOrder === '' ? null : Number(residentForm.printSortOrder),
+        displayNamePrefix: residentForm.displayNamePrefix?.trim() || null,
+        namePrefixDisplayOption: residentForm.displayNamePrefix?.trim() ? residentForm.namePrefixDisplayOption : 'none',
       }
       if (editingResident) {
         const res = await fetch(`/api/residents/${editingResident.id}`, {
@@ -977,6 +987,7 @@ function MasterContent() {
                   <tr>
                     <th className="px-4 py-3 text-left">施設</th>
                     <th className="px-4 py-3 text-left">ユニット</th>
+                    <th className="px-4 py-3 text-left">表示オプション</th>
                     <th className="px-4 py-3 text-left">利用者名</th>
                     <th className="px-4 py-3 text-left">表示順</th>
                     <th className="px-4 py-3 text-left">印刷順</th>
@@ -987,12 +998,13 @@ function MasterContent() {
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8">
+                      <td colSpan={8} className="px-4 py-8">
                         <div className="animate-pulse space-y-2">
                           {[1, 2, 3].map(i => (
                             <div key={i} className="flex gap-4">
                               <div className="h-4 bg-gray-200 rounded w-32"></div>
                               <div className="h-4 bg-gray-200 rounded w-24"></div>
+                              <div className="h-4 bg-gray-200 rounded w-16"></div>
                               <div className="h-4 bg-gray-200 rounded w-24"></div>
                               <div className="h-4 bg-gray-200 rounded w-12"></div>
                               <div className="h-4 bg-gray-200 rounded w-12"></div>
@@ -1005,7 +1017,7 @@ function MasterContent() {
                     </tr>
                   ) : residents.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                         利用者が登録されていません
                       </td>
                     </tr>
@@ -1016,6 +1028,7 @@ function MasterContent() {
                       <tr key={resident.id} className="border-t">
                         <td className="px-4 py-3">{resident.facility?.name || `施設ID: ${resident.facilityId}`}</td>
                         <td className="px-4 py-3">{resident.unit?.name || `ユニットID: ${resident.unitId}`}</td>
+                        <td className="px-4 py-3">{resident.displayNamePrefix || '—'}</td>
                         <td className="px-4 py-3">{resident.name}</td>
                         <td className="px-4 py-3">{resident.displaySortOrder != null ? resident.displaySortOrder : '—'}</td>
                         <td className="px-4 py-3">{resident.printSortOrder != null ? resident.printSortOrder : '—'}</td>
@@ -1114,6 +1127,52 @@ function MasterContent() {
                       className="w-full px-3 py-2 border rounded"
                       placeholder="利用者名を入力"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">表示オプション（利用者名の前に表示する文言）</label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      value={residentForm.displayNamePrefix}
+                      onChange={(e) => setResidentForm({ ...residentForm, displayNamePrefix: e.target.value })}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="例: 様、殿（10文字以内）"
+                    />
+                    <div className="mt-2 space-y-1">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="namePrefixDisplayOption"
+                          value="screen_only"
+                          checked={residentForm.namePrefixDisplayOption === 'screen_only'}
+                          onChange={() => setResidentForm({ ...residentForm, namePrefixDisplayOption: 'screen_only' })}
+                          className="rounded-full"
+                        />
+                        <span className="text-sm">画面での表示のみ</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="namePrefixDisplayOption"
+                          value="print_only"
+                          checked={residentForm.namePrefixDisplayOption === 'print_only'}
+                          onChange={() => setResidentForm({ ...residentForm, namePrefixDisplayOption: 'print_only' })}
+                          className="rounded-full"
+                        />
+                        <span className="text-sm">印刷での表示のみ</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="namePrefixDisplayOption"
+                          value="none"
+                          checked={residentForm.namePrefixDisplayOption === 'none'}
+                          onChange={() => setResidentForm({ ...residentForm, namePrefixDisplayOption: 'none' })}
+                          className="rounded-full"
+                        />
+                        <span className="text-sm">空白なら設定なし</span>
+                      </label>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">開始日</label>
@@ -1227,6 +1286,7 @@ function MasterContent() {
                     <tr>
                       <th className="px-4 py-3 text-left">施設</th>
                       <th className="px-4 py-3 text-left">ユニット</th>
+                      <th className="px-4 py-3 text-left">表示オプション</th>
                       <th className="px-4 py-3 text-left">利用者名</th>
                       <th className="px-4 py-3 text-left">開始日</th>
                       <th className="px-4 py-3 text-left">終了日</th>
@@ -1236,7 +1296,7 @@ function MasterContent() {
                   <tbody>
                     {residents.filter(resident => resident.endDate).length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                           利用終了者がいません
                         </td>
                       </tr>
@@ -1247,6 +1307,7 @@ function MasterContent() {
                         <tr key={resident.id} className="border-t">
                           <td className="px-4 py-3">{resident.facility?.name || `施設ID: ${resident.facilityId}`}</td>
                           <td className="px-4 py-3">{resident.unit?.name || `ユニットID: ${resident.unitId}`}</td>
+                          <td className="px-4 py-3">{resident.displayNamePrefix || '—'}</td>
                           <td className="px-4 py-3">{resident.name}</td>
                           <td className="px-4 py-3">
                             {resident.startDate 

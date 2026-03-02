@@ -3,7 +3,7 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { calculateBalance, filterTransactionsByMonth, calculateBalanceUpToMonth } from '@/lib/balance'
-import { validateId, validateMaxLength, validateSortOrder, MAX_LENGTHS } from '@/lib/validation'
+import { validateId, validateMaxLength, validateSortOrder, MAX_LENGTHS, NAME_PREFIX_DISPLAY_OPTIONS } from '@/lib/validation'
 
 export async function GET(
   request: Request,
@@ -29,6 +29,8 @@ export async function GET(
         id: true,
         name: true,
         facilityId: true,
+        displayNamePrefix: true,
+        namePrefixDisplayOption: true,
         transactions: {
           select: {
             id: true,
@@ -64,6 +66,8 @@ export async function GET(
 
     const response = NextResponse.json({
       residentName: resident.name,
+      displayNamePrefix: resident.displayNamePrefix,
+      namePrefixDisplayOption: resident.namePrefixDisplayOption,
       facilityId: resident.facilityId,
       balance,
       transactions: transactionsWithBalance,
@@ -136,6 +140,22 @@ export async function PUT(
     }
     if (displaySortOrder !== undefined) updateData.displaySortOrder = displaySortOrder
     if (printSortOrder !== undefined) updateData.printSortOrder = printSortOrder
+
+    const displayNamePrefix = body.displayNamePrefix !== undefined
+      ? (body.displayNamePrefix?.trim() || null)
+      : undefined
+    if (displayNamePrefix !== undefined) {
+      if (displayNamePrefix && !validateMaxLength(displayNamePrefix, MAX_LENGTHS.DISPLAY_NAME_PREFIX)) {
+        return NextResponse.json(
+          { error: `表示オプションの文言は${MAX_LENGTHS.DISPLAY_NAME_PREFIX}文字以内で入力してください` },
+          { status: 400 }
+        )
+      }
+      updateData.displayNamePrefix = displayNamePrefix
+      updateData.namePrefixDisplayOption = displayNamePrefix
+        ? (NAME_PREFIX_DISPLAY_OPTIONS.includes(body.namePrefixDisplayOption) ? body.namePrefixDisplayOption : 'none')
+        : 'none'
+    }
 
     const resident = await prisma.resident.update({
       where: { id: residentId },

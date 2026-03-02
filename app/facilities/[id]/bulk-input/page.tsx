@@ -10,6 +10,7 @@ import Toast from '@/components/Toast'
 import { useFacility } from '@/contexts/FacilityContext'
 import { isValidDate } from '@/lib/validation'
 import { invalidateTransactionCache } from '@/lib/cache'
+import { getResidentDisplayName } from '@/lib/displayName'
 
 interface Transaction {
   id: number
@@ -64,7 +65,14 @@ export default function BulkInputPage() {
   
   const [facilityName, setFacilityName] = useState('')
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [residents, setResidents] = useState<{ id: number; name: string; unitId: number | null; unit: { id: number; name: string } | null }[]>([])
+  const [residents, setResidents] = useState<{
+    id: number
+    name: string
+    displayNamePrefix?: string | null
+    namePrefixDisplayOption?: string | null
+    unitId: number | null
+    unit: { id: number; name: string } | null
+  }[]>([])
   const [units, setUnits] = useState<{ id: number; name: string }[]>([])
   const [showInOutForm, setShowInOutForm] = useState(false)
   const [showCorrectForm, setShowCorrectForm] = useState(false)
@@ -147,12 +155,21 @@ export default function BulkInputPage() {
       const residentsResponse = await fetch(`/api/residents?facilityId=${facilityId}`, fetchOptions)
       const residentsData = await residentsResponse.json()
       console.timeEnd('👥 利用者一覧取得')
-      setResidents(residentsData.map((r: { id: number; name: string; unitId: number | null; unit: { id: number; name: string } | null }) => ({
+      setResidents(residentsData.map((r: {
+        id: number
+        name: string
+        displayNamePrefix?: string | null
+        namePrefixDisplayOption?: string | null
+        unitId: number | null
+        unit: { id: number; name: string } | null
+      }) => ({
         id: r.id,
         name: r.name,
+        displayNamePrefix: r.displayNamePrefix,
+        namePrefixDisplayOption: r.namePrefixDisplayOption,
         unitId: r.unitId,
         unit: r.unit,
-      })).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)))
+      })))
 
       // 施設内の全ユニットを取得
       console.log('🏠 [パフォーマンス計測] ユニット一覧取得を開始')
@@ -298,7 +315,7 @@ export default function BulkInputPage() {
     const newPending: PendingTransaction = {
       id: editingPendingId || `pending-${Date.now()}-${Math.random()}`,
       residentId: Number(formData.residentId),
-      residentName: selectedResident.name,
+      residentName: getResidentDisplayName(selectedResident, 'screen'),
       transactionDate: formData.transactionDate,
       transactionType: formData.transactionType,
       amount: amount,
@@ -414,7 +431,7 @@ export default function BulkInputPage() {
             transactionsToSubmit.push({
               id: `pending-${Date.now()}-${Math.random()}`,
               residentId: Number(formData.residentId),
-              residentName: selectedResident.name,
+              residentName: getResidentDisplayName(selectedResident, 'screen'),
               transactionDate: formData.transactionDate,
               transactionType: formData.transactionType,
               amount: amount,
@@ -510,7 +527,7 @@ export default function BulkInputPage() {
     // 該当する利用者を検索
     const resident = residents.find(r => r.id === pending.residentId)
     if (resident) {
-      setResidentSearchQuery(resident.name)
+      setResidentSearchQuery(getResidentDisplayName(resident, 'screen'))
       if (resident.unitId) {
         setSelectedUnitId(resident.unitId)
       }
@@ -939,7 +956,7 @@ export default function BulkInputPage() {
                         return filteredResidents
                       })().map(resident => (
                         <option key={resident.id} value={resident.id}>
-                          {resident.name} {resident.unit ? `(${resident.unit.name})` : ''}
+                          {getResidentDisplayName(resident, 'screen')} {resident.unit ? `(${resident.unit.name})` : ''}
                         </option>
                       ))}
                     </select>
@@ -1219,7 +1236,7 @@ export default function BulkInputPage() {
                         return filteredResidents
                       })().map(resident => (
                         <option key={resident.id} value={resident.id}>
-                          {resident.name} {resident.unit ? `(${resident.unit.name})` : ''}
+                          {getResidentDisplayName(resident, 'screen')} {resident.unit ? `(${resident.unit.name})` : ''}
                         </option>
                       ))}
                     </select>
