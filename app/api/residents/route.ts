@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     }
     const namePrefixDisplayOption = NAME_PREFIX_DISPLAY_OPTIONS.includes(body.namePrefixDisplayOption)
       ? body.namePrefixDisplayOption
-      : 'none'
+      : 'both'
 
     const resident = await prisma.resident.create({
       data: {
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
         displaySortOrder,
         printSortOrder,
         displayNamePrefix: displayNamePrefix || null,
-        namePrefixDisplayOption: displayNamePrefix ? namePrefixDisplayOption : 'none',
+        namePrefixDisplayOption: displayNamePrefix ? namePrefixDisplayOption : 'both',
         startDate: body.startDate ? new Date(body.startDate) : null,
         endDate: body.endDate ? new Date(body.endDate) : null,
         isActive: body.isActive !== undefined ? body.isActive : true,

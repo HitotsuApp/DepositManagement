@@ -3,7 +3,7 @@
  * ソートには影響しない（displaySortOrder/printSortOrderを使用）
  */
 
-export type NamePrefixDisplayOption = 'screen_only' | 'print_only' | 'none'
+export type NamePrefixDisplayOption = 'screen_only' | 'print_only' | 'both'
 
 export interface ResidentWithDisplayOption {
   name: string
@@ -23,8 +23,9 @@ export function getResidentDisplayName(
   const prefix = resident.displayNamePrefix?.trim()
   if (!prefix) return resident.name
 
-  const option = (resident.namePrefixDisplayOption || 'none') as NamePrefixDisplayOption
+  const option = (resident.namePrefixDisplayOption || 'both') as string
   if (option === 'none') return resident.name
+  if (option === 'both') return prefix + resident.name
   if (option === 'screen_only' && context === 'screen') return prefix + resident.name
   if (option === 'print_only' && context === 'print') return prefix + resident.name
 

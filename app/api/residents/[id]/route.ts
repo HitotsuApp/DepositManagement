@@ -153,8 +153,8 @@ export async function PUT(
       }
       updateData.displayNamePrefix = displayNamePrefix
       updateData.namePrefixDisplayOption = displayNamePrefix
-        ? (NAME_PREFIX_DISPLAY_OPTIONS.includes(body.namePrefixDisplayOption) ? body.namePrefixDisplayOption : 'none')
-        : 'none'
+        ? (NAME_PREFIX_DISPLAY_OPTIONS.includes(body.namePrefixDisplayOption) ? body.namePrefixDisplayOption : 'both')
+        : 'both'
     }
 
     const resident = await prisma.resident.update({

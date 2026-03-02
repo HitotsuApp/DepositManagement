@@ -74,4 +74,4 @@ export const MAX_LENGTHS = {
 } as const
 
 /** 表示オプションの値 */
-export const NAME_PREFIX_DISPLAY_OPTIONS = ['screen_only', 'print_only', 'none'] as const
+export const NAME_PREFIX_DISPLAY_OPTIONS = ['screen_only', 'print_only', 'both'] as const

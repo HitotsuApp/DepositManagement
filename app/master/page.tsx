@@ -96,7 +96,7 @@ function MasterContent() {
     displaySortOrder: '',
     printSortOrder: '',
     displayNamePrefix: '',
-    namePrefixDisplayOption: 'none' as 'screen_only' | 'print_only' | 'none',
+    namePrefixDisplayOption: 'both' as 'screen_only' | 'print_only' | 'both',
   })
   const [showResidentEndConfirm, setShowResidentEndConfirm] = useState<number | null>(null)
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([])
@@ -433,7 +433,7 @@ function MasterContent() {
       displaySortOrder: '',
       printSortOrder: '',
       displayNamePrefix: '',
-      namePrefixDisplayOption: 'none',
+      namePrefixDisplayOption: 'both',
     })
     setShowResidentModal(true)
     if (defaultFacilityId > 0) {
@@ -452,7 +452,7 @@ function MasterContent() {
       displaySortOrder: resident.displaySortOrder != null ? String(resident.displaySortOrder) : '',
       printSortOrder: resident.printSortOrder != null ? String(resident.printSortOrder) : '',
       displayNamePrefix: resident.displayNamePrefix || '',
-      namePrefixDisplayOption: (resident.namePrefixDisplayOption as 'screen_only' | 'print_only' | 'none') || 'none',
+      namePrefixDisplayOption: (resident.namePrefixDisplayOption as 'screen_only' | 'print_only' | 'both') || 'both',
     })
     setShowResidentModal(true)
     loadUnitsForFacility(resident.facilityId)
@@ -483,7 +483,7 @@ function MasterContent() {
         displaySortOrder: residentForm.displaySortOrder === '' ? null : Number(residentForm.displaySortOrder),
         printSortOrder: residentForm.printSortOrder === '' ? null : Number(residentForm.printSortOrder),
         displayNamePrefix: residentForm.displayNamePrefix?.trim() || null,
-        namePrefixDisplayOption: residentForm.displayNamePrefix?.trim() ? residentForm.namePrefixDisplayOption : 'none',
+        namePrefixDisplayOption: residentForm.displayNamePrefix?.trim() ? residentForm.namePrefixDisplayOption : 'both',
       }
       if (editingResident) {
         const res = await fetch(`/api/residents/${editingResident.id}`, {
@@ -1129,7 +1129,7 @@ function MasterContent() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">表示オプション（利用者名の前に表示する文言）</label>
+                    <label className="block text-sm font-medium mb-1">表示オプション（利用者名の前に表示する文言）※空白なら無し</label>
                     <input
                       type="text"
                       maxLength={10}
@@ -1165,12 +1165,12 @@ function MasterContent() {
                         <input
                           type="radio"
                           name="namePrefixDisplayOption"
-                          value="none"
-                          checked={residentForm.namePrefixDisplayOption === 'none'}
-                          onChange={() => setResidentForm({ ...residentForm, namePrefixDisplayOption: 'none' })}
+                          value="both"
+                          checked={residentForm.namePrefixDisplayOption === 'both'}
+                          onChange={() => setResidentForm({ ...residentForm, namePrefixDisplayOption: 'both' })}
                           className="rounded-full"
                         />
-                        <span className="text-sm">空白なら設定なし</span>
+                        <span className="text-sm">両方</span>
                       </label>
                     </div>
                   </div>
