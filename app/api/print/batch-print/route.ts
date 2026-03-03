@@ -66,10 +66,6 @@ export async function GET(request: Request) {
       residents: sortedResidents,
     }
 
-    // [DEBUG] まとめて印刷API側のソート結果（本番では削除）
-    console.log("[出納帳DEBUG] batch-print sortedUnits:", sortedUnits.map((u) => ({ id: u.id, name: u.name })))
-    console.log("[出納帳DEBUG] batch-print sortedResidents:", sortedResidents.map((r) => ({ id: r.id, name: r.name, unitId: r.unitId })))
-
     // 施設の預り金合計データを取得（unitIdはnullで全利用者対象）
     const facilitySummary = transformToPrintData(
       sortedFacility as unknown as FacilityWithRelations,

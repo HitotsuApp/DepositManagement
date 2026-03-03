@@ -35,9 +35,12 @@ const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
     return null
   }
 
+  // @react-pdf/renderer の描画順がデータと逆になるため、表示順を補正
+  const displayOrder = [...unitSummaries].reverse()
+
   return (
     <View style={styles.container}>
-      {unitSummaries.map((unit) => {
+      {displayOrder.map((unit) => {
         // 利用者をグループ化
         const residentChunks = chunkResidents(unit.residents, MAX_CELLS_PER_ROW)
 

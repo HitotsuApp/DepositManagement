@@ -66,10 +66,6 @@ export async function GET(request: Request) {
       residents: sortedResidents,
     }
 
-    // [DEBUG] 出納帳API側のソート結果（本番では削除）
-    console.log("[出納帳DEBUG] deposit-statement sortedUnits:", sortedUnits.map((u) => ({ id: u.id, name: u.name })))
-    console.log("[出納帳DEBUG] deposit-statement sortedResidents:", sortedResidents.map((r) => ({ id: r.id, name: r.name, unitId: r.unitId })))
-
     const printData = transformToPrintData(
       sortedFacility as unknown as FacilityWithRelations,
       unitId ? Number(unitId) : null,
