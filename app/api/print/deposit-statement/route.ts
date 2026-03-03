@@ -3,8 +3,8 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
-import { transformToPrintData } from "@/pdf/utils/transform"
-import { sortResidentsForPrint, sortUnitsForPrint } from "@/lib/sortOrder"
+import { transformToPrintData, type FacilityWithRelations } from "@/pdf/utils/transform"
+import { sortResidentsForPrint, sortUnitsForPrint, type SortableResident, type SortableUnit } from "@/lib/sortOrder"
 
 export async function GET(request: Request) {
   const prisma = getPrisma()
@@ -51,12 +51,12 @@ export async function GET(request: Request) {
     }
 
     // 施設設定に応じてユニット・利用者をソート
-    const useSameOrder = facility.useSameOrderForDisplayAndPrint ?? true
-    const useUnitOrder = facility.useUnitOrderForPrint ?? true
-    const sortedUnits = sortUnitsForPrint(facility.units, useSameOrder)
+    const useSameOrder = (facility as { useSameOrderForDisplayAndPrint?: boolean }).useSameOrderForDisplayAndPrint ?? true
+    const useUnitOrder = (facility as { useUnitOrderForPrint?: boolean }).useUnitOrderForPrint ?? true
+    const sortedUnits = sortUnitsForPrint(facility.units as unknown as SortableUnit[], useSameOrder)
     const sortedResidents = sortResidentsForPrint(
-      facility.residents,
-      facility.units,
+      facility.residents as unknown as SortableResident[],
+      facility.units as unknown as SortableUnit[],
       useSameOrder,
       useUnitOrder
     )
@@ -66,8 +66,12 @@ export async function GET(request: Request) {
       residents: sortedResidents,
     }
 
+    // [DEBUG] 出納帳API側のソート結果（本番では削除）
+    console.log("[出納帳DEBUG] deposit-statement sortedUnits:", sortedUnits.map((u) => ({ id: u.id, name: u.name })))
+    console.log("[出納帳DEBUG] deposit-statement sortedResidents:", sortedResidents.map((r) => ({ id: r.id, name: r.name, unitId: r.unitId })))
+
     const printData = transformToPrintData(
-      sortedFacility,
+      sortedFacility as unknown as FacilityWithRelations,
       unitId ? Number(unitId) : null,
       Number(year),
       Number(month)

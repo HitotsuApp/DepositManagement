@@ -52,7 +52,7 @@ export interface PrintData {
   }
 }
 
-interface FacilityWithRelations extends Facility {
+export interface FacilityWithRelations extends Facility {
   units: Unit[]
   residents: (Resident & {
     transactions: Transaction[]
@@ -78,16 +78,39 @@ export function transformToPrintData(
   // 施設設定に応じてユニット・利用者を明示的にソート（出納帳の順序を確実に適用）
   const useSameOrder = facility.useSameOrderForDisplayAndPrint ?? true
   const useUnitOrder = facility.useUnitOrderForPrint ?? true
+
+  // [DEBUG] 出納帳ソート順の確認用ログ（本番では削除）
+  const unitsBeforeSort = unitId ? facility.units.filter((u) => u.id === unitId) : facility.units
+  console.log("[出納帳DEBUG] facility.units ソート前:", unitsBeforeSort.map((u) => ({
+    id: u.id,
+    name: u.name,
+    displaySortOrder: (u as { displaySortOrder?: number | null }).displaySortOrder,
+    printSortOrder: (u as { printSortOrder?: number | null }).printSortOrder,
+  })))
+  console.log("[出納帳DEBUG] 施設設定: useSameOrder=", useSameOrder, ", useUnitOrder=", useUnitOrder)
+
   const targetUnits = sortUnitsForPrint(
     unitId ? facility.units.filter((u) => u.id === unitId) : facility.units,
     useSameOrder
   )
+  console.log("[出納帳DEBUG] targetUnits ソート後:", targetUnits.map((u) => ({ id: u.id, name: u.name })))
+
+  const residentsBeforeSort = unitId ? facility.residents.filter((r) => r.unitId === unitId) : facility.residents
+  console.log("[出納帳DEBUG] facility.residents ソート前:", residentsBeforeSort.map((r) => ({
+    id: r.id,
+    name: r.name,
+    unitId: r.unitId,
+    displaySortOrder: (r as { displaySortOrder?: number | null }).displaySortOrder,
+    printSortOrder: (r as { printSortOrder?: number | null }).printSortOrder,
+  })))
+
   const targetResidents = sortResidentsForPrint(
     unitId ? facility.residents.filter((r) => r.unitId === unitId) : facility.residents,
     facility.units,
     useSameOrder,
     useUnitOrder
   )
+  console.log("[出納帳DEBUG] targetResidents ソート後:", targetResidents.map((r) => ({ id: r.id, name: r.name, unitId: r.unitId })))
 
   // 前月末日を計算（繰越行用）
   const previousMonthEnd = new Date(year, month - 1, 0, 23, 59, 59, 999)
@@ -324,11 +347,12 @@ export function transformToPrintData(
     }
   })
 
-  // 各ユニット内の利用者順が逆になっているため反転（預り金明細書と揃える）
-  const orderedUnitSummaries = unitSummaries.map((us) => ({
-    ...us,
-    residents: [...us.residents].reverse(),
-  }))
+  // [DEBUG] 出納帳 unitSummaries の最終順序（本番では削除）
+  console.log("[出納帳DEBUG] unitSummaries 最終順序:", unitSummaries.map((us) => ({
+    unitId: us.unitId,
+    unitName: us.unitName,
+    residents: us.residents.map((r) => r.residentName),
+  })))
 
   // 預り金総合計（対象ユニットの合計、past_correct_in と past_correct_out を含む）
   // transactionsから直接計算（繰越行を除外）
@@ -360,7 +384,7 @@ export function transformToPrintData(
       position: facility.positionName || "",
       staffName: facility.positionHolderName || "",
     },
-    unitSummaries: orderedUnitSummaries,
+    unitSummaries,
     grandTotal: {
       totalIncome: grandTotalIncome,
       totalExpense: grandTotalExpense,
