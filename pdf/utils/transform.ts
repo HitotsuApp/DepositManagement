@@ -316,6 +316,9 @@ export function transformToPrintData(
     }
   })
 
+  // unitSummariesの順序を設定どおりにする（出納帳では逆順になっていたため反転）
+  const orderedUnitSummaries = [...unitSummaries].reverse()
+
   // 預り金総合計（対象ユニットの合計、past_correct_in と past_correct_out を含む）
   // transactionsから直接計算（繰越行を除外）
   const grandTotalIncome = transactions
@@ -346,7 +349,7 @@ export function transformToPrintData(
       position: facility.positionName || "",
       staffName: facility.positionHolderName || "",
     },
-    unitSummaries,
+    unitSummaries: orderedUnitSummaries,
     grandTotal: {
       totalIncome: grandTotalIncome,
       totalExpense: grandTotalExpense,
