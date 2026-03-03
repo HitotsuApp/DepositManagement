@@ -171,14 +171,26 @@ export function transformToPrintData(
       })
   })
 
-  // 日付順にソート
+  // 日付順にソート（同一日付はユニット・利用者順）
+  const residentOrderMap = new Map(targetResidents.map((r, i) => [r.id, i]))
   allTransactions.sort((a, b) => {
     const dateA = new Date(a.transactionDate).getTime()
     const dateB = new Date(b.transactionDate).getTime()
     if (dateA !== dateB) return dateA - dateB
-    // 同じ日付の場合は繰越行を先に
-    if ((a as any)._isCarryOver) return -1
-    if ((b as any)._isCarryOver) return 1
+    // 同じ日付: 繰越行を先に、繰越行同士は targetResidents 順
+    const aCarryOver = (a as any)._isCarryOver
+    const bCarryOver = (b as any)._isCarryOver
+    if (aCarryOver && !bCarryOver) return -1
+    if (!aCarryOver && bCarryOver) return 1
+    if (aCarryOver && bCarryOver) {
+      const orderA = residentOrderMap.get(a.residentId) ?? Infinity
+      const orderB = residentOrderMap.get(b.residentId) ?? Infinity
+      return orderA - orderB
+    }
+    // 通常取引も同一日付ならユニット・利用者順
+    const orderA = residentOrderMap.get(a.residentId) ?? Infinity
+    const orderB = residentOrderMap.get(b.residentId) ?? Infinity
+    if (orderA !== orderB) return orderA - orderB
     return a.id - b.id
   })
 
