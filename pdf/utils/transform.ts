@@ -2,6 +2,7 @@ import { Facility, Unit, Resident, Transaction } from "@prisma/client"
 import { filterTransactionsByMonth } from "@/lib/balance"
 import { formatDate } from "./format"
 import { getResidentDisplayName } from "@/lib/displayName"
+import { sortResidentsForPrint, sortUnitsForPrint } from "@/lib/sortOrder"
 
 export interface PrintData {
   statement: {
@@ -74,10 +75,19 @@ export function transformToPrintData(
     throw new Error(`Unit ${unitId} not found`)
   }
 
-  // 利用者を取得（unitIdが指定されている場合はそのユニットの利用者のみ、nullの場合は全利用者）
-  const targetResidents = unitId
-    ? facility.residents.filter((r) => r.unitId === unitId)
-    : facility.residents
+  // 施設設定に応じてユニット・利用者を明示的にソート（出納帳の順序を確実に適用）
+  const useSameOrder = facility.useSameOrderForDisplayAndPrint ?? true
+  const useUnitOrder = facility.useUnitOrderForPrint ?? true
+  const targetUnits = sortUnitsForPrint(
+    unitId ? facility.units.filter((u) => u.id === unitId) : facility.units,
+    useSameOrder
+  )
+  const targetResidents = sortResidentsForPrint(
+    unitId ? facility.residents.filter((r) => r.unitId === unitId) : facility.residents,
+    facility.units,
+    useSameOrder,
+    useUnitOrder
+  )
 
   // 前月末日を計算（繰越行用）
   const previousMonthEnd = new Date(year, month - 1, 0, 23, 59, 59, 999)
@@ -243,9 +253,7 @@ export function transformToPrintData(
 
   // ユニット別・利用者別の当月合計を計算（繰越行を含める）
   // allTransactionsから直接計算することで、past_correct_in と past_correct_out を確実に含める
-  // unitIdが指定されている場合はそのユニットのみ、nullの場合は全ユニット
-  const targetUnits = unitId ? facility.units.filter((u) => u.id === unitId) : facility.units
-  
+  // targetUnitsは冒頭でソート済み
   // allTransactionsからcorrect_in/correct_outを除外した当月の取引を取得（繰越行は含める）
   const monthTransactionsOnly = allTransactions.filter((t) => {
     // correct_in と correct_out は除外（打ち消し処理）
@@ -316,8 +324,11 @@ export function transformToPrintData(
     }
   })
 
-  // unitSummariesの順序を設定どおりにする（出納帳では逆順になっていたため反転）
-  const orderedUnitSummaries = [...unitSummaries].reverse()
+  // 各ユニット内の利用者順が逆になっているため反転（預り金明細書と揃える）
+  const orderedUnitSummaries = unitSummaries.map((us) => ({
+    ...us,
+    residents: [...us.residents].reverse(),
+  }))
 
   // 預り金総合計（対象ユニットの合計、past_correct_in と past_correct_out を含む）
   // transactionsから直接計算（繰越行を除外）
