@@ -106,6 +106,7 @@ function MasterContent() {
   const [showResidentEndConfirm, setShowResidentEndConfirm] = useState<number | null>(null)
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([])
   const [isSubmittingResident, setIsSubmittingResident] = useState(false)
+  const [isComposingFurigana, setIsComposingFurigana] = useState(false)
   
   const tabParam = searchParams.get('tab') as 'facility' | 'unit' | 'resident' | null
   const [activeTab, setActiveTab] = useState<'facility' | 'unit' | 'resident'>(
@@ -1171,9 +1172,29 @@ function MasterContent() {
                       type="text"
                       maxLength={50}
                       value={residentForm.nameFurigana}
-                      onChange={(e) => setResidentForm({ ...residentForm, nameFurigana: sanitizeFurigana(e.target.value) })}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setResidentForm({
+                          ...residentForm,
+                          nameFurigana: isComposingFurigana ? v : sanitizeFurigana(v),
+                        })
+                      }}
+                      onCompositionStart={() => setIsComposingFurigana(true)}
+                      onCompositionEnd={(e) => {
+                        setIsComposingFurigana(false)
+                        setResidentForm((prev) => ({
+                          ...prev,
+                          nameFurigana: sanitizeFurigana((e.target as HTMLInputElement).value),
+                        }))
+                      }}
+                      onBlur={(e) => {
+                        setResidentForm((prev) => ({
+                          ...prev,
+                          nameFurigana: sanitizeFurigana(e.target.value),
+                        }))
+                      }}
                       className="w-full px-3 py-2 border rounded"
-                      placeholder="例: たなかあきこ"
+                      placeholder="例: ひとつたろう"
                     />
                     <p className="text-xs text-gray-500 mt-1">ひらがな、ー、・のみ入力可</p>
                   </div>
