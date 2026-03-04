@@ -13,6 +13,8 @@ export interface SortableUnit {
 export interface SortableResident {
   id: number
   unitId: number
+  name: string
+  nameFurigana?: string | null
   displaySortOrder: number | null
   printSortOrder: number | null
   [key: string]: unknown
@@ -26,22 +28,65 @@ function getSortKey(value: number | null): number {
 }
 
 /**
+ * あいうえお順のソートキーを取得
+ * nameFurigana を優先、未設定時は name を使用
+ */
+function getSortKeyForAiueo(resident: { nameFurigana?: string | null; name: string }): string {
+  const reading = resident.nameFurigana?.trim()
+  return reading || resident.name
+}
+
+/**
+ * あいうえお順で利用者をソート
+ * ユニット順 → あいうえお順 → id順
+ */
+export function sortResidentsByAiueo<T extends SortableResident>(
+  residents: T[],
+  units: SortableUnit[],
+  useUnitOrderForPrint: boolean
+): T[] {
+  const unitMap = new Map(units.map((u) => [u.id, u]))
+  const unitSortKey = "displaySortOrder" // aiueo時は表示順をユニットに使用
+
+  return [...residents].sort((a, b) => {
+    if (useUnitOrderForPrint) {
+      const unitA = unitMap.get(a.unitId)
+      const unitB = unitMap.get(b.unitId)
+      const unitOrderA = unitA ? getSortKey(unitA[unitSortKey] as number | null) : Infinity
+      const unitOrderB = unitB ? getSortKey(unitB[unitSortKey] as number | null) : Infinity
+      if (unitOrderA !== unitOrderB) return unitOrderA - unitOrderB
+    }
+
+    const keyA = getSortKeyForAiueo(a)
+    const keyB = getSortKeyForAiueo(b)
+    const cmp = keyA.localeCompare(keyB, "ja")
+    if (cmp !== 0) return cmp
+    return a.id - b.id
+  })
+}
+
+/**
  * 印刷用に利用者リストをソート
  * @param residents 利用者リスト（unit情報を含むこと）
  * @param units ユニットリスト（unitIdでマップ可能）
  * @param useSameOrderForDisplayAndPrint 表示順を印刷にも使用するか
  * @param useUnitOrderForPrint ユニット順を適用するか
+ * @param residentSortMode 'aiueo' のときあいうえお順、それ以外は手動順
  */
 export function sortResidentsForPrint<T extends SortableResident>(
   residents: T[],
   units: SortableUnit[],
   useSameOrderForDisplayAndPrint: boolean,
-  useUnitOrderForPrint: boolean
+  useUnitOrderForPrint: boolean,
+  residentSortMode?: "manual" | "aiueo" | null
 ): T[] {
-  const unitMap = new Map(units.map((u) => [u.id, u]))
+  if (residentSortMode === "aiueo") {
+    return sortResidentsByAiueo(residents, units, useUnitOrderForPrint)
+  }
 
-  const residentSortKey = useSameOrderForDisplayAndPrint ? 'displaySortOrder' : 'printSortOrder'
-  const unitSortKey = useSameOrderForDisplayAndPrint ? 'displaySortOrder' : 'printSortOrder'
+  const unitMap = new Map(units.map((u) => [u.id, u]))
+  const residentSortKey = useSameOrderForDisplayAndPrint ? "displaySortOrder" : "printSortOrder"
+  const unitSortKey = useSameOrderForDisplayAndPrint ? "displaySortOrder" : "printSortOrder"
 
   return [...residents].sort((a, b) => {
     if (useUnitOrderForPrint) {

@@ -19,6 +19,7 @@ model Facility {
   sortOrder                     Int      @default(0)
   useSameOrderForDisplayAndPrint Boolean  @default(true)  // true: 表示順を印刷にも使用
   useUnitOrderForPrint          Boolean  @default(true)   // true: 印刷時にユニット順を適用
+  residentSortMode              String?  // 'manual' | 'aiueo' | null(manual扱い)
   isActive                      Boolean  @default(true)
   units                         Unit[]
   residents                     Resident[]
@@ -52,6 +53,7 @@ model Resident {
   facilityId            Int
   unitId                Int
   name                  String        // 最大30文字（アプリケーションレベルで制限）
+  nameFurigana          String?       // ふりがな（最大50文字、ひらがな・ー・・のみ、オプション）
   displaySortOrder      Int?          // 表示順（NULL=従来通りid順）
   printSortOrder        Int?          // 印刷順（NULL=従来通りid順）
   displayNamePrefix     String?       // 利用者名の前に表示する文言（最大10文字）

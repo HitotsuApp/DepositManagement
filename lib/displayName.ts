@@ -25,9 +25,10 @@ export function getResidentDisplayName(
 
   const option = (resident.namePrefixDisplayOption || 'both') as string
   if (option === 'none') return resident.name
-  if (option === 'both') return prefix + resident.name
-  if (option === 'screen_only' && context === 'screen') return prefix + resident.name
-  if (option === 'print_only' && context === 'print') return prefix + resident.name
+  const combined = prefix + '　' + resident.name // 全角スペースで結合
+  if (option === 'both') return combined
+  if (option === 'screen_only' && context === 'screen') return combined
+  if (option === 'print_only' && context === 'print') return combined
 
   return resident.name
 }

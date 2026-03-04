@@ -228,6 +228,7 @@ export async function PUT(
         sortOrder: body.sortOrder !== undefined ? body.sortOrder : undefined,
         useSameOrderForDisplayAndPrint: body.useSameOrderForDisplayAndPrint !== undefined ? body.useSameOrderForDisplayAndPrint : undefined,
         useUnitOrderForPrint: body.useUnitOrderForPrint !== undefined ? body.useUnitOrderForPrint : undefined,
+        residentSortMode: body.residentSortMode !== undefined ? (body.residentSortMode === "aiueo" ? "aiueo" : null) : undefined,
       },
     })
 

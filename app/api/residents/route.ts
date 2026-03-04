@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { validateMaxLength, validateSortOrder, MAX_LENGTHS, NAME_PREFIX_DISPLAY_OPTIONS } from '@/lib/validation'
+import { sanitizeFurigana } from '@/lib/furigana'
 
 export async function GET(request: Request) {
   console.time('prisma-init')
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
       select: {
         id: true,
         name: true,
+        nameFurigana: true,
         facilityId: true,
         unitId: true,
         displaySortOrder: true,
@@ -86,6 +88,17 @@ export async function POST(request: Request) {
     const displaySortOrder = validateSortOrder(body.displaySortOrder)
     const printSortOrder = validateSortOrder(body.printSortOrder)
 
+    const nameFuriganaRaw = body.nameFurigana !== undefined ? body.nameFurigana : null
+    const nameFurigana = nameFuriganaRaw !== null && nameFuriganaRaw !== ""
+      ? sanitizeFurigana(String(nameFuriganaRaw)).slice(0, MAX_LENGTHS.RESIDENT_NAME_FURIGANA) || null
+      : null
+    if (nameFurigana && nameFurigana.length > MAX_LENGTHS.RESIDENT_NAME_FURIGANA) {
+      return NextResponse.json(
+        { error: `ふりがなは${MAX_LENGTHS.RESIDENT_NAME_FURIGANA}文字以内で入力してください` },
+        { status: 400 }
+      )
+    }
+
     const displayNamePrefix = body.displayNamePrefix?.trim() || null
     if (displayNamePrefix && !validateMaxLength(displayNamePrefix, MAX_LENGTHS.DISPLAY_NAME_PREFIX)) {
       return NextResponse.json(
@@ -102,6 +115,7 @@ export async function POST(request: Request) {
         facilityId: body.facilityId,
         unitId: body.unitId,
         name: body.name.trim(),
+        nameFurigana,
         displaySortOrder,
         printSortOrder,
         displayNamePrefix: displayNamePrefix || null,

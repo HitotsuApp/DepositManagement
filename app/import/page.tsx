@@ -57,6 +57,9 @@ export default function ImportPage() {
     const sortOrderIndex = headers.findIndex(h => 
       h.includes('並び順') || h.includes('順序') || h.toLowerCase().includes('sortorder') || h.toLowerCase().includes('sort_order')
     )
+    const furiganaIndex = headers.findIndex(h => 
+      h.includes('ふりがな') || h.toLowerCase().includes('furigana')
+    )
 
     if (facilityIndex === -1 || unitIndex === -1 || residentIndex === -1 || balanceIndex === -1) {
       throw new Error('CSVの列が見つかりません。施設名、ユニット名、利用者名、残高の列が必要です。')
@@ -88,6 +91,9 @@ export default function ImportPage() {
         }
         if (sortOrderIndex !== -1 && values[sortOrderIndex]) {
           row.sortOrder = parseInt(values[sortOrderIndex]) || 0
+        }
+        if (furiganaIndex !== -1 && values[furiganaIndex]) {
+          row.nameFurigana = values[furiganaIndex]
         }
         
         rows.push(row)
@@ -161,16 +167,17 @@ export default function ImportPage() {
             <ul className="list-disc list-inside text-sm text-gray-700 mb-4">
               <li>入居日（「入居日」または「開始日」を含む列名、形式: YYYY-MM-DD）</li>
               <li>退居日（「退居日」または「終了日」を含む列名、形式: YYYY-MM-DD）</li>
+              <li>ふりがな（「ふりがな」を含む列名、ひらがな・ー・のみ、あいうえお順で使用）</li>
               <li>役職名（「役職名」を含む列名）</li>
               <li>役職者名（「役職者名」または「役職者」を含む列名）</li>
               <li>並び順（「並び順」または「順序」を含む列名、数値）</li>
             </ul>
           </div>
           <pre className="bg-gray-100 p-4 rounded mb-4 overflow-x-auto">
-{`施設名,ユニット名,利用者名,残高,入居日,退居日,役職名,役職者名,並び順
-施設A,ユニット1,利用者1,100000,2024-01-01,,施設長,山田太郎,1
-施設A,ユニット1,利用者2,50000,2024-02-01,,施設長,山田太郎,1
-施設B,ユニット2,利用者3,200000,2024-03-01,,副施設長,佐藤花子,2`}
+{`施設名,ユニット名,利用者名,ふりがな,残高,入居日,退居日,役職名,役職者名,並び順
+施設A,ユニット1,田中花子,たなかはなこ,100000,2024-01-01,,施設長,山田太郎,1
+施設A,ユニット1,佐藤一郎,さとういちろう,50000,2024-02-01,,施設長,山田太郎,1
+施設B,ユニット2,鈴木次郎,すずきじろう,200000,2024-03-01,,副施設長,佐藤花子,2`}
           </pre>
           <p className="text-sm text-gray-500">
             ※ 必須項目の列名は「施設」「ユニット」「利用者」「残高」を含む必要があります<br/>

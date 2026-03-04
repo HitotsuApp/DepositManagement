@@ -2,11 +2,14 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { sanitizeFurigana } from '@/lib/furigana'
+import { MAX_LENGTHS } from '@/lib/validation'
 
 interface ImportRow {
   facilityName: string
   unitName: string
   residentName: string
+  nameFurigana?: string
   initialBalance: number
   startDate?: string
   endDate?: string
@@ -181,7 +184,7 @@ export async function POST(request: Request) {
           unitMap.set(unitKey, unitId)
         }
 
-        // 利用者の取得または作成
+        // 利用者の取得または作成（同一施設・ユニット・名前の利用者は1件として扱う）
         const residentKey = `${facilityId}-${unitId}-${row.residentName}`
         let residentId = residentMap.get(residentKey)
         if (!residentId) {
@@ -201,6 +204,10 @@ export async function POST(request: Request) {
               name: row.residentName,
               isActive: true,
             }
+            const nameFuriganaRaw = row.nameFurigana
+            if (nameFuriganaRaw !== undefined && nameFuriganaRaw !== null && String(nameFuriganaRaw).trim() !== '') {
+              residentData.nameFurigana = sanitizeFurigana(String(nameFuriganaRaw)).slice(0, MAX_LENGTHS.RESIDENT_NAME_FURIGANA) || null
+            }
             const startDate = parseDate(row.startDate, `利用者「${row.residentName}」の入居日`)
             const endDate = parseDate(row.endDate, `利用者「${row.residentName}」の退居日`)
             if (startDate) {
@@ -216,6 +223,10 @@ export async function POST(request: Request) {
           } else {
             // 既存利用者の情報を更新（オプション項目のみ、空の場合は更新しない）
             const updateData: any = {}
+            const nameFuriganaRaw = row.nameFurigana
+            if (nameFuriganaRaw !== undefined && nameFuriganaRaw !== null && String(nameFuriganaRaw).trim() !== '') {
+              updateData.nameFurigana = sanitizeFurigana(String(nameFuriganaRaw)).slice(0, MAX_LENGTHS.RESIDENT_NAME_FURIGANA) || null
+            }
             const startDate = parseDate(row.startDate, `利用者「${row.residentName}」の入居日`)
             const endDate = parseDate(row.endDate, `利用者「${row.residentName}」の退居日`)
             if (startDate && !resident.startDate) {

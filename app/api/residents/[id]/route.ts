@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { calculateBalance, filterTransactionsByMonth, calculateBalanceUpToMonth } from '@/lib/balance'
 import { validateId, validateMaxLength, validateSortOrder, MAX_LENGTHS, NAME_PREFIX_DISPLAY_OPTIONS } from '@/lib/validation'
+import { sanitizeFurigana } from '@/lib/furigana'
 
 export async function GET(
   request: Request,
@@ -28,6 +29,7 @@ export async function GET(
       select: {
         id: true,
         name: true,
+        nameFurigana: true,
         facilityId: true,
         displayNamePrefix: true,
         namePrefixDisplayOption: true,
@@ -66,6 +68,7 @@ export async function GET(
 
     const response = NextResponse.json({
       residentName: resident.name,
+      nameFurigana: resident.nameFurigana,
       displayNamePrefix: resident.displayNamePrefix,
       namePrefixDisplayOption: resident.namePrefixDisplayOption,
       facilityId: resident.facilityId,
@@ -140,6 +143,19 @@ export async function PUT(
     }
     if (displaySortOrder !== undefined) updateData.displaySortOrder = displaySortOrder
     if (printSortOrder !== undefined) updateData.printSortOrder = printSortOrder
+
+    if (body.nameFurigana !== undefined) {
+      const nameFuriganaRaw = body.nameFurigana
+      updateData.nameFurigana = nameFuriganaRaw !== null && nameFuriganaRaw !== ""
+        ? sanitizeFurigana(String(nameFuriganaRaw)).slice(0, MAX_LENGTHS.RESIDENT_NAME_FURIGANA) || null
+        : null
+      if (updateData.nameFurigana && (updateData.nameFurigana as string).length > MAX_LENGTHS.RESIDENT_NAME_FURIGANA) {
+        return NextResponse.json(
+          { error: `ふりがなは${MAX_LENGTHS.RESIDENT_NAME_FURIGANA}文字以内で入力してください` },
+          { status: 400 }
+        )
+      }
+    }
 
     const displayNamePrefix = body.displayNamePrefix !== undefined
       ? (body.displayNamePrefix?.trim() || null)

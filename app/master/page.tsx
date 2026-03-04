@@ -7,6 +7,7 @@ import MainLayout from '@/components/MainLayout'
 import Modal from '@/components/Modal'
 import { useFacility } from '@/contexts/FacilityContext'
 import { invalidateMasterCache } from '@/lib/cache'
+import { sanitizeFurigana } from '@/lib/furigana'
 
 interface Facility {
   id: number
@@ -16,6 +17,7 @@ interface Facility {
   sortOrder: number
   useSameOrderForDisplayAndPrint?: boolean
   useUnitOrderForPrint?: boolean
+  residentSortMode?: string | null
   isActive: boolean
 }
 
@@ -37,6 +39,7 @@ interface Resident {
   facilityId: number
   unitId: number
   name: string
+  nameFurigana?: string | null
   displaySortOrder?: number | null
   printSortOrder?: number | null
   displayNamePrefix?: string | null
@@ -77,6 +80,7 @@ function MasterContent() {
     sortOrder: 0,
     useSameOrderForDisplayAndPrint: true,
     useUnitOrderForPrint: true,
+    residentSortMode: 'manual' as 'manual' | 'aiueo',
   })
 
   // ユニットマスタ用の状態
@@ -91,6 +95,7 @@ function MasterContent() {
     facilityId: 0,
     unitId: 0,
     name: '',
+    nameFurigana: '',
     startDate: '',
     endDate: '',
     displaySortOrder: '',
@@ -247,6 +252,7 @@ function MasterContent() {
       sortOrder: maxSortOrder + 1,
       useSameOrderForDisplayAndPrint: true,
       useUnitOrderForPrint: true,
+      residentSortMode: 'manual',
     })
     setShowFacilityModal(true)
   }
@@ -260,6 +266,7 @@ function MasterContent() {
       sortOrder: facility.sortOrder,
       useSameOrderForDisplayAndPrint: facility.useSameOrderForDisplayAndPrint ?? true,
       useUnitOrderForPrint: facility.useUnitOrderForPrint ?? true,
+      residentSortMode: facility.residentSortMode === 'aiueo' ? 'aiueo' : 'manual',
     })
     setShowFacilityModal(true)
   }
@@ -276,6 +283,7 @@ function MasterContent() {
             ...facilityForm,
             useSameOrderForDisplayAndPrint: facilityForm.useSameOrderForDisplayAndPrint,
             useUnitOrderForPrint: facilityForm.useUnitOrderForPrint,
+            residentSortMode: facilityForm.residentSortMode,
           }),
         })
         if (!res.ok) {
@@ -292,6 +300,7 @@ function MasterContent() {
             ...facilityForm,
             useSameOrderForDisplayAndPrint: facilityForm.useSameOrderForDisplayAndPrint,
             useUnitOrderForPrint: facilityForm.useUnitOrderForPrint,
+            residentSortMode: facilityForm.residentSortMode,
           }),
         })
         if (!res.ok) {
@@ -428,6 +437,7 @@ function MasterContent() {
       facilityId: defaultFacilityId,
       unitId: 0,
       name: '',
+      nameFurigana: '',
       startDate: '',
       endDate: '',
       displaySortOrder: '',
@@ -447,6 +457,7 @@ function MasterContent() {
       facilityId: resident.facilityId,
       unitId: resident.unitId,
       name: resident.name,
+      nameFurigana: resident.nameFurigana || '',
       startDate: resident.startDate ? resident.startDate.split('T')[0] : '',
       endDate: resident.endDate ? resident.endDate.split('T')[0] : '',
       displaySortOrder: resident.displaySortOrder != null ? String(resident.displaySortOrder) : '',
@@ -480,6 +491,7 @@ function MasterContent() {
         ...residentForm,
         startDate: residentForm.startDate || null,
         endDate: residentForm.endDate || null,
+        nameFurigana: residentForm.nameFurigana?.trim() || null,
         displaySortOrder: residentForm.displaySortOrder === '' ? null : Number(residentForm.displaySortOrder),
         printSortOrder: residentForm.printSortOrder === '' ? null : Number(residentForm.printSortOrder),
         displayNamePrefix: residentForm.displayNamePrefix?.trim() || null,
@@ -733,7 +745,7 @@ function MasterContent() {
               <form onSubmit={handleSaveFacility}>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">施設名 <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium mb-0.5">施設名 <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       required
@@ -745,7 +757,7 @@ function MasterContent() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">役職名</label>
+                    <label className="block text-sm font-medium mb-0.5">役職名</label>
                     <input
                       type="text"
                       maxLength={30}
@@ -756,7 +768,7 @@ function MasterContent() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">役職者の名前</label>
+                    <label className="block text-sm font-medium mb-0.5">役職者の名前</label>
                     <input
                       type="text"
                       maxLength={30}
@@ -786,6 +798,31 @@ function MasterContent() {
                       />
                       <span className="text-sm">印刷時にユニット順を適用する</span>
                     </label>
+                    <div className="pt-2">
+                      <span className="block text-sm font-medium mb-1">利用者の並び順</span>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="residentSortMode"
+                            checked={facilityForm.residentSortMode === 'manual'}
+                            onChange={() => setFacilityForm({ ...facilityForm, residentSortMode: 'manual' })}
+                            className="rounded-full"
+                          />
+                          <span className="text-sm">手動で指定</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="residentSortMode"
+                            checked={facilityForm.residentSortMode === 'aiueo'}
+                            onChange={() => setFacilityForm({ ...facilityForm, residentSortMode: 'aiueo' })}
+                            className="rounded-full"
+                          />
+                          <span className="text-sm">あいうえお順</span>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex gap-4 pt-4">
                     <button
@@ -891,7 +928,7 @@ function MasterContent() {
               <form onSubmit={handleSaveUnit}>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">施設 <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium mb-0.5">施設 <span className="text-red-500">*</span></label>
                     <select
                       required
                       value={unitForm.facilityId}
@@ -913,7 +950,7 @@ function MasterContent() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">ユニット名 <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium mb-0.5">ユニット名 <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       required
@@ -925,7 +962,7 @@ function MasterContent() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">表示順</label>
+                    <label className="block text-sm font-medium mb-0.5">表示順</label>
                     <input
                       type="number"
                       min={0}
@@ -939,7 +976,7 @@ function MasterContent() {
                     <p className="text-xs text-gray-500 mt-1">0以上の整数。空欄の場合は従来通りの並びになります。</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">印刷順</label>
+                    <label className="block text-sm font-medium mb-0.5">印刷順</label>
                     <input
                       type="number"
                       min={0}
@@ -1069,9 +1106,9 @@ function MasterContent() {
               title={editingResident ? '利用者を編集' : '利用者を追加'}
             >
               <form onSubmit={(e) => { e.preventDefault(); }}>
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <div>
-                    <label className="block text-sm font-medium mb-1">施設 <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium mb-0.5">施設 <span className="text-red-500">*</span></label>
                     <select
                       required
                       value={residentForm.facilityId}
@@ -1097,7 +1134,7 @@ function MasterContent() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">ユニット <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium mb-0.5">ユニット <span className="text-red-500">*</span></label>
                     <select
                       required
                       value={residentForm.unitId}
@@ -1117,7 +1154,7 @@ function MasterContent() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">利用者名 <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium mb-0.5">利用者名 <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       required
@@ -1129,16 +1166,28 @@ function MasterContent() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">表示オプション（利用者名の前に表示する文言）※空白なら無し</label>
+                    <label className="block text-sm font-medium mb-0.5">ふりがな（あいうえお順で使用、任意）</label>
+                    <input
+                      type="text"
+                      maxLength={50}
+                      value={residentForm.nameFurigana}
+                      onChange={(e) => setResidentForm({ ...residentForm, nameFurigana: sanitizeFurigana(e.target.value) })}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="例: たなかあきこ"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">ひらがな、ー、・のみ入力可</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-0.5">表示オプション（利用者名の前に表示する文言）※空白なら無し</label>
                     <input
                       type="text"
                       maxLength={10}
                       value={residentForm.displayNamePrefix}
                       onChange={(e) => setResidentForm({ ...residentForm, displayNamePrefix: e.target.value })}
                       className="w-full px-3 py-2 border rounded"
-                      placeholder="例: 様、殿（10文字以内）"
+                      placeholder="例: 101など（10文字以内）"
                     />
-                    <div className="mt-2 space-y-1">
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0">
                       <label className="flex items-center gap-2">
                         <input
                           type="radio"
@@ -1175,7 +1224,7 @@ function MasterContent() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">開始日</label>
+                    <label className="block text-sm font-medium mb-0.5">開始日</label>
                     <input
                       type="date"
                       value={residentForm.startDate}
@@ -1184,7 +1233,7 @@ function MasterContent() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">終了日</label>
+                    <label className="block text-sm font-medium mb-0.5">終了日</label>
                     <input
                       type="date"
                       value={residentForm.endDate}
@@ -1193,7 +1242,7 @@ function MasterContent() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">表示順</label>
+                    <label className="block text-sm font-medium mb-0.5">表示順</label>
                     <input
                       type="number"
                       min={0}
@@ -1207,7 +1256,7 @@ function MasterContent() {
                     <p className="text-xs text-gray-500 mt-1">0以上の整数。空欄の場合は従来通りの並びになります。</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">印刷順</label>
+                    <label className="block text-sm font-medium mb-0.5">印刷順</label>
                     <input
                       type="number"
                       min={0}
