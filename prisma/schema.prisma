@@ -19,7 +19,8 @@ model Facility {
   sortOrder                     Int      @default(0)
   useSameOrderForDisplayAndPrint Boolean  @default(true)  // true: 表示順を印刷にも使用
   useUnitOrderForPrint          Boolean  @default(true)   // true: 印刷時にユニット順を適用
-  residentSortMode              String?  // 'manual' | 'aiueo' | null(manual扱い)
+  residentDisplaySortMode       String?  // 'manual' | 'aiueo' | null(aiueo扱い)
+  residentPrintSortMode         String?  // 'manual' | 'aiueo' | null(aiueo扱い)
   isActive                      Boolean  @default(true)
   units                         Unit[]
   residents                     Resident[]

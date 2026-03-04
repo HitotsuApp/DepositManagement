@@ -17,7 +17,8 @@ interface Facility {
   sortOrder: number
   useSameOrderForDisplayAndPrint?: boolean
   useUnitOrderForPrint?: boolean
-  residentSortMode?: string | null
+  residentDisplaySortMode?: string | null
+  residentPrintSortMode?: string | null
   isActive: boolean
 }
 
@@ -80,7 +81,8 @@ function MasterContent() {
     sortOrder: 0,
     useSameOrderForDisplayAndPrint: true,
     useUnitOrderForPrint: true,
-    residentSortMode: 'aiueo' as 'manual' | 'aiueo',
+    residentDisplaySortMode: 'aiueo' as 'manual' | 'aiueo',
+    residentPrintSortMode: 'aiueo' as 'manual' | 'aiueo',
   })
 
   // ユニットマスタ用の状態
@@ -253,7 +255,8 @@ function MasterContent() {
       sortOrder: maxSortOrder + 1,
       useSameOrderForDisplayAndPrint: true,
       useUnitOrderForPrint: true,
-      residentSortMode: 'aiueo',
+      residentDisplaySortMode: 'aiueo',
+      residentPrintSortMode: 'aiueo',
     })
     setShowFacilityModal(true)
   }
@@ -267,7 +270,8 @@ function MasterContent() {
       sortOrder: facility.sortOrder,
       useSameOrderForDisplayAndPrint: facility.useSameOrderForDisplayAndPrint ?? true,
       useUnitOrderForPrint: facility.useUnitOrderForPrint ?? true,
-      residentSortMode: facility.residentSortMode === 'aiueo' ? 'aiueo' : 'manual',
+      residentDisplaySortMode: facility.residentDisplaySortMode === 'manual' ? 'manual' : 'aiueo',
+      residentPrintSortMode: facility.residentPrintSortMode === 'manual' ? 'manual' : 'aiueo',
     })
     setShowFacilityModal(true)
   }
@@ -284,7 +288,8 @@ function MasterContent() {
             ...facilityForm,
             useSameOrderForDisplayAndPrint: facilityForm.useSameOrderForDisplayAndPrint,
             useUnitOrderForPrint: facilityForm.useUnitOrderForPrint,
-            residentSortMode: facilityForm.residentSortMode,
+            residentDisplaySortMode: facilityForm.residentDisplaySortMode,
+            residentPrintSortMode: facilityForm.residentPrintSortMode,
           }),
         })
         if (!res.ok) {
@@ -301,7 +306,8 @@ function MasterContent() {
             ...facilityForm,
             useSameOrderForDisplayAndPrint: facilityForm.useSameOrderForDisplayAndPrint,
             useUnitOrderForPrint: facilityForm.useUnitOrderForPrint,
-            residentSortMode: facilityForm.residentSortMode,
+            residentDisplaySortMode: facilityForm.residentDisplaySortMode,
+            residentPrintSortMode: facilityForm.residentPrintSortMode,
           }),
         })
         if (!res.ok) {
@@ -780,14 +786,14 @@ function MasterContent() {
                     />
                   </div>
                   <div className="space-y-2 pt-2">
-                    <label className="block text-sm font-medium">利用者の並び順</label>
+                    <label className="block text-sm font-medium">表示の順番</label>
                     <div className="flex gap-4">
                       <label className="flex items-center gap-2">
                         <input
                           type="radio"
-                          name="residentSortMode"
-                          checked={facilityForm.residentSortMode === 'aiueo'}
-                          onChange={() => setFacilityForm({ ...facilityForm, residentSortMode: 'aiueo' })}
+                          name="residentDisplaySortMode"
+                          checked={facilityForm.residentDisplaySortMode === 'aiueo'}
+                          onChange={() => setFacilityForm({ ...facilityForm, residentDisplaySortMode: 'aiueo' })}
                           className="rounded-full"
                         />
                         <span className="text-sm">あいうえお順</span>
@@ -795,12 +801,37 @@ function MasterContent() {
                       <label className="flex items-center gap-2">
                         <input
                           type="radio"
-                          name="residentSortMode"
-                          checked={facilityForm.residentSortMode === 'manual'}
-                          onChange={() => setFacilityForm({ ...facilityForm, residentSortMode: 'manual' })}
+                          name="residentDisplaySortMode"
+                          checked={facilityForm.residentDisplaySortMode === 'manual'}
+                          onChange={() => setFacilityForm({ ...facilityForm, residentDisplaySortMode: 'manual' })}
                           className="rounded-full"
                         />
-                        <span className="text-sm">手動で指定</span>
+                        <span className="text-sm">利用者マスタの表示順</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <label className="block text-sm font-medium">印刷の順番</label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="residentPrintSortMode"
+                          checked={facilityForm.residentPrintSortMode === 'aiueo'}
+                          onChange={() => setFacilityForm({ ...facilityForm, residentPrintSortMode: 'aiueo' })}
+                          className="rounded-full"
+                        />
+                        <span className="text-sm">あいうえお順</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="residentPrintSortMode"
+                          checked={facilityForm.residentPrintSortMode === 'manual'}
+                          onChange={() => setFacilityForm({ ...facilityForm, residentPrintSortMode: 'manual' })}
+                          className="rounded-full"
+                        />
+                        <span className="text-sm">利用者マスタの印刷順</span>
                       </label>
                     </div>
                   </div>
@@ -813,7 +844,7 @@ function MasterContent() {
                         onChange={(e) => setFacilityForm({ ...facilityForm, useSameOrderForDisplayAndPrint: e.target.checked })}
                         className="rounded"
                       />
-                      <span className="text-sm">表示順と印刷順を同じにする</span>
+                      <span className="text-sm">印刷順に表示順を使う</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input

@@ -75,7 +75,8 @@ export async function POST(request: Request) {
         sortOrder: body.sortOrder || 0,
         useSameOrderForDisplayAndPrint: body.useSameOrderForDisplayAndPrint ?? true,
         useUnitOrderForPrint: body.useUnitOrderForPrint ?? true,
-        residentSortMode: body.residentSortMode === "aiueo" ? "aiueo" : null,
+        residentDisplaySortMode: body.residentDisplaySortMode === "manual" ? "manual" : "aiueo",
+        residentPrintSortMode: body.residentPrintSortMode === "manual" ? "manual" : "aiueo",
         isActive: body.isActive !== undefined ? body.isActive : true,
       },
     })

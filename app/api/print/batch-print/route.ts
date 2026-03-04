@@ -53,14 +53,14 @@ export async function GET(request: Request) {
     // 施設設定に応じてユニット・利用者をソート
     const useSameOrder = (facility as { useSameOrderForDisplayAndPrint?: boolean }).useSameOrderForDisplayAndPrint ?? true
     const useUnitOrder = (facility as { useUnitOrderForPrint?: boolean }).useUnitOrderForPrint ?? true
-    const residentSortMode = (facility as { residentSortMode?: string | null }).residentSortMode ?? null
+    const residentPrintSortMode = (facility as { residentPrintSortMode?: string | null }).residentPrintSortMode ?? null
     const sortedUnits = sortUnitsForPrint(facility.units as unknown as SortableUnit[], useSameOrder)
     const sortedResidents = sortResidentsForPrint(
       facility.residents as unknown as SortableResident[],
       facility.units as unknown as SortableUnit[],
       useSameOrder,
       useUnitOrder,
-      residentSortMode === "aiueo" ? "aiueo" : "manual"
+      residentPrintSortMode === "aiueo" ? "aiueo" : "manual"
     )
     const sortedFacility = {
       ...facility,

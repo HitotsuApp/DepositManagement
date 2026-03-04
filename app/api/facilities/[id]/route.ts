@@ -3,7 +3,7 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { validateId, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
-import { Prisma } from '@prisma/client'
+import { sortResidentsForDisplay, type SortableResident, type SortableUnit } from '@/lib/sortOrder'
 
 export async function GET(
   request: Request,
@@ -32,6 +32,8 @@ export async function GET(
         select: {
           id: true,
           name: true,
+          useUnitOrderForPrint: true,
+          residentDisplaySortMode: true,
           units: {
             where: { 
               isActive: true,
@@ -40,6 +42,8 @@ export async function GET(
             select: {
               id: true,
               name: true,
+              displaySortOrder: true,
+              printSortOrder: true,
             },
             orderBy: [{ displaySortOrder: 'asc' }, { id: 'asc' }],
           },
@@ -52,7 +56,10 @@ export async function GET(
             select: {
               id: true,
               name: true,
+              nameFurigana: true,
               unitId: true,
+              displaySortOrder: true,
+              printSortOrder: true,
               displayNamePrefix: true,
               namePrefixDisplayOption: true,
               transactions: {
@@ -65,7 +72,7 @@ export async function GET(
                 orderBy: { transactionDate: 'asc' },
               },
             },
-            orderBy: [{ displaySortOrder: 'asc' }, { id: 'asc' }],
+            orderBy: [{ id: 'asc' }], // ソートはメモリで実施
           },
         },
       })
@@ -124,10 +131,18 @@ export async function GET(
         totalAmount: unitBalancesMap.get(unit.id) || 0,
       }))
 
-      // 表示用の利用者リスト（unitIdが指定されている場合は絞り込み）
+      // 表示用の利用者リスト（施設の表示順設定に従ってソート、unitIdが指定されている場合は絞り込み）
+      const residentDisplaySortMode = facility.residentDisplaySortMode ?? null
+      const useUnitOrder = facility.useUnitOrderForPrint ?? true
+      const sortedResidents = sortResidentsForDisplay(
+        facility.residents as unknown as SortableResident[],
+        facility.units as unknown as SortableUnit[],
+        useUnitOrder,
+        residentDisplaySortMode === "aiueo" ? "aiueo" : "manual"
+      )
       const displayResidents = unitId 
-        ? facility.residents.filter(r => r.unitId === Number(unitId))
-        : facility.residents
+        ? sortedResidents.filter(r => r.unitId === Number(unitId))
+        : sortedResidents
 
       // 利用者別残高（DB側で集計した結果を使用）
       const residentSummaries = displayResidents.map(resident => ({
@@ -228,7 +243,8 @@ export async function PUT(
         sortOrder: body.sortOrder !== undefined ? body.sortOrder : undefined,
         useSameOrderForDisplayAndPrint: body.useSameOrderForDisplayAndPrint !== undefined ? body.useSameOrderForDisplayAndPrint : undefined,
         useUnitOrderForPrint: body.useUnitOrderForPrint !== undefined ? body.useUnitOrderForPrint : undefined,
-        residentSortMode: body.residentSortMode !== undefined ? (body.residentSortMode === "aiueo" ? "aiueo" : null) : undefined,
+        residentDisplaySortMode: body.residentDisplaySortMode !== undefined ? (body.residentDisplaySortMode === "aiueo" ? "aiueo" : "manual") : undefined,
+        residentPrintSortMode: body.residentPrintSortMode !== undefined ? (body.residentPrintSortMode === "aiueo" ? "aiueo" : "manual") : undefined,
       },
     })
 

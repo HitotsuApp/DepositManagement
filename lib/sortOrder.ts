@@ -66,21 +66,56 @@ export function sortResidentsByAiueo<T extends SortableResident>(
 }
 
 /**
+ * 表示用に利用者リストをソート
+ * @param residents 利用者リスト（unit情報を含むこと）
+ * @param units ユニットリスト（unitIdでマップ可能）
+ * @param useUnitOrderForDisplay ユニット順を適用するか（表示ではdisplaySortOrderを使用）
+ * @param residentDisplaySortMode 'aiueo' のときあいうえお順、それ以外はdisplaySortOrder
+ */
+export function sortResidentsForDisplay<T extends SortableResident>(
+  residents: T[],
+  units: SortableUnit[],
+  useUnitOrderForDisplay: boolean,
+  residentDisplaySortMode?: "manual" | "aiueo" | null
+): T[] {
+  if (residentDisplaySortMode === "aiueo") {
+    return sortResidentsByAiueo(residents, units, useUnitOrderForDisplay)
+  }
+
+  const unitMap = new Map(units.map((u) => [u.id, u]))
+
+  return [...residents].sort((a, b) => {
+    if (useUnitOrderForDisplay) {
+      const unitA = unitMap.get(a.unitId)
+      const unitB = unitMap.get(b.unitId)
+      const unitOrderA = unitA ? getSortKey(unitA.displaySortOrder) : Infinity
+      const unitOrderB = unitB ? getSortKey(unitB.displaySortOrder) : Infinity
+      if (unitOrderA !== unitOrderB) return unitOrderA - unitOrderB
+    }
+
+    const orderA = getSortKey(a.displaySortOrder)
+    const orderB = getSortKey(b.displaySortOrder)
+    if (orderA !== orderB) return orderA - orderB
+    return a.id - b.id
+  })
+}
+
+/**
  * 印刷用に利用者リストをソート
  * @param residents 利用者リスト（unit情報を含むこと）
  * @param units ユニットリスト（unitIdでマップ可能）
  * @param useSameOrderForDisplayAndPrint 表示順を印刷にも使用するか
  * @param useUnitOrderForPrint ユニット順を適用するか
- * @param residentSortMode 'aiueo' のときあいうえお順、それ以外は手動順
+ * @param residentPrintSortMode 'aiueo' のときあいうえお順、それ以外はprintSortOrder（またはdisplaySortOrder）
  */
 export function sortResidentsForPrint<T extends SortableResident>(
   residents: T[],
   units: SortableUnit[],
   useSameOrderForDisplayAndPrint: boolean,
   useUnitOrderForPrint: boolean,
-  residentSortMode?: "manual" | "aiueo" | null
+  residentPrintSortMode?: "manual" | "aiueo" | null
 ): T[] {
-  if (residentSortMode === "aiueo") {
+  if (residentPrintSortMode === "aiueo") {
     return sortResidentsByAiueo(residents, units, useUnitOrderForPrint)
   }
 

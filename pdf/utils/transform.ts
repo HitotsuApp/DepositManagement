@@ -82,13 +82,13 @@ export function transformToPrintData(
     unitId ? facility.units.filter((u) => u.id === unitId) : facility.units,
     useSameOrder
   )
-  const residentSortMode = (facility as { residentSortMode?: string | null }).residentSortMode ?? null
+  const residentPrintSortMode = (facility as { residentPrintSortMode?: string | null }).residentPrintSortMode ?? null
   const targetResidents = sortResidentsForPrint(
     unitId ? facility.residents.filter((r) => r.unitId === unitId) : facility.residents,
     facility.units,
     useSameOrder,
     useUnitOrder,
-    residentSortMode === "aiueo" ? "aiueo" : "manual"
+    residentPrintSortMode === "aiueo" ? "aiueo" : "manual"
   )
 
   // 前月末日を計算（繰越行用）
