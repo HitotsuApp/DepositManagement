@@ -440,7 +440,7 @@ export default function CashVerificationPage() {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left py-2 px-4">金種</th>
-                      <th className="text-center py-2 px-4 w-32">枚数</th>
+                      <th className="text-center py-2 px-4 w-40">枚数</th>
                       <th className="text-right py-2 px-4 w-40">金額</th>
                     </tr>
                   </thead>
@@ -474,7 +474,7 @@ export default function CashVerificationPage() {
                     <thead>
                       <tr className="border-b">
                         <th className="text-left py-2 px-4">【本】</th>
-                        <th className="text-center py-2 px-4 w-32">本数（50枚）</th>
+                        <th className="text-center py-2 px-4 w-40">本数(50枚)</th>
                         <th className="text-right py-2 px-4 w-40">金額</th>
                       </tr>
                     </thead>

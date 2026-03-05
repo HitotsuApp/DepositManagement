@@ -110,7 +110,7 @@ export const CashVerificationPdfRenderer = ({ data }: CashVerificationPdfRendere
                 <Text style={styles.tableHeaderText}>【本】</Text>
               </View>
               <View style={[styles.tableHeaderCell, { width: "30%" }]}>
-                <Text style={styles.tableHeaderText}>本数（50枚）</Text>
+                <Text style={styles.tableHeaderText}>本数(50枚)</Text>
               </View>
               <View style={[styles.tableHeaderCell, { width: "30%" }]}>
                 <Text style={styles.tableHeaderText}>金額</Text>
