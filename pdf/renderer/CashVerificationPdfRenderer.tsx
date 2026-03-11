@@ -162,42 +162,42 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   headerSection: {
-    padding: 8, // 10から8に削減
-    marginBottom: 5, // 8から5に削減
+    padding: 6,
+    marginBottom: 3,
     position: "relative",
-    minHeight: 50, // 最小高さを設定
+    minHeight: 40,
   },
   calculationSection: {
-    marginBottom: 5,
-    padding: 3,
+    marginBottom: 3,
+    padding: 2,
   },
   calculationText: {
     fontSize: 10,
     fontWeight: "bold",
   },
   headerTitle: {
-    marginBottom: 3, // 5から3に削減
+    marginBottom: 2,
   },
   headerTitleText: {
-    fontSize: 11, // 12から11に削減
+    fontSize: 11,
     fontWeight: "bold",
   },
   headerFacility: {
-    marginBottom: 3, // 5から3に削減
+    marginBottom: 2,
   },
   headerFacilityText: {
-    fontSize: 8, // 9から8に削減
+    fontSize: 8,
   },
   headerDate: {
     position: "absolute",
-    bottom: 6, // 8から6に削減
-    right: 8, // 10から8に削減
+    bottom: 4,
+    right: 6,
   },
   headerDateText: {
     fontSize: 7, // 8から7に削減
   },
   section: {
-    marginBottom: 5, // 8から5に削減
+    marginBottom: 3,
   },
   table: {
     border: "1pt solid #000",
@@ -208,11 +208,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   tableHeaderCell: {
-    padding: 3, // 4から3に削減
+    padding: 2,
     borderRight: "0.5pt solid #000",
   },
   tableHeaderText: {
-    fontSize: 8, // 9から8に削減
+    fontSize: 8,
     fontWeight: "bold",
     textAlign: "center",
   },
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     borderBottom: "0.5pt solid #000",
   },
   tableCell: {
-    padding: 2, // 3から2に削減
+    padding: 1,
     borderRight: "0.5pt solid #000",
   },
   tableCellText: {
