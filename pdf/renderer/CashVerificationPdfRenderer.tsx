@@ -162,42 +162,42 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   headerSection: {
-    padding: 6,
-    marginBottom: 3,
+    padding: 8,
+    marginBottom: 4,
     position: "relative",
-    minHeight: 40,
+    minHeight: 45,
   },
   calculationSection: {
-    marginBottom: 3,
-    padding: 2,
+    marginBottom: 4,
+    padding: 3,
   },
   calculationText: {
     fontSize: 10,
     fontWeight: "bold",
   },
   headerTitle: {
-    marginBottom: 2,
+    marginBottom: 3,
   },
   headerTitleText: {
     fontSize: 11,
     fontWeight: "bold",
   },
   headerFacility: {
-    marginBottom: 2,
+    marginBottom: 3,
   },
   headerFacilityText: {
     fontSize: 8,
   },
   headerDate: {
     position: "absolute",
-    bottom: 4,
-    right: 6,
+    bottom: 5,
+    right: 7,
   },
   headerDateText: {
     fontSize: 7, // 8から7に削減
   },
   section: {
-    marginBottom: 3,
+    marginBottom: 4,
   },
   table: {
     border: "1pt solid #000",
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   tableHeaderCell: {
-    padding: 2,
+    padding: 3,
     borderRight: "0.5pt solid #000",
   },
   tableHeaderText: {
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     borderBottom: "0.5pt solid #000",
   },
   tableCell: {
-    padding: 1,
+    padding: 2,
     borderRight: "0.5pt solid #000",
   },
   tableCellText: {

@@ -283,24 +283,24 @@ export default function CashVerificationPage() {
             /* 印刷時のセクション間のマージンを詰める */
             .print-section {
               margin-bottom: 0.5rem !important;
-              padding: 0.5rem !important;
+              padding: 0.75rem !important;
             }
             
-            /* 印刷時：テーブル行の高さを詰める（1ページに収めるため） */
+            /* 印刷時：テーブル行の高さを調整（1ページに収めつつ余白を確保） */
             .print-section table th,
             .print-section table td {
-              padding-top: 2px !important;
-              padding-bottom: 2px !important;
-              line-height: 1.2 !important;
+              padding-top: 4px !important;
+              padding-bottom: 4px !important;
+              line-height: 1.3 !important;
             }
             .print-section table input {
-              padding-top: 1px !important;
-              padding-bottom: 1px !important;
+              padding-top: 2px !important;
+              padding-bottom: 2px !important;
               min-height: 0 !important;
               font-size: 0.875rem !important;
             }
             .print-section .mt-6 {
-              margin-top: 0.25rem !important;
+              margin-top: 0.5rem !important;
             }
             
             /* 入力フィールドの枠を印刷時に非表示 */
