@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
-import { transformToPrintData, transformToResidentPrintData, type FacilityWithRelations } from "@/pdf/utils/transform"
+import { transformToPrintData, transformToResidentPrintData, buildNoticeFromFacilityTemplate, type FacilityWithRelations } from "@/pdf/utils/transform"
 import { sortResidentsForPrint, sortUnitsForPrint, type SortableResident, type SortableUnit } from "@/lib/sortOrder"
 
 export async function GET(request: Request) {
@@ -76,6 +76,8 @@ export async function GET(request: Request) {
       Number(month)
     )
 
+    const facilityNoticeTemplate = (facility as { noticeTemplateNormal?: string | null }).noticeTemplateNormal ?? null
+
     // 各利用者の明細書データを取得（ソート順で）
     const residentStatements = await Promise.all(
       sortedResidents.map(async (resident) => {
@@ -95,11 +97,13 @@ export async function GET(request: Request) {
           throw new Error(`Resident ${resident.id} not found`)
         }
 
-        return transformToResidentPrintData(
+        const printData = transformToResidentPrintData(
           residentWithRelations,
           Number(year),
           Number(month)
         )
+        printData.notice = buildNoticeFromFacilityTemplate(facilityNoticeTemplate)
+        return printData
       })
     )
 

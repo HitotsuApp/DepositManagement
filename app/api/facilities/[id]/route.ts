@@ -234,6 +234,20 @@ export async function PUT(
       )
     }
 
+    if (body.noticeTemplateNormal != null && body.noticeTemplateNormal !== '' && !validateMaxLength(body.noticeTemplateNormal, MAX_LENGTHS.NOTICE_TEMPLATE)) {
+      return NextResponse.json(
+        { error: `【通常】お知らせテンプレートは${MAX_LENGTHS.NOTICE_TEMPLATE}文字以内で入力してください` },
+        { status: 400 }
+      )
+    }
+
+    if (body.noticeTemplateMoveOut != null && body.noticeTemplateMoveOut !== '' && !validateMaxLength(body.noticeTemplateMoveOut, MAX_LENGTHS.NOTICE_TEMPLATE)) {
+      return NextResponse.json(
+        { error: `【退居】お知らせテンプレートは${MAX_LENGTHS.NOTICE_TEMPLATE}文字以内で入力してください` },
+        { status: 400 }
+      )
+    }
+
     const facility = await prisma.facility.update({
       where: { id: facilityId },
       data: {
@@ -245,6 +259,8 @@ export async function PUT(
         useUnitOrderForPrint: body.useUnitOrderForPrint !== undefined ? body.useUnitOrderForPrint : undefined,
         residentDisplaySortMode: body.residentDisplaySortMode !== undefined ? (body.residentDisplaySortMode === "aiueo" ? "aiueo" : "manual") : undefined,
         residentPrintSortMode: body.residentPrintSortMode !== undefined ? (body.residentPrintSortMode === "aiueo" ? "aiueo" : "manual") : undefined,
+        noticeTemplateNormal: body.noticeTemplateNormal !== undefined ? (body.noticeTemplateNormal !== null && body.noticeTemplateNormal !== '' ? body.noticeTemplateNormal : null) : undefined,
+        noticeTemplateMoveOut: body.noticeTemplateMoveOut !== undefined ? (body.noticeTemplateMoveOut !== null && body.noticeTemplateMoveOut !== '' ? body.noticeTemplateMoveOut : null) : undefined,
       },
     })
 

@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
-import { transformToResidentPrintData } from "@/pdf/utils/transform"
+import { transformToResidentPrintData, buildNoticeFromFacilityTemplate } from "@/pdf/utils/transform"
 
 export async function GET(request: Request) {
   const prisma = getPrisma()
@@ -12,6 +12,7 @@ export async function GET(request: Request) {
     const residentId = searchParams.get("residentId")
     const year = searchParams.get("year")
     const month = searchParams.get("month")
+    const noticeType = searchParams.get("noticeType") === "moveout" ? "moveout" : "normal"
 
     if (!residentId || !year || !month) {
       return NextResponse.json(
@@ -43,6 +44,10 @@ export async function GET(request: Request) {
       Number(year),
       Number(month)
     )
+
+    const facility = resident.facility as { noticeTemplateNormal?: string | null; noticeTemplateMoveOut?: string | null }
+    const templateRaw = noticeType === "moveout" ? facility.noticeTemplateMoveOut : facility.noticeTemplateNormal
+    printData.notice = buildNoticeFromFacilityTemplate(templateRaw)
 
     return NextResponse.json(printData)
   } catch (error) {

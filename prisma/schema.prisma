@@ -21,6 +21,8 @@ model Facility {
   useUnitOrderForPrint          Boolean  @default(true)   // true: 印刷時にユニット順を適用
   residentDisplaySortMode       String?  // 'manual' | 'aiueo' | null(aiueo扱い)
   residentPrintSortMode         String?  // 'manual' | 'aiueo' | null(aiueo扱い)
+  noticeTemplateNormal          String?  // 【通常】預り金明細書のお知らせテンプレート（最大100文字）
+  noticeTemplateMoveOut         String?  // 【退居】預り金明細書のお知らせテンプレート（最大100文字）
   isActive                      Boolean  @default(true)
   units                         Unit[]
   residents                     Resident[]

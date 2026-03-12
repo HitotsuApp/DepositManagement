@@ -31,6 +31,7 @@ function PrintPreviewContent() {
   const unitId = searchParams.get("unitId")
   const residentId = searchParams.get("residentId")
   const printType = searchParams.get("type") // "unit", "resident", or "batch"
+  const noticeType = searchParams.get("noticeType") === "moveout" ? "moveout" : "normal"
   
   const [year, setYear] = useState(() => {
     const y = searchParams.get("year")
@@ -79,7 +80,7 @@ function PrintPreviewContent() {
         setIsLoading(false)
       }
     }
-  }, [isMounted, facilityId, unitId, residentId, printType, year, month])
+  }, [isMounted, facilityId, unitId, residentId, printType, year, month, noticeType])
 
   const fetchUnitPrintData = async () => {
     setIsLoading(true)
@@ -127,7 +128,7 @@ function PrintPreviewContent() {
     setError(null)
     try {
       const response = await fetch(
-        `/api/print/resident-statement?residentId=${residentId}&year=${year}&month=${month}`
+        `/api/print/resident-statement?residentId=${residentId}&year=${year}&month=${month}&noticeType=${noticeType}`
       )
       if (!response.ok) {
         throw new Error("印刷データの取得に失敗しました")
@@ -189,7 +190,7 @@ function PrintPreviewContent() {
   }
 
   const handleResidentChange = (newResidentId: number) => {
-    router.push(`/print/preview?residentId=${newResidentId}&year=${year}&month=${month}&type=resident`)
+    router.push(`/print/preview?residentId=${newResidentId}&year=${year}&month=${month}&type=resident&noticeType=${noticeType}`)
   }
 
   const handleDateChange = (newYear: number, newMonth: number) => {

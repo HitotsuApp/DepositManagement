@@ -406,6 +406,47 @@ export interface ResidentPrintData {
     position: string
     staffName: string
   }
+  /** 施設マスタで設定したお知らせ（data.notice があれば template.notice より優先） */
+  notice?: {
+    title: string
+    lines: string[]
+    fontSize?: number
+    marginTop?: number
+  }
+}
+
+/** テンプレート文字列から notice オブジェクトを生成 */
+export function buildNoticeFromTemplate(template: string | null | undefined): { title: string; lines: string[] } | null {
+  if (template === null || template === undefined || template === '') {
+    return null
+  }
+  const trimmed = template.trim()
+  if (trimmed === '') {
+    return null
+  }
+  const allLines = template.split('\n').map((s) => s)
+  if (allLines.length === 0) return null
+  const title = allLines[0] || '【お知らせ】'
+  const lines = allLines.slice(1)
+  return { title, lines }
+}
+
+const UNSET_NOTICE_MESSAGE = 'テンプレートが未設定です。施設マスタより編集してください。空で印刷したい際はスペース（半角または全角）を入れてください。'
+
+/** 施設のテンプレートから notice を生成（未設定時は案内メッセージ、スペースのみは空表示） */
+export function buildNoticeFromFacilityTemplate(
+  template: string | null | undefined
+): { title: string; lines: string[] } {
+  if (template === null || template === undefined || template === '') {
+    return { title: '【お知らせ】', lines: [UNSET_NOTICE_MESSAGE] }
+  }
+  const trimmed = template.trim()
+  if (trimmed === '') {
+    return { title: '【お知らせ】', lines: [' '] }
+  }
+  const built = buildNoticeFromTemplate(template)
+  if (built) return built
+  return { title: '【お知らせ】', lines: [UNSET_NOTICE_MESSAGE] }
 }
 
 interface ResidentWithRelations extends Resident {

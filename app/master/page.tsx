@@ -8,6 +8,7 @@ import Modal from '@/components/Modal'
 import { useFacility } from '@/contexts/FacilityContext'
 import { invalidateMasterCache } from '@/lib/cache'
 import { sanitizeFurigana } from '@/lib/furigana'
+import { MAX_LENGTHS } from '@/lib/validation'
 
 interface Facility {
   id: number
@@ -19,6 +20,8 @@ interface Facility {
   useUnitOrderForPrint?: boolean
   residentDisplaySortMode?: string | null
   residentPrintSortMode?: string | null
+  noticeTemplateNormal?: string | null
+  noticeTemplateMoveOut?: string | null
   isActive: boolean
 }
 
@@ -83,6 +86,8 @@ function MasterContent() {
     useUnitOrderForPrint: true,
     residentDisplaySortMode: 'aiueo' as 'manual' | 'aiueo',
     residentPrintSortMode: 'aiueo' as 'manual' | 'aiueo',
+    noticeTemplateNormal: '',
+    noticeTemplateMoveOut: '',
   })
 
   // ユニットマスタ用の状態
@@ -257,6 +262,8 @@ function MasterContent() {
       useUnitOrderForPrint: true,
       residentDisplaySortMode: 'aiueo',
       residentPrintSortMode: 'aiueo',
+      noticeTemplateNormal: '',
+      noticeTemplateMoveOut: '',
     })
     setShowFacilityModal(true)
   }
@@ -272,6 +279,8 @@ function MasterContent() {
       useUnitOrderForPrint: facility.useUnitOrderForPrint ?? true,
       residentDisplaySortMode: facility.residentDisplaySortMode === 'manual' ? 'manual' : 'aiueo',
       residentPrintSortMode: facility.residentPrintSortMode === 'manual' ? 'manual' : 'aiueo',
+      noticeTemplateNormal: facility.noticeTemplateNormal || '',
+      noticeTemplateMoveOut: facility.noticeTemplateMoveOut || '',
     })
     setShowFacilityModal(true)
   }
@@ -784,6 +793,30 @@ function MasterContent() {
                       className="w-full px-3 py-2 border rounded"
                       placeholder="役職者の名前を入力"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-0.5">【通常】預り金明細書のお知らせテンプレート</label>
+                    <textarea
+                      rows={4}
+                      maxLength={MAX_LENGTHS.NOTICE_TEMPLATE}
+                      value={facilityForm.noticeTemplateNormal}
+                      onChange={(e) => setFacilityForm({ ...facilityForm, noticeTemplateNormal: e.target.value })}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="【お知らせ】から4行で入力（100文字以内）"
+                    />
+                    <p className="text-xs text-gray-500 mt-0.5">{facilityForm.noticeTemplateNormal.length}/{MAX_LENGTHS.NOTICE_TEMPLATE}文字</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-0.5">【退居】預り金明細書のお知らせテンプレート</label>
+                    <textarea
+                      rows={4}
+                      maxLength={MAX_LENGTHS.NOTICE_TEMPLATE}
+                      value={facilityForm.noticeTemplateMoveOut}
+                      onChange={(e) => setFacilityForm({ ...facilityForm, noticeTemplateMoveOut: e.target.value })}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="【お知らせ】から4行で入力（100文字以内）"
+                    />
+                    <p className="text-xs text-gray-500 mt-0.5">{facilityForm.noticeTemplateMoveOut.length}/{MAX_LENGTHS.NOTICE_TEMPLATE}文字</p>
                   </div>
                   <div className="space-y-2 pt-2">
                     <label className="block text-sm font-medium">表示の順番</label>

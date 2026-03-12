@@ -632,17 +632,30 @@ export default function ResidentDetailPage() {
             amount={balance}
             className="bg-purple-50 border-2 border-purple-200"
           />
-          <button
-            onClick={() => {
-              router.push(
-                `/print/preview?residentId=${residentId}&year=${year}&month=${month}&type=resident`
-              )
-            }}
-            className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 shadow-md hover:shadow-lg transition-shadow"
-            title="預り金明細書を印刷"
-          >
-            🖨️ 印刷
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                router.push(
+                  `/print/preview?residentId=${residentId}&year=${year}&month=${month}&type=resident`
+                )
+              }}
+              className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 shadow-md hover:shadow-lg transition-shadow"
+              title="預り金明細書を印刷（通常）"
+            >
+              🖨️ 印刷
+            </button>
+            <button
+              onClick={() => {
+                router.push(
+                  `/print/preview?residentId=${residentId}&year=${year}&month=${month}&type=resident&noticeType=moveout`
+                )
+              }}
+              className="px-6 py-2 bg-amber-500 text-white rounded hover:bg-amber-600 shadow-md hover:shadow-lg transition-shadow"
+              title="預り金明細書を印刷（退居向け）"
+            >
+              🖨️ 退居向け印刷
+            </button>
+          </div>
         </div>
 
         {isCurrentMonth && (

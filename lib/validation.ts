@@ -72,6 +72,7 @@ export const MAX_LENGTHS = {
   TRANSACTION_DESCRIPTION: 100,
   TRANSACTION_PAYEE: 30,
   TRANSACTION_REASON: 100,
+  NOTICE_TEMPLATE: 100, // 預り金明細書お知らせテンプレート
 } as const
 
 /** 表示オプションの値 */

@@ -145,8 +145,8 @@ export const PdfRenderer = ({ template, data }: PdfRendererProps) => {
           )}
 
           {/* お知らせは最終ページのみ（resident-statementテンプレートの場合） */}
-          {pageIndex === pages.length - 1 && template.notice && template.templateId === "resident-statement" && (
-            <NoticeBlock notice={template.notice} />
+          {pageIndex === pages.length - 1 && template.templateId === "resident-statement" && (
+            <NoticeBlock notice={(data.notice ?? template.notice)!} />
           )}
 
           {/* フッターは最終ページのみ（resident-statementテンプレートの場合） */}
