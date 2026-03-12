@@ -47,7 +47,8 @@ export async function GET(request: Request) {
 
     const facility = resident.facility as { noticeTemplateNormal?: string | null; noticeTemplateMoveOut?: string | null }
     const templateRaw = noticeType === "moveout" ? facility.noticeTemplateMoveOut : facility.noticeTemplateNormal
-    printData.notice = buildNoticeFromFacilityTemplate(templateRaw)
+    const notice = buildNoticeFromFacilityTemplate(templateRaw, noticeType)
+    if (notice) printData.notice = notice
 
     return NextResponse.json(printData)
   } catch (error) {

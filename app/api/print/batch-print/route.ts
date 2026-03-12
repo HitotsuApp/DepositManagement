@@ -102,7 +102,8 @@ export async function GET(request: Request) {
           Number(year),
           Number(month)
         )
-        printData.notice = buildNoticeFromFacilityTemplate(facilityNoticeTemplate)
+        const notice = buildNoticeFromFacilityTemplate(facilityNoticeTemplate, 'normal')
+        if (notice) printData.notice = notice
         return printData
       })
     )
