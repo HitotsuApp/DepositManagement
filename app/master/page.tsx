@@ -1035,6 +1035,7 @@ function MasterContent() {
                       inputMode="numeric"
                       value={unitForm.displaySortOrder}
                       onChange={(e) => setUnitForm({ ...unitForm, displaySortOrder: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
                       className="w-full px-3 py-2 border rounded"
                       placeholder="空欄で従来通り"
                     />
@@ -1049,6 +1050,7 @@ function MasterContent() {
                       inputMode="numeric"
                       value={unitForm.printSortOrder}
                       onChange={(e) => setUnitForm({ ...unitForm, printSortOrder: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
                       className="w-full px-3 py-2 border rounded"
                       placeholder="空欄で従来通り"
                     />
@@ -1335,6 +1337,7 @@ function MasterContent() {
                       inputMode="numeric"
                       value={residentForm.displaySortOrder}
                       onChange={(e) => setResidentForm({ ...residentForm, displaySortOrder: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
                       className="w-full px-3 py-2 border rounded"
                       placeholder="空欄で従来通り"
                     />
@@ -1349,6 +1352,7 @@ function MasterContent() {
                       inputMode="numeric"
                       value={residentForm.printSortOrder}
                       onChange={(e) => setResidentForm({ ...residentForm, printSortOrder: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
                       className="w-full px-3 py-2 border rounded"
                       placeholder="空欄で従来通り"
                     />

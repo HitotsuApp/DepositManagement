@@ -783,6 +783,7 @@ export default function ResidentDetailPage() {
                     step="1"
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="w-full px-2 py-1.5 pr-8 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     placeholder="0"
                   />
@@ -974,6 +975,7 @@ export default function ResidentDetailPage() {
                     step="1"
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="w-full px-2 py-1.5 pr-8 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                     placeholder="0"
                   />

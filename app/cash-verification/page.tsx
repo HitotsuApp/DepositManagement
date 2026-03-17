@@ -472,6 +472,7 @@ export default function CashVerificationPage() {
                             min="0"
                             value={bill.count || ''}
                             onChange={(e) => handleBillCountChange(index, parseInt(e.target.value) || 0)}
+                            onWheel={(e) => e.currentTarget.blur()}
                             className="w-full px-2 py-1 border border-yellow-300 rounded bg-yellow-50 text-center"
                             placeholder="0"
                           />
@@ -506,6 +507,7 @@ export default function CashVerificationPage() {
                               min="0"
                               value={coin.count || ''}
                               onChange={(e) => handleCoinCountChange(index, parseInt(e.target.value) || 0)}
+                              onWheel={(e) => e.currentTarget.blur()}
                               className="w-full px-2 py-1 border border-yellow-300 rounded bg-yellow-50 text-center"
                               placeholder="0"
                             />
