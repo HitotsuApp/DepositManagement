@@ -35,6 +35,8 @@ const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
     return null
   }
 
+  const unitsNetTotal = unitSummaries.reduce((sum, u) => sum + u.netAmount, 0)
+
   return (
     <View style={styles.container}>
       {unitSummaries.map((unit) => {
@@ -134,6 +136,10 @@ const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
           </View>
         )
       })}
+      <View style={styles.grandTotalRow}>
+        <Text style={styles.grandTotalLabel}>ユニット総合計:</Text>
+        <Text style={styles.grandTotalValue}>{formatYen(unitsNetTotal)}</Text>
+      </View>
     </View>
   )
 }
@@ -143,40 +149,41 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   unitBox: {
-    border: "1px solid #000",
-    padding: 8,
-    marginBottom: 8,
+    border: "0.75pt solid #000",
+    padding: 5,
+    marginBottom: 6,
   },
   unitName: {
     fontSize: 12,
     fontWeight: "bold",
     fontFamily: "NotoSansJP",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   tableContainer: {
-    border: "1px solid #000",
-    marginBottom: 8,
+    border: "0.75pt solid #000",
+    marginBottom: 0,
   },
   nameRow: {
     flexDirection: "row",
     backgroundColor: "#f0f0f0",
-    borderBottom: "1px solid #ccc",
+    borderBottom: "0.5pt solid #ccc",
   },
   valueRow: {
     flexDirection: "row",
   },
   valueRowNotLast: {
-    borderBottom: "1px solid #ccc",
+    borderBottom: "0.5pt solid #ccc",
   },
   valueRowLast: {
-    borderBottom: "1px solid #000",
+    borderBottom: "0.75pt solid #000",
   },
   cell: {
-    padding: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
     width: `${100 / MAX_CELLS_PER_ROW}%`, // セル幅を統一（25%ずつ）
   },
   cellBorderRight: {
-    borderRight: "1px solid #ccc",
+    borderRight: "0.5pt solid #ccc",
   },
   nameCell: {
     backgroundColor: "#f0f0f0",
@@ -197,7 +204,8 @@ const styles = StyleSheet.create({
   unitTotalRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    marginTop: 8,
+    marginTop: 2,
+    paddingTop: 1,
   },
   unitTotalLabel: {
     fontSize: 11,
@@ -208,6 +216,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "NotoSansJP",
     fontWeight: "bold",
+    marginLeft: 6,
+  },
+  grandTotalRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 10,
+    paddingTop: 6,
+    borderTop: "0.75pt solid #000",
+  },
+  grandTotalLabel: {
+    fontSize: 12,
+    fontFamily: "NotoSansJP",
+    fontWeight: "bold",
+  },
+  grandTotalValue: {
+    fontSize: 12,
+    fontFamily: "NotoSansJP",
+    fontWeight: "bold",
+    marginLeft: 6,
   },
 })
 
