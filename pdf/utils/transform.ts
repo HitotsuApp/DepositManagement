@@ -380,6 +380,8 @@ export function transformToPrintData(
 export interface ResidentPrintData {
   statement: {
     month: string
+    /** 家族向け期間印刷で使用（例: "預り金明細書（2月1日〜3月10日）"） */
+    title?: string
   }
   unit: {
     name: string
@@ -620,6 +622,180 @@ export function transformToResidentPrintData(
   return {
     statement: {
       month: monthStr,
+    },
+    unit: {
+      name: resident.unit.name,
+    },
+    resident: {
+      name: getResidentDisplayName(resident as any, "print"),
+    },
+    transactions,
+    summary: {
+      totalIncome,
+      totalExpense,
+      currentBalance,
+    },
+    facility: {
+      name: resident.facility.name,
+      position: resident.facility.positionName || "",
+      staffName: resident.facility.positionHolderName || "",
+    },
+  }
+}
+
+export function transformToResidentPrintDataForRange(
+  resident: ResidentWithRelations,
+  startDate: Date,
+  endDate: Date
+): ResidentPrintData {
+  // 開始日の直前（前期間の残高を作る境界）
+  const startBoundary = new Date(startDate)
+  const previousPeriodEnd = new Date(startBoundary.getTime() - 1)
+
+  const endBoundary = new Date(endDate)
+
+  // 開始日〜終了日（両端含む）
+  const rangeTransactions = resident.transactions.filter((t) => {
+    const d = new Date(t.transactionDate).getTime()
+    const startMs = startBoundary.getTime()
+    const endMs = endBoundary.getTime()
+    return d >= startMs && d <= endMs
+  })
+
+  // 前期間までの残高計算（正しい繰越のために日付順 + ID順）
+  const previousTransactions = resident.transactions
+    .filter((t) => new Date(t.transactionDate) <= previousPeriodEnd)
+    .sort((a, b) => {
+      const dateA = new Date(a.transactionDate).getTime()
+      const dateB = new Date(b.transactionDate).getTime()
+      if (dateA !== dateB) return dateA - dateB
+      return a.id - b.id
+    })
+
+  const previousBalance = previousTransactions.reduce((balance, t) => {
+    if (t.transactionType === "in") {
+      return balance + t.amount
+    } else if (t.transactionType === "out") {
+      return balance - t.amount
+    } else if (t.transactionType === "past_correct_in") {
+      // 過去訂正入金は計算に含める
+      return balance + t.amount
+    } else if (t.transactionType === "past_correct_out") {
+      // 過去訂正出金は計算に含める
+      return balance - t.amount
+    }
+    // correct_in と correct_out は計算しない（打ち消し処理）
+    return balance
+  }, 0)
+
+  // 取引リストを作成（繰越行 + 期間内取引）
+  const allTransactions: Array<Transaction & { _isCarryOver?: boolean; _previousBalance?: number }> = []
+
+  if (previousBalance !== 0) {
+    allTransactions.push({
+      id: -1,
+      residentId: resident.id,
+      transactionDate: previousPeriodEnd,
+      transactionType: "in",
+      amount: 0,
+      description: null,
+      payee: null,
+      reason: null,
+      createdAt: previousPeriodEnd,
+      _previousBalance: previousBalance,
+      _isCarryOver: true,
+    } as any)
+  }
+
+  allTransactions.push(
+    ...rangeTransactions.filter((t) => {
+      // correct_in と correct_out は除外（打ち消し処理）
+      return t.transactionType !== "correct_in" && t.transactionType !== "correct_out"
+    })
+  )
+
+  // 日付順にソート
+  allTransactions.sort((a, b) => {
+    const dateA = new Date(a.transactionDate).getTime()
+    const dateB = new Date(b.transactionDate).getTime()
+    if (dateA !== dateB) return dateA - dateB
+    // 同じ日付の場合は繰越行を先に
+    if ((a as any)._isCarryOver) return -1
+    if ((b as any)._isCarryOver) return 1
+    return a.id - b.id
+  })
+
+  // 残高を計算しながら整形
+  let runningBalance = 0
+  const transactions = allTransactions.map((t) => {
+    const isCarryOver = (t as any)._isCarryOver
+    const previousBalance = (t as any)._previousBalance ?? 0
+
+    if (isCarryOver) {
+      runningBalance = previousBalance
+      return {
+        date: "",
+        type: "開始日時点より繰越",
+        label: "開始日時点より繰越",
+        payee: "",
+        income: previousBalance > 0 ? previousBalance : 0,
+        expense: previousBalance < 0 ? Math.abs(previousBalance) : 0,
+        balance: previousBalance,
+      }
+    }
+
+    const isIncome = t.transactionType === "in" || t.transactionType === "past_correct_in"
+    const amount = t.amount
+
+    if (isIncome) {
+      runningBalance += amount
+    } else {
+      runningBalance -= amount
+    }
+
+    // 区分ラベルを取得
+    let typeLabel = ""
+    switch (t.transactionType) {
+      case "in":
+        typeLabel = "入金"
+        break
+      case "out":
+        typeLabel = "出金"
+        break
+      case "past_correct_in":
+        typeLabel = "過去訂正入金"
+        break
+      case "past_correct_out":
+        typeLabel = "過去訂正出金"
+        break
+      default:
+        typeLabel = t.transactionType
+    }
+
+    return {
+      date: formatDate(t.transactionDate),
+      type: typeLabel,
+      label: t.description || "",
+      payee: t.payee || "",
+      income: isIncome ? amount : 0,
+      expense: isIncome ? 0 : amount,
+      balance: runningBalance,
+    }
+  })
+
+  // 合計を計算
+  const totalIncome = transactions.reduce((sum, t) => sum + t.income, 0)
+  const totalExpense = transactions.reduce((sum, t) => sum + t.expense, 0)
+  const currentBalance = runningBalance
+
+  const startLabel = `${startBoundary.getMonth() + 1}月${startBoundary.getDate()}日`
+  const endLabel = `${endBoundary.getMonth() + 1}月${endBoundary.getDate()}日`
+
+  return {
+    statement: {
+      // monthは互換のために残しつつ、家族向けテンプレでは title のみ使用
+      month: "",
+      title: `預り金明細書（${startLabel}〜${endLabel}）`,
     },
     unit: {
       name: resident.unit.name,

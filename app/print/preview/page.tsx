@@ -6,14 +6,20 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { PDFViewer } from "@react-pdf/renderer"
 import { PdfRenderer } from "@/pdf/renderer/PdfRenderer"
 import { BatchPdfRenderer } from "@/pdf/renderer/BatchPdfRenderer"
+import { ResidentsOnlyPdfRenderer } from "@/pdf/renderer/ResidentsOnlyPdfRenderer"
 import MainLayout from "@/components/MainLayout"
 import DateSelector from "@/components/DateSelector"
 import depositStatementTemplate from "@/pdf/templates/deposit-statement.json"
 import residentStatementTemplate from "@/pdf/templates/resident-statement.json"
+import familyResidentStatementTemplate from "@/pdf/templates/family-resident-statement.json"
 import { PrintData, ResidentPrintData } from "@/pdf/utils/transform"
 
 interface BatchPrintData {
   facilitySummary: PrintData
+  residentStatements: ResidentPrintData[]
+}
+
+interface FamilyPrintData {
   residentStatements: ResidentPrintData[]
 }
 
@@ -32,6 +38,8 @@ function PrintPreviewContent() {
   const residentId = searchParams.get("residentId")
   const printType = searchParams.get("type") // "unit", "resident", or "batch"
   const noticeType = searchParams.get("noticeType") === "moveout" ? "moveout" : "normal"
+  const startDateStr = searchParams.get("startDate")
+  const endDateStr = searchParams.get("endDate")
   
   const [year, setYear] = useState(() => {
     const y = searchParams.get("year")
@@ -44,6 +52,7 @@ function PrintPreviewContent() {
 
   const [printData, setPrintData] = useState<PrintData | ResidentPrintData | null>(null)
   const [batchPrintData, setBatchPrintData] = useState<BatchPrintData | null>(null)
+  const [familyPrintData, setFamilyPrintData] = useState<FamilyPrintData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [residentFacilityId, setResidentFacilityId] = useState<number | null>(null)
@@ -65,6 +74,13 @@ function PrintPreviewContent() {
         setError("施設IDが指定されていません")
         setIsLoading(false)
       }
+    } else if (printType === "family") {
+      if (facilityId && startDateStr && endDateStr) {
+        fetchFamilyPrintData()
+      } else {
+        setError("期間（startDate〜endDate）と施設IDが指定されていません")
+        setIsLoading(false)
+      }
     } else if (printType === "resident") {
       if (residentId) {
         fetchResidentPrintData()
@@ -80,7 +96,7 @@ function PrintPreviewContent() {
         setIsLoading(false)
       }
     }
-  }, [isMounted, facilityId, unitId, residentId, printType, year, month, noticeType])
+  }, [isMounted, facilityId, unitId, residentId, printType, year, month, noticeType, startDateStr, endDateStr])
 
   const fetchUnitPrintData = async () => {
     setIsLoading(true)
@@ -117,6 +133,26 @@ function PrintPreviewContent() {
       setBatchPrintData(data)
     } catch (err) {
       console.error("Failed to fetch batch print data:", err)
+      setError(err instanceof Error ? err.message : "エラーが発生しました")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchFamilyPrintData = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const response = await fetch(
+        `/api/print/family-resident-statement?facilityId=${facilityId}&startDate=${startDateStr}&endDate=${endDateStr}`
+      )
+      if (!response.ok) {
+        throw new Error("印刷データの取得に失敗しました")
+      }
+      const data = await response.json()
+      setFamilyPrintData(data)
+    } catch (err) {
+      console.error("Failed to fetch family print data:", err)
       setError(err instanceof Error ? err.message : "エラーが発生しました")
     } finally {
       setIsLoading(false)
@@ -215,7 +251,14 @@ function PrintPreviewContent() {
     )
   }
 
-  if (error || (printType !== "batch" && !printData) || (printType === "batch" && !batchPrintData)) {
+  const isDataMissing =
+    printType === "batch"
+      ? !batchPrintData
+      : printType === "family"
+        ? !familyPrintData
+        : !printData
+
+  if (error || isDataMissing) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center h-screen">
@@ -244,15 +287,23 @@ function PrintPreviewContent() {
             <h1 className="text-2xl font-bold mb-2">
               {printType === "batch" 
                 ? "まとめて印刷 プレビュー" 
+                : printType === "family"
+                  ? "預り金明細書（期間指定）印刷プレビュー"
                 : printType === "resident" 
                   ? "預り金明細書 印刷プレビュー" 
                   : "出納帳および預り金報告書印刷プレビュー"}
             </h1>
-            <DateSelector
-              year={year}
-              month={month}
-              onDateChange={handleDateChange}
-            />
+            {printType === "family" ? (
+              <div className="text-gray-700">
+                期間: {startDateStr} 〜 {endDateStr}
+              </div>
+            ) : (
+              <DateSelector
+                year={year}
+                month={month}
+                onDateChange={handleDateChange}
+              />
+            )}
           </div>
           <div className="flex flex-col items-end gap-2">
             {/* 利用者タイプの場合、利用者名と矢印ボタンを右上に表示 */}
@@ -302,6 +353,13 @@ function PrintPreviewContent() {
           {printType === "batch" && batchPrintData ? (
             <PDFViewer width="100%" height="100%">
               <BatchPdfRenderer data={batchPrintData} />
+            </PDFViewer>
+          ) : printType === "family" && familyPrintData ? (
+            <PDFViewer width="100%" height="100%">
+              <ResidentsOnlyPdfRenderer
+                template={familyResidentStatementTemplate as any}
+                residentStatements={familyPrintData.residentStatements}
+              />
             </PDFViewer>
           ) : printData ? (
             <PDFViewer width="100%" height="100%">
