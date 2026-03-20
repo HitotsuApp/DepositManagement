@@ -22,8 +22,8 @@ export async function GET(request: Request) {
     
     const response = NextResponse.json(facilities)
     
-    // キャッシュヘッダーの追加
-    response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=55')
+    // マスタ管理の更新直後に古い一覧が返らないように、キャッシュを無効化
+    response.headers.set('Cache-Control', 'no-store')
     
     return response
   } catch (error) {

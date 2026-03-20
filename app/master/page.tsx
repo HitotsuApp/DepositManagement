@@ -152,7 +152,7 @@ function MasterContent() {
         : selectedFacilityId
         ? `/api/facilities?includeInactive=true&facilityId=${selectedFacilityId}`
         : '/api/facilities?includeInactive=true'
-      const res = await fetch(url)
+      const res = await fetch(url, { cache: 'no-store' })
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
         throw new Error(errorData.error || `HTTP error! status: ${res.status}`)
@@ -186,7 +186,7 @@ function MasterContent() {
       const url = selectedFacilityId
         ? `/api/units?includeInactive=true&facilityId=${selectedFacilityId}`
         : '/api/units?includeInactive=true'
-      const res = await fetch(url)
+      const res = await fetch(url, { cache: 'no-store' })
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`)
       }
@@ -213,7 +213,7 @@ function MasterContent() {
       const url = selectedFacilityId
         ? `/api/residents?includeInactive=true&facilityId=${selectedFacilityId}`
         : '/api/residents?includeInactive=true'
-      const res = await fetch(url)
+      const res = await fetch(url, { cache: 'no-store' })
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`)
       }
@@ -487,7 +487,7 @@ function MasterContent() {
 
   const loadUnitsForFacility = async (facilityId: number) => {
     try {
-      const res = await fetch('/api/units?includeInactive=true')
+      const res = await fetch('/api/units?includeInactive=true', { cache: 'no-store' })
       const allUnits = await res.json()
       const filteredUnits = allUnits.filter((u: Unit) => u.facilityId === facilityId && u.isActive)
       setAvailableUnits(filteredUnits)
