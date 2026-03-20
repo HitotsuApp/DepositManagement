@@ -255,11 +255,6 @@ export default function CashVerificationPage() {
               display: none !important;
             }
             
-            /* 合計・差異表示セクションを非表示 */
-            .no-print-summary {
-              display: none !important;
-            }
-            
             /* 金種表（預り金）の金額を非表示 */
             .print-hide-amount {
               display: none !important;
@@ -532,7 +527,7 @@ export default function CashVerificationPage() {
             </div>
 
             {/* 合計・差異表示 */}
-            <div className="bg-white rounded-lg shadow-md p-6 no-print-summary">
+            <div className="bg-white rounded-lg shadow-md p-6 print-section">
               <div className="text-xl font-semibold">
                 {formatCurrency(facilityBalance)}（預り金合計）ー{formatCurrency(totalAmount)}（現金合計）＝<span className={difference === 0 ? 'text-green-600' : difference > 0 ? 'text-red-600' : 'text-blue-600'}>{formatCurrency(difference)}</span>（差異）
               </div>
