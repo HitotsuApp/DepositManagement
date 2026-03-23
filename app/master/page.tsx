@@ -1326,7 +1326,13 @@ function MasterContent() {
                       value={residentForm.endDate}
                       onChange={(e) => setResidentForm({ ...residentForm, endDate: e.target.value })}
                       className="w-full px-3 py-2 border rounded"
+                      disabled={!editingResident}
                     />
+                    {!editingResident && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        終了日は利用者を編集するときに設定できます
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-0.5">表示順</label>
