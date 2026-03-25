@@ -644,6 +644,36 @@ export default function BulkInputPage() {
     }
   }
 
+  // 明細テーブルの「訂正」対象行を元に、新規の入金/出金フォームを立ち上げる
+  // 要望: 区分/対象日/内容/支払先 をコピー、利用者と金額は空にする
+  const handleCopyFromTransaction = (transaction: Transaction) => {
+    // canCorrect の表示条件から in/out の想定だが、念のためガード
+    if (transaction.transactionType !== 'in' && transaction.transactionType !== 'out') {
+      return
+    }
+
+    setShowInOutForm(true)
+    setShowCorrectForm(false)
+    setPendingTransactions([])
+    setEditingPendingId(null)
+    setResidentSearchQuery('')
+    setSelectedUnitId(null)
+    setCorrectResidentSearchQuery('')
+    setSelectedCorrectUnitId(null)
+
+    const dateStr = new Date(transaction.transactionDate).toISOString().split('T')[0]
+
+    setFormData({
+      residentId: '',
+      transactionDate: dateStr,
+      transactionType: transaction.transactionType,
+      amount: '',
+      description: transaction.description || '',
+      payee: transaction.payee || '',
+      reason: '',
+    })
+  }
+
   // 選択された施設と異なる施設のページにアクセスした場合の警告
   const isMismatchedFacility = selectedFacilityId !== null && selectedFacilityId !== facilityId
 
@@ -861,13 +891,23 @@ export default function BulkInputPage() {
                           </td>
                           <td className="px-4 py-3 text-center">
                             {canCorrect && (
-                              <button
-                                onClick={() => handleCorrectTransaction(transaction.id)}
-                                className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 shadow-md hover:shadow-lg transition-shadow"
-                                title="この取引を訂正としてマーク"
-                              >
-                                ✏️ 訂正
-                              </button>
+                              <div className="flex gap-1 justify-center">
+                                <button
+                                  onClick={() => handleCorrectTransaction(transaction.id)}
+                                  className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 shadow-md hover:shadow-lg transition-shadow"
+                                  title="この取引を訂正としてマーク"
+                                >
+                                  ✏️ 訂正
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyFromTransaction(transaction)}
+                                  className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 shadow-md hover:shadow-lg transition-shadow"
+                                  title="この行の区分/対象日/内容/支払先をコピーして新規入力"
+                                >
+                                  コピー
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>
