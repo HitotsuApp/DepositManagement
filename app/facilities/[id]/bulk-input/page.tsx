@@ -534,6 +534,31 @@ export default function BulkInputPage() {
     }
   }
 
+  // カードのコピー（利用者・金額は空にして、他項目を上書きする）
+  const handleCopyPending = (id: string) => {
+    const pending = pendingTransactions.find(t => t.id === id)
+    if (!pending) return
+
+    // コピーは元カードを削除せず、フォーム側だけを上書きする
+    setEditingPendingId(null)
+    setFormData({
+      residentId: '',
+      transactionDate: pending.transactionDate,
+      transactionType: pending.transactionType,
+      amount: '',
+      description: pending.description,
+      payee: pending.payee,
+      // 入金/出金フォームでは表示されない項目のため、常に空にしておく
+      reason: '',
+    })
+
+    // 利用者選択が空になるように検索/絞り込みもリセット
+    setResidentSearchQuery('')
+    setSelectedUnitId(null)
+    setCorrectResidentSearchQuery('')
+    setSelectedCorrectUnitId(null)
+  }
+
   // カードの削除
   const handleDeletePending = (id: string) => {
     setPendingTransactions(prev => prev.filter(t => t.id !== id))
@@ -1129,6 +1154,13 @@ export default function BulkInputPage() {
                           className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
                         >
                           削除
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPending(pending.id)}
+                          className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+                        >
+                          コピー
                         </button>
                       </div>
                     </div>
