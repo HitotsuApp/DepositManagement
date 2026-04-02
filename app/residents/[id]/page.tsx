@@ -24,6 +24,8 @@ interface Transaction {
   payee: string | null
   reason: string | null
   balance: number
+  /** API が合成する「前月より繰越」行（DB には存在しない） */
+  isCarryOver?: boolean
 }
 
 interface TransactionFormData {
@@ -1160,15 +1162,16 @@ export default function ResidentDetailPage() {
                     </tr>
                   ) : (
                   transactions.map((transaction) => {
+                    const isCarryOver = transaction.isCarryOver === true
                     const isIn = transaction.transactionType === 'in' || transaction.transactionType === 'correct_in' || transaction.transactionType === 'past_correct_in'
                     const isCorrect = transaction.transactionType === 'correct_in' || transaction.transactionType === 'correct_out'
                     const isPastCorrect = transaction.transactionType === 'past_correct_in' || transaction.transactionType === 'past_correct_out'
-                    const canCorrect = !isCorrect && !isPastCorrect && isCurrentMonth
+                    const canCorrect = !isCarryOver && !isCorrect && !isPastCorrect && isCurrentMonth
                     
                     return (
                       <tr 
-                        key={transaction.id} 
-                        className={`border-t hover:bg-gray-50 ${isCorrect ? 'opacity-60' : ''}`}
+                        key={isCarryOver ? `carryover-${year}-${month}` : transaction.id} 
+                        className={`border-t hover:bg-gray-50 ${isCorrect ? 'opacity-60' : ''} ${isCarryOver ? 'bg-slate-50/80' : ''}`}
                       >
                         <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
                           {new Date(transaction.transactionDate).toLocaleDateString('ja-JP', {
@@ -1178,24 +1181,30 @@ export default function ResidentDetailPage() {
                           })}
                         </td>
                         <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            isIn
-                              ? isCorrect
-                                ? 'bg-orange-100 text-orange-800'
-                                : isPastCorrect
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-blue-100 text-blue-800'
-                              : isCorrect
-                                ? 'bg-orange-100 text-orange-800'
-                                : isPastCorrect
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-red-100 text-red-800'
-                          }`}>
-                            {getTransactionTypeLabel(transaction.transactionType)}
-                          </span>
+                          {isCarryOver ? (
+                            <span className="px-2 py-1 rounded text-xs font-medium bg-slate-200 text-slate-800">
+                              前月より繰越
+                            </span>
+                          ) : (
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              isIn
+                                ? isCorrect
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : isPastCorrect
+                                    ? 'bg-purple-100 text-purple-800'
+                                    : 'bg-blue-100 text-blue-800'
+                                : isCorrect
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : isPastCorrect
+                                    ? 'bg-purple-100 text-purple-800'
+                                    : 'bg-red-100 text-red-800'
+                            }`}>
+                              {getTransactionTypeLabel(transaction.transactionType)}
+                            </span>
+                          )}
                         </td>
                         <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
-                          {transaction.description || '-'}
+                          {isCarryOver ? '-' : (transaction.description || '-')}
                         </td>
                         <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
                           {transaction.payee || '-'}

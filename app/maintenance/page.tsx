@@ -158,6 +158,7 @@ export default function MaintenancePage() {
         // Transactionデータがある場合
         if (resident.transactions && resident.transactions.length > 0) {
           for (const transaction of resident.transactions) {
+            if ((transaction as { isCarryOver?: boolean }).isCarryOver) continue
             const transactionDateStr = formatDate(
               transaction.transactionDate ? new Date(transaction.transactionDate) : null
             )

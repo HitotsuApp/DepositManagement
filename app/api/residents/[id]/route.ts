@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
-import { calculateBalance, filterTransactionsByMonth, calculateBalanceUpToMonth } from '@/lib/balance'
+import { calculateBalance, calculateBalanceUpToMonth } from '@/lib/balance'
 import { validateId, validateMaxLength, validateSortOrder, MAX_LENGTHS, NAME_PREFIX_DISPLAY_OPTIONS } from '@/lib/validation'
 import { sanitizeFurigana } from '@/lib/furigana'
 
@@ -59,12 +59,42 @@ export async function GET(
 
     // 全取引から累積残高を計算し、指定年月の取引のみをフィルタリング
     const allTransactionsWithBalance = calculateBalance(resident.transactions as any)
-    const transactionsWithBalance = allTransactionsWithBalance.filter(t => {
+    const monthTransactions = allTransactionsWithBalance.filter(t => {
       const transactionDate = new Date(t.transactionDate)
       const startDate = new Date(year, month - 1, 1)
       const endDate = new Date(year, month, 0, 23, 59, 59, 999)
       return transactionDate >= startDate && transactionDate <= endDate
     })
+
+    // 前月末残高（PDF の「前月より繰越」と同じ計算ルール）
+    const prevYear = month === 1 ? year - 1 : year
+    const prevMonth = month === 1 ? 12 : month - 1
+    const previousMonthBalance = calculateBalanceUpToMonth(
+      resident.transactions as any,
+      prevYear,
+      prevMonth
+    )
+
+    let transactionsWithBalance = monthTransactions
+    if (previousMonthBalance !== 0) {
+      const previousMonthEnd = new Date(year, month - 1, 0, 23, 59, 59, 999)
+      transactionsWithBalance = [
+        {
+          id: -1,
+          transactionDate: previousMonthEnd,
+          transactionType: previousMonthBalance > 0 ? 'in' : 'out',
+          amount: Math.abs(previousMonthBalance),
+          description: null,
+          payee: null,
+          reason: null,
+          balance: previousMonthBalance,
+          createdAt: previousMonthEnd,
+          residentId,
+          isCarryOver: true,
+        } as any,
+        ...monthTransactions,
+      ]
+    }
 
     const response = NextResponse.json({
       residentName: resident.name,
