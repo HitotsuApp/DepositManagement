@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
+import { loadResidentsForDepositPrint } from "@/lib/residentPrintEligibility"
 import { transformToPrintData, transformToResidentPrintData, buildNoticeFromFacilityTemplate, type FacilityWithRelations } from "@/pdf/utils/transform"
 import { sortResidentsForPrint, sortUnitsForPrint, type SortableResident, type SortableUnit } from "@/lib/sortOrder"
 
@@ -21,24 +22,15 @@ export async function GET(request: Request) {
       )
     }
 
-    // 施設情報と全利用者情報を取得
+    const fid = Number(facilityId)
+    const y = Number(year)
+    const m = Number(month)
+
     const facility = await prisma.facility.findUnique({
-      where: { id: Number(facilityId) },
+      where: { id: fid },
       include: {
         units: {
           where: { isActive: true },
-        },
-        residents: {
-          where: {
-            isActive: true,
-            endDate: null, // 終了日が設定されていない利用者のみ
-          },
-          include: {
-            transactions: {
-              orderBy: { transactionDate: "asc" },
-            },
-            unit: true,
-          },
         },
       },
     })
@@ -50,13 +42,15 @@ export async function GET(request: Request) {
       )
     }
 
+    const residents = await loadResidentsForDepositPrint(prisma, fid, y, m, null)
+
     // 施設設定に応じてユニット・利用者をソート
     const useSameOrder = (facility as { useSameOrderForDisplayAndPrint?: boolean }).useSameOrderForDisplayAndPrint ?? true
     const useUnitOrder = (facility as { useUnitOrderForPrint?: boolean }).useUnitOrderForPrint ?? true
     const residentPrintSortMode = (facility as { residentPrintSortMode?: string | null }).residentPrintSortMode ?? null
     const sortedUnits = sortUnitsForPrint(facility.units as unknown as SortableUnit[], useSameOrder)
     const sortedResidents = sortResidentsForPrint(
-      facility.residents as unknown as SortableResident[],
+      residents as unknown as SortableResident[],
       facility.units as unknown as SortableUnit[],
       useSameOrder,
       useUnitOrder,
@@ -72,8 +66,8 @@ export async function GET(request: Request) {
     const facilitySummary = transformToPrintData(
       sortedFacility as unknown as FacilityWithRelations,
       null, // unitIdはnullで全利用者対象
-      Number(year),
-      Number(month)
+      y,
+      m
     )
 
     const facilityNoticeTemplate = (facility as { noticeTemplateNormal?: string | null }).noticeTemplateNormal ?? null
@@ -99,8 +93,8 @@ export async function GET(request: Request) {
 
         const printData = transformToResidentPrintData(
           residentWithRelations,
-          Number(year),
-          Number(month)
+          y,
+          m
         )
         const notice = buildNoticeFromFacilityTemplate(facilityNoticeTemplate, 'normal')
         if (notice) printData.notice = notice

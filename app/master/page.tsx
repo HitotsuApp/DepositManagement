@@ -1400,6 +1400,9 @@ function MasterContent() {
                 <p className="text-gray-700">
                   この利用者を終了しますか？終了後もデータは保持されますが、通常の利用者一覧からは非表示になり、利用終了者一覧に表示されます。
                 </p>
+                <p className="text-gray-700">
+                  精算処理を終えて残高が0円であることを確認してから「終了する」ボタンを押してください。
+                </p>
                 <div className="flex gap-4 pt-4">
                   <button
                     onClick={() => {

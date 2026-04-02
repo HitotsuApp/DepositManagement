@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
+import { loadResidentsForDepositPrint } from "@/lib/residentPrintEligibility"
 import { transformToPrintData, type FacilityWithRelations } from "@/pdf/utils/transform"
 import { sortResidentsForPrint, sortUnitsForPrint, type SortableResident, type SortableUnit } from "@/lib/sortOrder"
 
@@ -22,23 +23,16 @@ export async function GET(request: Request) {
       )
     }
 
+    const fid = Number(facilityId)
+    const y = Number(year)
+    const m = Number(month)
+    const uid = unitId ? Number(unitId) : null
+
     const facility = await prisma.facility.findUnique({
-      where: { id: Number(facilityId) },
+      where: { id: fid },
       include: {
         units: {
           where: { isActive: true },
-        },
-        residents: {
-          where: {
-            isActive: true,
-            ...(unitId ? { unitId: Number(unitId) } : {}),
-          },
-          include: {
-            transactions: {
-              orderBy: { transactionDate: "asc" },
-            },
-            unit: true,
-          },
         },
       },
     })
@@ -50,13 +44,15 @@ export async function GET(request: Request) {
       )
     }
 
+    const residents = await loadResidentsForDepositPrint(prisma, fid, y, m, uid)
+
     // 施設設定に応じてユニット・利用者をソート
     const useSameOrder = (facility as { useSameOrderForDisplayAndPrint?: boolean }).useSameOrderForDisplayAndPrint ?? true
     const useUnitOrder = (facility as { useUnitOrderForPrint?: boolean }).useUnitOrderForPrint ?? true
     const residentPrintSortMode = (facility as { residentPrintSortMode?: string | null }).residentPrintSortMode ?? null
     const sortedUnits = sortUnitsForPrint(facility.units as unknown as SortableUnit[], useSameOrder)
     const sortedResidents = sortResidentsForPrint(
-      facility.residents as unknown as SortableResident[],
+      residents as unknown as SortableResident[],
       facility.units as unknown as SortableUnit[],
       useSameOrder,
       useUnitOrder,
@@ -70,9 +66,9 @@ export async function GET(request: Request) {
 
     const printData = transformToPrintData(
       sortedFacility as unknown as FacilityWithRelations,
-      unitId ? Number(unitId) : null,
-      Number(year),
-      Number(month)
+      uid,
+      y,
+      m
     )
 
     return NextResponse.json(printData)
