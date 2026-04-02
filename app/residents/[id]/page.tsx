@@ -9,6 +9,7 @@ import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
 import Toast from '@/components/Toast'
+import FormattedAmountInput from '@/components/FormattedAmountInput'
 import { useFacility } from '@/contexts/FacilityContext'
 import { isValidDate } from '@/lib/validation'
 import { invalidateTransactionCache } from '@/lib/cache'
@@ -775,20 +776,12 @@ export default function ResidentDetailPage() {
                 <label className="block text-sm font-medium mb-0.5">
                   金額 <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    step="1"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    className="w-full px-2 py-1.5 pr-8 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder="0"
-                  />
-                  <span className="absolute right-2 top-1.5 text-gray-500 text-sm">円</span>
-                </div>
+                <FormattedAmountInput
+                  value={formData.amount}
+                  onChange={(nextRawDigits) => setFormData({ ...formData, amount: nextRawDigits })}
+                  focusRingClassName="focus:ring-blue-500"
+                  placeholder="0"
+                />
               </div>
 
               <div>
@@ -967,20 +960,12 @@ export default function ResidentDetailPage() {
                 <label className="block text-sm font-medium mb-0.5">
                   金額 <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    step="1"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    className="w-full px-2 py-1.5 pr-8 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
-                    placeholder="0"
-                  />
-                  <span className="absolute right-2 top-1.5 text-gray-500 text-sm">円</span>
-                </div>
+                <FormattedAmountInput
+                  value={formData.amount}
+                  onChange={(nextRawDigits) => setFormData({ ...formData, amount: nextRawDigits })}
+                  focusRingClassName="focus:ring-orange-500"
+                  placeholder="0"
+                />
               </div>
 
               <div>
