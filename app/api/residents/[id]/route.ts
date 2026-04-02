@@ -45,7 +45,7 @@ export async function GET(
             createdAt: true,
             residentId: true,
           },
-          orderBy: { transactionDate: 'asc' },
+          orderBy: [{ transactionDate: 'asc' }, { id: 'asc' }],
         },
       },
     })
