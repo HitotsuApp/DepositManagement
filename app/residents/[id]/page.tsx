@@ -408,28 +408,25 @@ export default function ResidentDetailPage() {
         }
       }
 
-      // すべての取引を順次登録
-      const results = await Promise.allSettled(
-        transactionsToSubmit.map(t => 
-          fetch(`/api/transactions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              residentId,
-              transactionDate: t.transactionDate,
-              transactionType: t.transactionType,
-              amount: t.amount,
-              description: t.description || '',
-              payee: t.payee || '',
-              reason: t.reason || '',
-            }),
-          })
-        )
-      )
+      const response = await fetch(`/api/transactions/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: transactionsToSubmit.map(t => ({
+            residentId,
+            transactionDate: t.transactionDate,
+            transactionType: t.transactionType,
+            amount: t.amount,
+            description: t.description || '',
+            payee: t.payee || '',
+            reason: t.reason || '',
+          })),
+        }),
+      })
 
-      const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok))
-      
-      if (failed.length === 0) {
+      const batchData = await response.json()
+
+      if (response.ok) {
         setToast({
           message: `${transactionsToSubmit.length}件の取引を登録しました`,
           type: 'success',
@@ -453,8 +450,12 @@ export default function ResidentDetailPage() {
         await fetchResidentData(true)
         router.refresh()
       } else {
+        const errIndex = typeof batchData.index === 'number' ? batchData.index + 1 : null
         setToast({
-          message: `${failed.length}件の登録に失敗しました`,
+          message:
+            errIndex !== null
+              ? `${errIndex}件目: ${batchData.error || '登録に失敗しました'}`
+              : batchData.error || '登録に失敗しました',
           type: 'error',
           isVisible: true,
         })

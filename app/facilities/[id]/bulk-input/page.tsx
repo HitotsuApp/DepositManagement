@@ -10,7 +10,7 @@ import Toast from '@/components/Toast'
 import FormattedAmountInput from '@/components/FormattedAmountInput'
 import { useFacility } from '@/contexts/FacilityContext'
 import { isValidDate } from '@/lib/validation'
-import { invalidateTransactionCache } from '@/lib/cache'
+import { invalidateTransactionCache, invalidateTransactionCacheForResidents } from '@/lib/cache'
 import { getResidentDisplayName } from '@/lib/displayName'
 
 interface Transaction {
@@ -444,28 +444,25 @@ export default function BulkInputPage() {
         }
       }
 
-      // すべての取引を順次登録
-      const results = await Promise.allSettled(
-        transactionsToSubmit.map(t => 
-          fetch(`/api/transactions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              residentId: t.residentId,
-              transactionDate: t.transactionDate,
-              transactionType: t.transactionType,
-              amount: t.amount,
-              description: t.description || '',
-              payee: t.payee || '',
-              reason: t.reason || '',
-            }),
-          })
-        )
-      )
+      const response = await fetch(`/api/transactions/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: transactionsToSubmit.map(t => ({
+            residentId: t.residentId,
+            transactionDate: t.transactionDate,
+            transactionType: t.transactionType,
+            amount: t.amount,
+            description: t.description || '',
+            payee: t.payee || '',
+            reason: t.reason || '',
+          })),
+        }),
+      })
 
-      const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok))
-      
-      if (failed.length === 0) {
+      const batchData = await response.json()
+
+      if (response.ok) {
         setToast({
           message: `${transactionsToSubmit.length}件の取引を登録しました`,
           type: 'success',
@@ -485,12 +482,21 @@ export default function BulkInputPage() {
           reason: '',
         })
         
-        await invalidateTransactionCache(facilityId, undefined, year, month)
+        await invalidateTransactionCacheForResidents(
+          facilityId,
+          transactionsToSubmit.map(t => t.residentId),
+          year,
+          month
+        )
         await fetchBulkData(true)
         router.refresh()
       } else {
+        const errIndex = typeof batchData.index === 'number' ? batchData.index + 1 : null
         setToast({
-          message: `${failed.length}件の登録に失敗しました`,
+          message:
+            errIndex !== null
+              ? `${errIndex}件目: ${batchData.error || '登録に失敗しました'}`
+              : batchData.error || '登録に失敗しました',
           type: 'error',
           isVisible: true,
         })

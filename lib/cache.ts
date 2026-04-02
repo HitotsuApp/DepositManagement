@@ -76,6 +76,28 @@ export async function invalidateTransactionCache(
 }
 
 /**
+ * 複数利用者にまたがる取引登録後に、施設まわりと各利用者明細のキャッシュをまとめて無効化する
+ */
+export async function invalidateTransactionCacheForResidents(
+  facilityId: number,
+  residentIds: number[],
+  year: number,
+  month: number
+): Promise<void> {
+  const paths: string[] = []
+
+  paths.push(`/api/dashboard?year=${year}&month=${month}&facilityId=${facilityId}`)
+  paths.push(`/api/facilities/${facilityId}?year=${year}&month=${month}`)
+  paths.push(`/api/facilities/${facilityId}/transactions?year=${year}&month=${month}`)
+
+  for (const rid of new Set(residentIds)) {
+    paths.push(`/api/residents/${rid}?year=${year}&month=${month}`)
+  }
+
+  await invalidateCache(paths)
+}
+
+/**
  * マスタデータ更新後に呼び出す
  * 施設、ユニット、利用者のマスタデータのキャッシュを無効化
  * 
