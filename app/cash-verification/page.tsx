@@ -1,9 +1,14 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import { useFacility } from '@/contexts/FacilityContext'
+import {
+  loadCashVerificationDraft,
+  saveCashVerificationDraft,
+  clearCashVerificationDraft,
+} from '@/lib/cashVerificationStorage'
 
 interface CashDenomination {
   value: number
@@ -127,24 +132,68 @@ export default function CashVerificationPage() {
     }
   }, [selectedFacilityId, fetchFacilityBalance, fetchFacilityInfo])
 
+  useLayoutEffect(() => {
+    if (!selectedFacilityId) {
+      setBills(BILL_DENOMINATIONS.map((b) => ({ ...b, count: 0, amount: 0 })))
+      setCoins(COIN_DENOMINATIONS.map((c) => ({ ...c, count: 0, amount: 0 })))
+      return
+    }
+    const draft = loadCashVerificationDraft(
+      selectedFacilityId,
+      BILL_DENOMINATIONS.length,
+      COIN_DENOMINATIONS.length
+    )
+    if (draft) {
+      setBills(
+        BILL_DENOMINATIONS.map((b, i) => ({
+          ...b,
+          count: draft.billCounts[i],
+          amount: draft.billCounts[i] * b.value,
+        }))
+      )
+      setCoins(
+        COIN_DENOMINATIONS.map((c, i) => ({
+          ...c,
+          count: draft.coinCounts[i],
+          amount: draft.coinCounts[i] * c.value * 50,
+        }))
+      )
+    } else {
+      setBills(BILL_DENOMINATIONS.map((b) => ({ ...b, count: 0, amount: 0 })))
+      setCoins(COIN_DENOMINATIONS.map((c) => ({ ...c, count: 0, amount: 0 })))
+    }
+  }, [selectedFacilityId])
+
   const handleDateChange = (newYear: number, newMonth: number) => {
     setYear(newYear)
     setMonth(newMonth)
   }
 
   const handleBillCountChange = (index: number, count: number) => {
+    if (selectedFacilityId == null) return
     const newBills = [...bills]
     newBills[index].count = Math.max(0, count)
     newBills[index].amount = newBills[index].count * newBills[index].value
     setBills(newBills)
+    saveCashVerificationDraft(
+      selectedFacilityId,
+      newBills.map((b) => b.count),
+      coins.map((c) => c.count)
+    )
   }
 
   const handleCoinCountChange = (index: number, count: number) => {
+    if (selectedFacilityId == null) return
     const newCoins = [...coins]
     newCoins[index].count = Math.max(0, count)
     // 50枚セット単位で計算（棒金）
     newCoins[index].amount = newCoins[index].count * newCoins[index].value * 50
     setCoins(newCoins)
+    saveCashVerificationDraft(
+      selectedFacilityId,
+      bills.map((b) => b.count),
+      newCoins.map((c) => c.count)
+    )
   }
 
   const billSubtotal = bills.reduce((sum, bill) => sum + bill.amount, 0)
@@ -162,8 +211,10 @@ export default function CashVerificationPage() {
   }
 
   const resetCounts = () => {
-    setBills(BILL_DENOMINATIONS.map(b => ({ ...b, count: 0, amount: 0 })))
-    setCoins(COIN_DENOMINATIONS.map(c => ({ ...c, count: 0, amount: 0 })))
+    if (selectedFacilityId == null) return
+    clearCashVerificationDraft(selectedFacilityId)
+    setBills(BILL_DENOMINATIONS.map((b) => ({ ...b, count: 0, amount: 0 })))
+    setCoins(COIN_DENOMINATIONS.map((c) => ({ ...c, count: 0, amount: 0 })))
   }
 
   const handlePrint = () => {
