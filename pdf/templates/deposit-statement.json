@@ -34,10 +34,10 @@
     {
       "id": "deposit-details",
       "columns": [
-        { "key": "category", "label": "種別", "width": 12 },
+        { "key": "category", "label": "種別", "width": 9 },
         { "key": "userName", "label": "利用者名", "width": 18 },
-        { "key": "date", "label": "日付", "width": 10 },
-        { "key": "label", "label": "摘要", "width": 20 },
+        { "key": "date", "label": "日付", "width": 7 },
+        { "key": "label", "label": "摘要", "width": 26 },
         { "key": "payee", "label": "支払先", "width": 20 },
         { "key": "income", "label": "入金", "width": 10, "align": "right" },
         { "key": "expense", "label": "出金", "width": 10, "align": "right" }

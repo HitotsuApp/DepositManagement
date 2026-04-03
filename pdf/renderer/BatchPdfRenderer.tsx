@@ -8,6 +8,7 @@ import FooterBlock from "./blocks/FooterBlock"
 import { PrintData, ResidentPrintData } from "../utils/transform"
 import depositStatementTemplate from "../templates/deposit-statement.json"
 import residentStatementTemplate from "../templates/resident-statement.json"
+import { chunkDepositStatementRows } from "../utils/depositPdfLayout"
 
 interface BatchPrintData {
   facilitySummary: PrintData
@@ -78,28 +79,43 @@ const chunk = <T,>(arr: T[], size: number): T[][] => {
   )
 }
 
+/** 摘要列幅26%に合わせた表示幅単位（20%時22から比率換算） */
+const DEPOSIT_LABEL_WRAP_UNITS = 29
+
 const renderPages = (
   template: Template,
   data: Record<string, any>,
   pageKeyPrefix: string
 ) => {
   const transactions = data.transactions ?? []
-  const pages = chunk(transactions, ROWS_PER_PAGE)
+  const isDeposit = template.templateId === "deposit-statement"
+  const pages = isDeposit
+    ? chunkDepositStatementRows(
+        transactions,
+        template.document.margin.top,
+        template.document.margin.bottom
+      )
+    : chunk(transactions, ROWS_PER_PAGE)
   const table = template.tables?.[0]
 
-  return pages.map((pageRows, pageIndex) => (
+  const pagePadding = {
+    paddingTop: template.document.margin.top,
+    paddingRight: template.document.margin.right,
+    paddingBottom: template.document.margin.bottom,
+    paddingLeft: template.document.margin.left,
+  }
+
+  const hasUnitSummaryPage =
+    isDeposit && data.unitSummaries && (data.unitSummaries as unknown[]).length > 0
+
+  const pageElements = pages.map((pageRows, pageIndex) => (
     <Page
       key={`${pageKeyPrefix}-${pageIndex}`}
       size={template.document.paper as any}
       orientation={template.document.orientation}
       style={[
         styles.page,
-        {
-          paddingTop: template.document.margin.top,
-          paddingRight: template.document.margin.right,
-          paddingBottom: template.document.margin.bottom,
-          paddingLeft: template.document.margin.left,
-        },
+        pagePadding,
       ]}
     >
       {/* ヘッダーは1ページ目のみ */}
@@ -112,6 +128,7 @@ const renderPages = (
         <TableBlock
           table={table}
           data={{ ...data, transactions: pageRows }}
+          wrapColumnUnits={isDeposit ? { label: DEPOSIT_LABEL_WRAP_UNITS } : undefined}
           summary={template.summary}
           showSummary={pageIndex === pages.length - 1}
         />
@@ -120,11 +137,6 @@ const renderPages = (
       {/* 合計行の下に預り金総合計を表示（最終ページのみ、deposit-statementテンプレートの場合） */}
       {pageIndex === pages.length - 1 && template.summary && template.templateId === "deposit-statement" && (
         <SummaryBlock summary={template.summary} data={data} />
-      )}
-
-      {/* ユニット別・利用者別の合計を表示（最終ページのみ、deposit-statementテンプレートの場合） */}
-      {pageIndex === pages.length - 1 && data.unitSummaries && template.templateId === "deposit-statement" && (
-        <UnitSummaryBlock unitSummaries={data.unitSummaries} />
       )}
 
       {/* お知らせは最終ページのみ（resident-statementテンプレートの場合） */}
@@ -138,6 +150,22 @@ const renderPages = (
       )}
     </Page>
   ))
+
+  if (hasUnitSummaryPage) {
+    return [
+      ...pageElements,
+      <Page
+        key={`${pageKeyPrefix}-unit`}
+        size={template.document.paper as any}
+        orientation={template.document.orientation}
+        style={[styles.page, pagePadding]}
+      >
+        <UnitSummaryBlock unitSummaries={data.unitSummaries} />
+      </Page>,
+    ]
+  }
+
+  return pageElements
 }
 
 export const BatchPdfRenderer = ({ data }: { data: BatchPrintData }) => {

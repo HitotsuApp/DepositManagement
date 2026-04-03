@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from "@react-pdf/renderer"
 import { formatYen } from "../../utils/format"
 import { resolveTemplate } from "../../utils/resolve"
+import { wrapTextByDisplayWidth } from "../../utils/wrapText"
 
 interface Column {
   key: string
@@ -16,6 +17,8 @@ interface TableBlockProps {
     dataSource: string
   }
   data: Record<string, any>
+  /** 列キーごとに、1行あたりの表示幅（半角=1・全角相当=2）で折り返す */
+  wrapColumnUnits?: Partial<Record<string, number>>
   summary?: {
     rows: Array<{
       label: string
@@ -27,7 +30,7 @@ interface TableBlockProps {
   showSummary?: boolean
 }
 
-const TableBlock = ({ table, data, summary, showSummary }: TableBlockProps) => {
+const TableBlock = ({ table, data, wrapColumnUnits, summary, showSummary }: TableBlockProps) => {
   const rows = data[table.dataSource] ?? []
 
   // 合計行のデータを準備
@@ -79,10 +82,14 @@ const TableBlock = ({ table, data, summary, showSummary }: TableBlockProps) => {
         <View key={i} style={styles.row}>
           {table.columns.map((col, colIndex) => {
             const raw = row[col.key]
+            const wrapped =
+              wrapColumnUnits?.[col.key] != null && typeof raw === "string"
+                ? wrapTextByDisplayWidth(raw, wrapColumnUnits[col.key]!)
+                : raw
             const value =
               col.align === "right" && typeof raw === "number"
                 ? formatYen(raw)
-                : raw ?? ""
+                : wrapped ?? ""
 
             return (
               <View
