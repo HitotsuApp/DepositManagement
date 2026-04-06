@@ -20,8 +20,8 @@ const SummaryBlock = ({ summary, data }: SummaryBlockProps) => {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.grandTotalContainer}>
+    <View style={styles.container} wrap={false}>
+      <View style={styles.grandTotalRow}>
         <Text style={styles.grandTotalLabel}>預り金総合計</Text>
         <Text style={styles.grandTotalValue}>
           {formatYen(data.grandTotal.netAmount || 0)}
@@ -35,20 +35,25 @@ const styles = StyleSheet.create({
   container: {
     marginTop: 10,
   },
-  grandTotalContainer: {
-    flexDirection: "column",
+  /** ラベルと金額を同一行にし、ページ途中で分割されないよう wrap=false と併用 */
+  grandTotalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    width: "100%",
   },
   grandTotalLabel: {
     fontSize: 14,
     fontWeight: "bold",
     fontFamily: "NotoSansJP",
-    marginBottom: 4,
+    flexShrink: 0,
   },
   grandTotalValue: {
     fontSize: 16,
     fontWeight: "bold",
     fontFamily: "NotoSansJP",
     textAlign: "right",
+    flexShrink: 0,
   },
 })
 
