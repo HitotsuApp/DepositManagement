@@ -113,6 +113,7 @@ export async function GET(
       residentId: number
       residentName: string
       balance: number | string // PostgreSQLのSUMはnumeric型を返すため
+      facility_balance: number | string
     }
 
     // 利用者IDと表示名のマップを作成（画面表示用）
@@ -127,10 +128,16 @@ export async function GET(
     // 利用者IDのリストを作成
     const residentIds = Array.from(residentDisplayNameMap.keys())
 
+    /** 施設の前月末時点の預り金合計（アクティブ利用者ごとの前月末残高の合計。取引がない利用者は0） */
+    let facilityOpeningTotal = 0
+    residentIds.forEach((rid) => {
+      facilityOpeningTotal += previousBalances.get(rid) ?? 0
+    })
+
     let transactionsWithBalance: TransactionWithBalanceRow[] = []
     if (residentIds.length > 0) {
       // 前月残高をサブクエリで取得し、ウィンドウ関数で累積残高を計算
-      // Prismaの$queryRawでは配列を直接渡せるが、IN句を使用する方が安全
+      // 施設残高は全利用者を通じた transaction_amount の累積に前月末施設合計を加算
       transactionsWithBalance = await prisma.$queryRaw<TransactionWithBalanceRow[]>`
         WITH previous_balances AS (
           SELECT 
@@ -147,6 +154,13 @@ export async function GET(
             AND "transactionType" NOT IN ('correct_in', 'correct_out')
             AND "residentId" IN (${Prisma.join(residentIds)})
           GROUP BY "residentId"
+        ),
+        facility_opening AS (
+          SELECT COALESCE(SUM(COALESCE(pb.balance, 0)), 0)::numeric AS total
+          FROM "Resident" r
+          LEFT JOIN previous_balances pb ON pb."residentId" = r.id
+          WHERE r."facilityId" = ${facilityId}
+            AND r."isActive" = true
         ),
         current_transactions AS (
           SELECT 
@@ -175,29 +189,34 @@ export async function GET(
             AND r."isActive" = true
         )
         SELECT 
-          id,
-          "transactionDate",
-          "transactionType",
-          amount,
-          description,
-          payee,
-          reason,
-          "residentId",
-          "residentName",
-          (previous_balance + SUM(transaction_amount) OVER (
-            PARTITION BY "residentId" 
-            ORDER BY "transactionDate" ASC, id ASC
+          ct.id,
+          ct."transactionDate",
+          ct."transactionType",
+          ct.amount,
+          ct.description,
+          ct.payee,
+          ct.reason,
+          ct."residentId",
+          ct."residentName",
+          (ct.previous_balance + SUM(ct.transaction_amount) OVER (
+            PARTITION BY ct."residentId" 
+            ORDER BY ct."transactionDate" ASC, ct.id ASC
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-          ))::numeric as balance
-        FROM current_transactions
-        ORDER BY "transactionDate" ASC, id ASC
+          ))::numeric as balance,
+          (fo.total + SUM(ct.transaction_amount) OVER (
+            ORDER BY ct."transactionDate" ASC, ct.id ASC
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+          ))::numeric as facility_balance
+        FROM current_transactions ct
+        CROSS JOIN facility_opening fo
+        ORDER BY ct."transactionDate" ASC, ct.id ASC
       `
     }
     console.timeEnd('balance-calculation-query')
 
     console.time('processing-logic')
     // データを整形（PostgreSQLのnumeric型をNumberに変換、表示名を適用）
-    const allTransactions = transactionsWithBalance.map(t => ({
+    let allTransactions = transactionsWithBalance.map(t => ({
       id: t.id,
       transactionDate: t.transactionDate.toISOString(),
       transactionType: t.transactionType,
@@ -206,9 +225,32 @@ export async function GET(
       payee: t.payee,
       reason: t.reason,
       balance: Number(t.balance),
+      facilityBalance: Number(t.facility_balance),
       residentId: t.residentId,
       residentName: residentDisplayNameMap.get(t.residentId) ?? t.residentName,
     }))
+
+    // 施設の前月末合計が0でないとき、明細先頭に「前月より繰越」行（当月取引0件でも表示）
+    if (facilityOpeningTotal !== 0) {
+      const previousMonthEnd = new Date(year, month - 1, 0, 23, 59, 59, 999)
+      allTransactions = [
+        {
+          id: -1,
+          transactionDate: previousMonthEnd.toISOString(),
+          transactionType: 'carryover_facility',
+          amount: 0,
+          description: null,
+          payee: null,
+          reason: null,
+          balance: 0,
+          facilityBalance: facilityOpeningTotal,
+          residentId: -1,
+          residentName: '',
+          isCarryOver: true,
+        } as any,
+        ...allTransactions,
+      ]
+    }
     console.timeEnd('processing-logic')
 
     const response = NextResponse.json({

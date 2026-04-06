@@ -22,8 +22,12 @@ interface Transaction {
   payee: string | null
   reason: string | null
   balance: number
+  /** その行の時点での施設全体の預り金合計 */
+  facilityBalance: number
   residentId: number
   residentName: string
+  /** API が合成する「前月より繰越」行（施設合計・DB には存在しない） */
+  isCarryOver?: boolean
 }
 
 interface TransactionFormData {
@@ -654,6 +658,7 @@ export default function BulkInputPage() {
   // 明細テーブルの「訂正」対象行を元に、新規の入金/出金フォームを立ち上げる
   // 要望: 区分/対象日/内容/支払先 をコピー、利用者と金額は空にする
   const handleCopyFromTransaction = (transaction: Transaction) => {
+    if (transaction.isCarryOver) return
     // canCorrect の表示条件から in/out の想定だが、念のためガード
     if (transaction.transactionType !== 'in' && transaction.transactionType !== 'out') {
       return
@@ -819,47 +824,54 @@ export default function BulkInputPage() {
               <table className="w-full">
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">日付</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">利用者名</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">区分</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">摘要</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">支払先</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold">金額</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold">残高</th>
-                    <th className="px-4 py-3 text-center text-sm font-semibold">操作</th>
+                    <th className="w-[5.5rem] max-w-[5.5rem] px-2 py-2 text-left text-xs font-semibold whitespace-nowrap">日付</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold">利用者名</th>
+                    <th className="w-[4.75rem] max-w-[4.75rem] px-2 py-2 text-left text-xs font-semibold whitespace-nowrap">区分</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold">摘要</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold">支払先</th>
+                    <th className="px-3 py-2 text-right text-sm font-semibold">金額</th>
+                    <th className="px-3 py-2 text-right text-sm font-semibold">個人残高</th>
+                    <th className="px-3 py-2 text-right text-sm font-semibold">施設残高</th>
+                    <th className="w-[6.5rem] min-w-[6.5rem] px-1 py-2 text-center text-xs font-semibold">操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   {transactions.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                         明細がありません
                       </td>
                     </tr>
                   ) : (
-                    transactions.map((transaction) => {
-                      const isIn = transaction.transactionType === 'in' || transaction.transactionType === 'correct_in' || transaction.transactionType === 'past_correct_in'
-                      const isCorrect = transaction.transactionType === 'correct_in' || transaction.transactionType === 'correct_out'
-                      const isPastCorrect = transaction.transactionType === 'past_correct_in' || transaction.transactionType === 'past_correct_out'
-                      const canCorrect = !isCorrect && !isPastCorrect && isCurrentMonth
-                      
-                      return (
-                        <tr 
-                          key={transaction.id} 
-                          className={`border-t hover:bg-gray-50 ${isCorrect ? 'opacity-60' : ''}`}
-                        >
-                          <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
-                            {new Date(transaction.transactionDate).toLocaleDateString('ja-JP', {
-                              year: 'numeric',
-                              month: '2-digit',
-                              day: '2-digit',
-                            })}
-                          </td>
-                          <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
-                            {transaction.residentName}
-                          </td>
-                          <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                  transactions.map((transaction) => {
+                    const isCarryOver = transaction.isCarryOver === true
+                    const isIn = transaction.transactionType === 'in' || transaction.transactionType === 'correct_in' || transaction.transactionType === 'past_correct_in'
+                    const isCorrect = transaction.transactionType === 'correct_in' || transaction.transactionType === 'correct_out'
+                    const isPastCorrect = transaction.transactionType === 'past_correct_in' || transaction.transactionType === 'past_correct_out'
+                    const canCorrect = !isCarryOver && !isCorrect && !isPastCorrect && isCurrentMonth
+                    
+                    return (
+                      <tr 
+                        key={isCarryOver ? `carryover-${year}-${month}` : transaction.id} 
+                        className={`border-t hover:bg-gray-50 ${isCorrect ? 'opacity-60' : ''} ${isCarryOver ? 'bg-slate-50/80' : ''}`}
+                      >
+                        <td className={`px-2 py-2 text-xs tabular-nums whitespace-nowrap ${isCorrect ? 'line-through' : ''}`}>
+                          {new Date(transaction.transactionDate).toLocaleDateString('ja-JP', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                          })}
+                        </td>
+                        <td className={`px-3 py-2 text-sm ${isCorrect ? 'line-through' : ''}`}>
+                          {isCarryOver ? '—' : transaction.residentName}
+                        </td>
+                        <td className={`px-2 py-2 ${isCorrect ? 'line-through' : ''}`}>
+                          {isCarryOver ? (
+                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium leading-tight bg-slate-200 text-slate-800 max-w-full">
+                              前月より繰越
+                            </span>
+                          ) : (
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium leading-tight ${
                               isIn
                                 ? isCorrect
                                   ? 'bg-orange-100 text-orange-800'
@@ -874,34 +886,51 @@ export default function BulkInputPage() {
                             }`}>
                               {getTransactionTypeLabel(transaction.transactionType)}
                             </span>
-                          </td>
-                          <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
-                            {transaction.description || '-'}
-                          </td>
-                          <td className={`px-4 py-3 text-sm ${isCorrect ? 'line-through' : ''}`}>
-                            {transaction.payee || '-'}
-                          </td>
-                          <td className={`px-4 py-3 text-sm text-right font-medium ${
-                            isIn ? 'text-blue-600' : 'text-red-600'
-                          } ${isCorrect ? 'line-through' : ''}`}>
-                            {isIn ? '+' : '-'}
-                            {new Intl.NumberFormat('ja-JP', {
+                          )}
+                        </td>
+                        <td className={`px-3 py-2 text-sm ${isCorrect ? 'line-through' : ''}`}>
+                          {isCarryOver ? '-' : (transaction.description || '-')}
+                        </td>
+                        <td className={`px-3 py-2 text-sm ${isCorrect ? 'line-through' : ''}`}>
+                          {isCarryOver ? '-' : (transaction.payee || '-')}
+                        </td>
+                        <td className={`px-3 py-2 text-sm text-right font-medium ${
+                          isCarryOver ? 'text-gray-600' : isIn ? 'text-blue-600' : 'text-red-600'
+                        } ${isCorrect ? 'line-through' : ''}`}>
+                          {isCarryOver ? (
+                            'ー'
+                          ) : (
+                            <>
+                              {isIn ? '+' : '-'}
+                              {new Intl.NumberFormat('ja-JP', {
+                                style: 'currency',
+                                currency: 'JPY',
+                              }).format(transaction.amount)}
+                            </>
+                          )}
+                        </td>
+                        <td className={`px-3 py-2 text-sm text-right font-semibold text-gray-900 ${isCorrect ? 'line-through' : ''}`}>
+                          {isCarryOver ? (
+                            'ー'
+                          ) : (
+                            new Intl.NumberFormat('ja-JP', {
                               style: 'currency',
                               currency: 'JPY',
-                            }).format(transaction.amount)}
-                          </td>
-                          <td className={`px-4 py-3 text-sm text-right font-semibold text-gray-900 ${isCorrect ? 'line-through' : ''}`}>
-                            {new Intl.NumberFormat('ja-JP', {
-                              style: 'currency',
-                              currency: 'JPY',
-                            }).format(transaction.balance)}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {canCorrect && (
-                              <div className="flex gap-1 justify-center">
+                            }).format(transaction.balance)
+                          )}
+                        </td>
+                        <td className={`px-3 py-2 text-sm text-right font-semibold text-gray-900 ${isCorrect ? 'line-through' : ''}`}>
+                          {new Intl.NumberFormat('ja-JP', {
+                            style: 'currency',
+                            currency: 'JPY',
+                          }).format(transaction.facilityBalance)}
+                        </td>
+                        <td className="px-1 py-2 text-center">
+                          {canCorrect && (
+                            <div className="flex gap-0.5 justify-center flex-wrap">
                                 <button
                                   onClick={() => handleCorrectTransaction(transaction.id)}
-                                  className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 shadow-md hover:shadow-lg transition-shadow"
+                                  className="px-2 py-0.5 bg-orange-500 text-white text-[10px] rounded hover:bg-orange-600 shadow-sm transition-shadow"
                                   title="この取引を訂正としてマーク"
                                 >
                                   ✏️ 訂正
@@ -909,7 +938,7 @@ export default function BulkInputPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleCopyFromTransaction(transaction)}
-                                  className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 shadow-md hover:shadow-lg transition-shadow"
+                                  className="px-1.5 py-0.5 bg-gray-500 text-white text-[10px] rounded hover:bg-gray-600 shadow-sm transition-shadow"
                                   title="この行の区分/対象日/内容/支払先をコピーして新規入力"
                                 >
                                   コピー
@@ -917,10 +946,10 @@ export default function BulkInputPage() {
                               </div>
                             )}
                           </td>
-                        </tr>
-                      )
-                    })
-                  )}
+                      </tr>
+                    )
+                  })
+                )}
                 </tbody>
               </table>
             </div>
