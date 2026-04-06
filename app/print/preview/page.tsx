@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense } from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { PDFViewer } from "@react-pdf/renderer"
 import { PdfRenderer } from "@/pdf/renderer/PdfRenderer"
@@ -12,6 +12,7 @@ import DateSelector from "@/components/DateSelector"
 import depositStatementTemplate from "@/pdf/templates/deposit-statement.json"
 import residentStatementTemplate from "@/pdf/templates/resident-statement.json"
 import familyResidentStatementTemplate from "@/pdf/templates/family-resident-statement.json"
+import { formatJapaneseEraYmd } from "@/pdf/utils/format"
 import { PrintData, ResidentPrintData } from "@/pdf/utils/transform"
 
 interface BatchPrintData {
@@ -239,6 +240,23 @@ function PrintPreviewContent() {
     window.print()
   }
 
+  const familyEraPeriodLabel = useMemo(() => {
+    if (!startDateStr || !endDateStr) return null
+    const parseYmd = (ymd: string): Date | null => {
+      const seg = ymd.split("-")
+      if (seg.length !== 3) return null
+      const y = Number(seg[0])
+      const m = Number(seg[1])
+      const d = Number(seg[2])
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null
+      return new Date(y, m - 1, d)
+    }
+    const s = parseYmd(startDateStr)
+    const e = parseYmd(endDateStr)
+    if (!s || !e) return null
+    return `${formatJapaneseEraYmd(s)}〜${formatJapaneseEraYmd(e)}`
+  }, [startDateStr, endDateStr])
+
   if (!isMounted || isLoading) {
     return (
       <MainLayout>
@@ -295,7 +313,8 @@ function PrintPreviewContent() {
             </h1>
             {printType === "family" ? (
               <div className="text-gray-700">
-                期間: {startDateStr} 〜 {endDateStr}
+                期間:{" "}
+                {familyEraPeriodLabel ?? `${startDateStr} 〜 ${endDateStr}`}
               </div>
             ) : (
               <DateSelector

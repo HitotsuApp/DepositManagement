@@ -1,6 +1,6 @@
 import { Facility, Unit, Resident, Transaction } from "@prisma/client"
 import { filterTransactionsByMonth } from "@/lib/balance"
-import { formatDate } from "./format"
+import { formatDate, formatJapaneseEraYmd } from "./format"
 import { getResidentDisplayName } from "@/lib/displayName"
 import { sortResidentsForPrint, sortUnitsForPrint } from "@/lib/sortOrder"
 
@@ -380,7 +380,7 @@ export function transformToPrintData(
 export interface ResidentPrintData {
   statement: {
     month: string
-    /** 家族向け期間印刷で使用（例: "預り金明細書（2月1日〜3月10日）"） */
+    /** 家族向け期間印刷で使用（例: "預り金明細書（令和7年2月1日〜令和7年3月10日）"） */
     title?: string
   }
   unit: {
@@ -788,8 +788,8 @@ export function transformToResidentPrintDataForRange(
   const totalExpense = transactions.reduce((sum, t) => sum + t.expense, 0)
   const currentBalance = runningBalance
 
-  const startLabel = `${startBoundary.getMonth() + 1}月${startBoundary.getDate()}日`
-  const endLabel = `${endBoundary.getMonth() + 1}月${endBoundary.getDate()}日`
+  const startLabel = formatJapaneseEraYmd(startBoundary)
+  const endLabel = formatJapaneseEraYmd(endBoundary)
 
   return {
     statement: {
