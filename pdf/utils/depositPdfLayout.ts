@@ -2,8 +2,8 @@
  * A4 縦・出納帳（deposit-statement）用のページ分割。
  * 固定20行ではなく、余白・ヘッダー・合計ブロックの概算高さから行数を算出する。
  *
- * 定数は `TableBlock` の実スタイル（fontSize 9, paddingVertical 4, border）に沿った
- * 1行あたりの目安高さを使い、中間ページでおおよそ30行前後を狙う。
+ * 定数は `TableBlock` の実スタイル（fontSize 8, paddingVertical 2, border）に沿った
+ * 1行あたりの目安高さを使う。
  * 摘要が複数行になると行高が伸びるため、理論上は最終ページで詰まる可能性は残る。
  */
 
@@ -18,19 +18,18 @@ const FIRST_PAGE_HEADER_PT = 72
 const TABLE_MARGIN_TOP_PT = 10
 
 /**
- * テーブル見出し行（headerRow: paddingVertical 6×2 + font 9 + 下罫線）
+ * テーブル見出し行（headerRow: paddingVertical 4×2 + font 8 + 下罫線）
  */
-const TABLE_HEADER_ROW_PT = 30
+const TABLE_HEADER_ROW_PT = 26
 
 /**
  * データ行1行の目安高さ（pt）
- * row: paddingVertical 4×2 + fontSize 9 の1行 + 下罫線 ≒ 22〜26pt。
- * 中間ページで約30行入るよう、ややタイトに 25pt。
+ * row: paddingVertical 2×2 + fontSize 8 の1行 + 下罫線
  */
-const DATA_ROW_PT = 25
+const DATA_ROW_PT = 22
 
-/** テーブル内「合計」行（summaryRow: paddingVertical 6×2 + 罫線） */
-const TABLE_SUMMARY_ROW_PT = 36
+/** テーブル内「合計」行（summaryRow: paddingVertical 4×2 + 罫線） */
+const TABLE_SUMMARY_ROW_PT = 32
 
 /** 預り金総合計（SummaryBlock: marginTop 10 + ラベル14 + 値16 程度） */
 const GRAND_TOTAL_BLOCK_PT = 56

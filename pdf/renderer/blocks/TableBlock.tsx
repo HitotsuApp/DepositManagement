@@ -157,14 +157,14 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     borderBottom: "2px solid #000",
-    paddingVertical: 6,
+    paddingVertical: 4,
     backgroundColor: "#f0f0f0",
   },
   headerCellContainer: {
     paddingHorizontal: 4,
   },
   headerCell: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: "bold",
     fontFamily: "NotoSansJP",
     textAlign: "center",
@@ -175,27 +175,27 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     borderBottom: "1px solid #ccc",
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   cellContainer: {
     paddingHorizontal: 4,
   },
   cell: {
-    fontSize: 9,
+    fontSize: 8,
     fontFamily: "NotoSansJP",
   },
   summaryRow: {
     flexDirection: "row",
     borderTop: "2px solid #000",
     borderBottom: "1px solid #ccc",
-    paddingVertical: 6,
+    paddingVertical: 4,
     backgroundColor: "#f9f9f9",
   },
   summaryCellContainer: {
     paddingHorizontal: 4,
   },
   summaryCell: {
-    fontSize: 9,
+    fontSize: 8,
     fontFamily: "NotoSansJP",
     fontWeight: "bold",
   },
