@@ -15,6 +15,8 @@ interface Resident {
   namePrefixDisplayOption: string | null
   displaySortOrder: number | null
   unitId: number
+  isRecentAdmission: boolean
+  isRecentDischarge: boolean
 }
 
 interface Unit {
@@ -34,6 +36,9 @@ interface Facility {
 
 const UNITS_PER_PRINT_PAGE = 3
 
+/** 列幅：全角10文字相当（画面・印刷共通） */
+const COL_WIDTH = '10em'
+
 export default function WhiteboardPage() {
   const router = useRouter()
   const { selectedFacilityId, hasCompletedSelection } = useFacility()
@@ -42,6 +47,12 @@ export default function WhiteboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [printFacilityId, setPrintFacilityId] = useState<number | ''>('')
+
+  // 印刷時の白紙ページ防止：bodyにクラスを付与
+  useEffect(() => {
+    document.body.classList.add('whiteboard-page')
+    return () => document.body.classList.remove('whiteboard-page')
+  }, [])
 
   useEffect(() => {
     if (!hasCompletedSelection) {
@@ -96,17 +107,19 @@ export default function WhiteboardPage() {
     <MainLayout>
       {/* 画面表示コンテンツ */}
       <div className="whiteboard-screen-content">
-        {/* ヘッダー */}
         <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">所属一覧（ホワイトボード）</h1>
             <p className="text-sm text-gray-500 mt-1">
-              法人全体の施設・ユニット・利用者の所属一覧ボード
+              法人全体の施設・ユニット・利用者の所属一覧
               {updatedAt && (
                 <span className="ml-2 text-gray-400">
                   更新: {updatedAt.toLocaleTimeString('ja-JP')}
                 </span>
               )}
+            </p>
+            <p className="text-xs text-yellow-600 mt-1">
+              🟡 薄黄色：過去1ヶ月以内に入居または退居した利用者
             </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
@@ -156,19 +169,16 @@ export default function WhiteboardPage() {
             <div className="text-gray-400 text-lg">読み込み中...</div>
           </div>
         )}
-
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 mb-4">
             {error}
           </div>
         )}
-
         {!loading && !error && facilities.length === 0 && (
           <div className="text-center py-20 text-gray-400">
             表示できる施設がありません
           </div>
         )}
-
         {!loading && !error && facilities.length > 0 && (
           <div className="space-y-6">
             {facilities.map(facility => (
@@ -186,42 +196,38 @@ export default function WhiteboardPage() {
   )
 }
 
-/** 列幅（画面・印刷共通）: 全角8文字相当 */
-const COL_STYLE: React.CSSProperties = {
-  width: '8em',
-  minWidth: '8em',
-  maxWidth: '8em',
-  wordBreak: 'break-all',
-}
-
 /** 施設ボード（画面表示用） */
 function FacilityBoard({ facility }: { facility: Facility }) {
   const maxRows = Math.max(...facility.units.map(u => u.residents.length), 0)
 
   return (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden border-2 border-black">
-      {/* 施設ヘッダー */}
-      <div className="flex items-center justify-between px-5 py-3 bg-gray-700 text-white">
-        <Link
-          href={`/facilities/${facility.id}`}
-          className="font-bold text-lg hover:text-blue-300 transition-colors"
-        >
-          {facility.name}
-        </Link>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-300">{facility.units.length}ユニット</span>
-          <span className="bg-blue-500 text-white text-sm font-bold px-3 py-1 rounded-full">
-            {facility.totalResidents}名
-          </span>
+    /* overflow-x-auto で横スクロール。内側は fit-content でユニット数に応じた幅 */
+    <div className="overflow-x-auto">
+      <div
+        className="bg-white rounded-xl shadow-sm border-2 border-black"
+        style={{ width: 'fit-content', minWidth: 'max-content' }}
+      >
+        {/* 施設ヘッダー */}
+        <div className="flex items-center justify-between px-4 py-2 bg-gray-700 text-white rounded-t-xl">
+          <Link
+            href={`/facilities/${facility.id}`}
+            className="font-semibold text-sm hover:text-blue-300 transition-colors"
+          >
+            {facility.name}
+          </Link>
+          <div className="flex items-center gap-2 ml-4">
+            <span className="text-xs text-gray-300">{facility.units.length}ユニット</span>
+            <span className="bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+              {facility.totalResidents}名
+            </span>
+          </div>
         </div>
-      </div>
 
-      {facility.units.length === 0 ? (
-        <div className="p-4 text-gray-400 text-sm text-center">
-          ユニットが登録されていません
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
+        {facility.units.length === 0 ? (
+          <div className="p-4 text-gray-400 text-sm text-center">
+            ユニットが登録されていません
+          </div>
+        ) : (
           <table className="border-collapse" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr>
@@ -229,11 +235,11 @@ function FacilityBoard({ facility }: { facility: Facility }) {
                   <th
                     key={unit.id}
                     className="border border-black px-2 py-2 text-sm font-semibold text-gray-700 bg-gray-100 text-center"
-                    style={COL_STYLE}
+                    style={{ width: COL_WIDTH, minWidth: COL_WIDTH, maxWidth: COL_WIDTH }}
                   >
                     <div>{unit.name}</div>
                     <div className="text-xs font-normal text-gray-500 mt-0.5">
-                      {unit.residents.length}名
+                      {unit.residents.filter(r => !r.isRecentDischarge).length}名
                     </div>
                   </th>
                 ))}
@@ -254,14 +260,28 @@ function FacilityBoard({ facility }: { facility: Facility }) {
                   <tr key={rowIdx}>
                     {facility.units.map(unit => {
                       const resident = unit.residents[rowIdx]
+                      const highlighted =
+                        resident && (resident.isRecentAdmission || resident.isRecentDischarge)
                       return (
                         <td
                           key={unit.id}
-                          className="border border-black px-2 py-1.5 text-sm text-center"
-                          style={COL_STYLE}
+                          className="border border-black px-1 py-1.5 text-sm text-center"
+                          style={{
+                            width: COL_WIDTH,
+                            minWidth: COL_WIDTH,
+                            maxWidth: COL_WIDTH,
+                            wordBreak: 'break-all',
+                            backgroundColor: highlighted ? '#fefce8' : undefined,
+                          }}
                         >
                           {resident ? (
-                            <span className="text-gray-800">
+                            <span
+                              className={
+                                resident.isRecentDischarge
+                                  ? 'text-gray-400 line-through'
+                                  : 'text-gray-800'
+                              }
+                            >
                               {getResidentDisplayName(resident, 'screen')}
                             </span>
                           ) : null}
@@ -273,13 +293,13 @@ function FacilityBoard({ facility }: { facility: Facility }) {
               )}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
 
-/** 印刷用レイアウト（最大3ユニット/ページ、横向き） */
+/** 印刷用レイアウト（最大3ユニット/ページ、横向きA4、表のみ） */
 function PrintLayout({ facility }: { facility: Facility }) {
   const units = facility.units
   const groups: Unit[][] = []
@@ -295,32 +315,23 @@ function PrintLayout({ facility }: { facility: Facility }) {
         const isLast = groupIdx === groups.length - 1
 
         return (
-          <div key={groupIdx} className={isLast ? '' : 'print-page-break'}>
-            {/* 印刷ヘッダー */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderBottom: '2px solid black',
-                marginBottom: '8px',
-                paddingBottom: '4px',
-              }}
-            >
-              <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0 }}>
-                {facility.name}
-              </h2>
-              <span style={{ fontSize: '12px', color: '#555' }}>
-                利用者数: {facility.totalResidents}名
-                {groups.length > 1 && `　(${groupIdx + 1} / ${groups.length} ページ)`}
-              </span>
-            </div>
-
+          <div
+            key={groupIdx}
+            style={{
+              // A4横 印刷エリア高さ: 210mm - 上下余白2cm = 190mm
+              height: '190mm',
+              overflow: 'hidden',
+              pageBreakAfter: isLast ? 'avoid' : 'always',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             <table
               style={{
                 borderCollapse: 'collapse',
                 tableLayout: 'fixed',
-                width: '100%',
+                width: `calc(${group.length} * ${COL_WIDTH})`,
+                height: '100%',
               }}
             >
               <thead>
@@ -331,16 +342,16 @@ function PrintLayout({ facility }: { facility: Facility }) {
                       style={{
                         border: '1px solid black',
                         padding: '4px 6px',
-                        fontSize: '12px',
+                        fontSize: '11pt',
                         fontWeight: 'bold',
                         backgroundColor: '#e5e7eb',
                         textAlign: 'center',
+                        width: COL_WIDTH,
+                        minWidth: COL_WIDTH,
+                        maxWidth: COL_WIDTH,
                       }}
                     >
-                      <div>{unit.name}</div>
-                      <div style={{ fontSize: '10px', fontWeight: 'normal' }}>
-                        {unit.residents.length}名
-                      </div>
+                      {unit.name}（{unit.residents.filter(r => !r.isRecentDischarge).length}名）
                     </th>
                   ))}
                 </tr>
@@ -354,7 +365,7 @@ function PrintLayout({ facility }: { facility: Facility }) {
                         border: '1px solid black',
                         padding: '8px',
                         textAlign: 'center',
-                        fontSize: '12px',
+                        fontSize: '10pt',
                         color: '#888',
                       }}
                     >
@@ -363,18 +374,28 @@ function PrintLayout({ facility }: { facility: Facility }) {
                   </tr>
                 ) : (
                   Array.from({ length: maxRows }, (_, rowIdx) => (
-                    <tr key={rowIdx}>
+                    <tr key={rowIdx} style={{ height: `${Math.floor(100 / maxRows)}%` }}>
                       {group.map(unit => {
                         const resident = unit.residents[rowIdx]
+                        const highlighted =
+                          resident &&
+                          (resident.isRecentAdmission || resident.isRecentDischarge)
                         return (
                           <td
                             key={unit.id}
                             style={{
                               border: '1px solid black',
-                              padding: '3px 6px',
-                              fontSize: '12px',
+                              padding: '2px 6px',
+                              fontSize: '11pt',
                               textAlign: 'center',
                               wordBreak: 'break-all',
+                              width: COL_WIDTH,
+                              minWidth: COL_WIDTH,
+                              maxWidth: COL_WIDTH,
+                              backgroundColor: highlighted ? '#fefce8' : undefined,
+                              textDecoration:
+                                resident?.isRecentDischarge ? 'line-through' : undefined,
+                              color: resident?.isRecentDischarge ? '#9ca3af' : undefined,
                             }}
                           >
                             {resident ? getResidentDisplayName(resident, 'print') : ''}

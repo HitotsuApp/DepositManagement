@@ -41,18 +41,37 @@ body {
 }
 
 @media print {
+  /* 画面コンテンツを非表示 */
   .whiteboard-screen-content {
     display: none !important;
   }
+  /* 印刷コンテンツを表示 */
   .whiteboard-print-content {
     display: block !important;
   }
+  /* サイドバーを非表示 */
   .no-print-sidebar {
     display: none !important;
   }
-  .print-page-break {
-    page-break-after: always;
+  /* ブランクページ防止：min-h-screen による余白を除去 */
+  body.whiteboard-page {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
   }
+  body.whiteboard-page .flex.min-h-screen {
+    display: block !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+  body.whiteboard-page main {
+    padding: 0 !important;
+    background: white !important;
+    flex: none !important;
+    display: block !important;
+  }
+  /* A4横向き、余白1cm */
   @page {
     size: A4 landscape;
     margin: 1cm;
