@@ -372,7 +372,7 @@ function PrintLayout({ facility }: { facility: Facility }) {
                           style={{
                             border: '1px solid black',
                             padding: '4px 6px',
-                            fontSize: '13pt',
+                            fontSize: '26pt',
                             fontWeight: 'bold',
                             backgroundColor: '#e5e7eb',
                             textAlign: 'center',
@@ -390,7 +390,7 @@ function PrintLayout({ facility }: { facility: Facility }) {
                               border: '1px solid black',
                               padding: '8px',
                               textAlign: 'center',
-                              fontSize: '11pt',
+                              fontSize: '26pt',
                               color: '#888',
                             }}
                           >
@@ -409,7 +409,7 @@ function PrintLayout({ facility }: { facility: Facility }) {
                                 style={{
                                   border: '1px solid black',
                                   padding: '3px 8px',
-                                  fontSize: '13pt',
+                                  fontSize: '26pt',
                                   textAlign: 'center',
                                   wordBreak: 'break-all',
                                   backgroundColor: isEmptyBed
@@ -422,7 +422,7 @@ function PrintLayout({ facility }: { facility: Facility }) {
                                 {resident
                                   ? getResidentDisplayName(resident, 'print')
                                   : isEmptyBed
-                                  ? '空床'
+                                  ? ''
                                   : ''}
                               </td>
                             </tr>

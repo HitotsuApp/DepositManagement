@@ -47,12 +47,18 @@ export async function GET() {
       },
     })
 
+    // 数字のみの名前（部屋番号など）または「空床」という名前は空床として扱う
+    const isVirtualEmptyBed = (name: string) =>
+      name === '空床' || /^\d+$/.test(name.trim())
+
     const result = facilities.map((facility) => {
       const sortedUnits = sortUnitsForDisplay(facility.units)
 
       const sortedUnitWithResidents = sortedUnits.map((unit) => {
+        const realResidents = unit.residents.filter(r => !isVirtualEmptyBed(r.name))
+
         const sortedResidents = sortResidentsForDisplay(
-          unit.residents,
+          realResidents,
           facility.units,
           false,
           (facility.residentDisplaySortMode as 'manual' | 'aiueo' | null | undefined) ?? null
@@ -81,7 +87,7 @@ export async function GET() {
       })
 
       const totalResidents = facility.units.reduce(
-        (sum, u) => sum + u.residents.length,
+        (sum, u) => sum + u.residents.filter(r => !isVirtualEmptyBed(r.name)).length,
         0
       )
 
