@@ -36,8 +36,8 @@ interface Facility {
 
 const UNITS_PER_PRINT_PAGE = 3
 
-/** 列幅：全角12文字相当（画面用） */
-const COL_WIDTH = '12em'
+/** 列幅：全角14文字相当（画面用） */
+const COL_WIDTH = '14em'
 /** 印刷用ユニット1列の幅（A4横3列＋隙間が収まるサイズ） */
 const PRINT_UNIT_WIDTH = '82mm'
 /** 印刷用ユニット間の余白 */
@@ -218,17 +218,15 @@ function FacilityBoard({ facility }: { facility: Facility }) {
         style={{ width: 'fit-content', minWidth: 'max-content' }}
       >
         {/* 施設ヘッダー */}
-        <div className="flex items-center justify-between px-4 py-2 bg-gray-700 text-white rounded-t-xl">
+        <div className="px-4 py-2 bg-gray-700 text-white rounded-t-xl">
           <Link
             href={`/facilities/${facility.id}`}
             className="font-semibold text-base hover:text-blue-300 transition-colors"
           >
             {facility.name}
           </Link>
-          <div className="flex items-center gap-2 ml-4">
-            <span className="bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-              {facility.totalResidents}名
-            </span>
+          <div className="text-right text-xs text-blue-300 font-bold mt-0.5">
+            {facility.totalResidents}名
           </div>
         </div>
 
@@ -243,7 +241,7 @@ function FacilityBoard({ facility }: { facility: Facility }) {
                 {facility.units.map(unit => (
                   <th
                     key={unit.id}
-                    className="border border-black px-2 py-2 text-base font-semibold text-gray-700 bg-gray-100 text-center"
+                    className="border border-black px-2 py-2 text-lg font-semibold text-gray-700 bg-gray-100 text-center"
                     style={{ width: COL_WIDTH, minWidth: COL_WIDTH, maxWidth: COL_WIDTH }}
                   >
                     <div>{unit.name}</div>
@@ -277,7 +275,7 @@ function FacilityBoard({ facility }: { facility: Facility }) {
                       return (
                         <td
                           key={unit.id}
-                          className="border border-black px-1 py-1.5 text-base text-center"
+                          className="border border-black px-1 py-1.5 text-lg text-center"
                           style={{
                             width: COL_WIDTH,
                             minWidth: COL_WIDTH,
@@ -324,6 +322,13 @@ function PrintLayout({ facility }: { facility: Facility }) {
     <>
       {groups.map((group, groupIdx) => {
         const isLast = groupIdx === groups.length - 1
+        // グループ内の全ユニットで共通のmaxRows（セル高さを揃えるため）
+        const groupMaxRows = Math.max(
+          ...group.map(u =>
+            u.capacity != null ? Math.max(u.residents.length, u.capacity) : u.residents.length
+          ),
+          1
+        )
 
         return (
           <div
@@ -340,9 +345,7 @@ function PrintLayout({ facility }: { facility: Facility }) {
             }}
           >
             {group.map(unit => {
-              const maxRows = unit.capacity != null
-                ? Math.max(unit.residents.length, unit.capacity)
-                : unit.residents.length
+              const maxRows = groupMaxRows
 
               return (
                 <div

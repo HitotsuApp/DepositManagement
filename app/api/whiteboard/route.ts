@@ -27,7 +27,7 @@ export async function GET() {
             displaySortOrder: true,
             printSortOrder: true,
             residents: {
-              where: { isActive: true },
+              where: { isActive: true, endDate: null },
               select: {
                 id: true,
                 name: true,
