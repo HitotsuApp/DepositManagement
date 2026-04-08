@@ -67,16 +67,26 @@ export default function Sidebar() {
       )}
       
       <nav className="space-y-2">
-        {/* 法人ダッシュボード: 法人全体表示時のみ表示 */}
+        {/* 法人ダッシュボード・所属一覧: 法人全体表示時のみ表示 */}
         {selectedFacilityId === null && (
-          <Link
-            href="/"
-            className={`block px-4 py-2 rounded hover:bg-gray-700 ${
-              isActive('/') ? 'bg-gray-700' : ''
-            }`}
-          >
-            法人ダッシュボード
-          </Link>
+          <>
+            <Link
+              href="/"
+              className={`block px-4 py-2 rounded hover:bg-gray-700 ${
+                isActive('/') ? 'bg-gray-700' : ''
+              }`}
+            >
+              法人ダッシュボード
+            </Link>
+            <Link
+              href="/whiteboard"
+              className={`block px-4 py-2 rounded hover:bg-gray-700 ${
+                isActive('/whiteboard') ? 'bg-gray-700' : ''
+              }`}
+            >
+              所属一覧
+            </Link>
+          </>
         )}
         
         <div className="pt-4 border-t border-gray-700">
