@@ -27,13 +27,7 @@ export async function GET() {
             displaySortOrder: true,
             printSortOrder: true,
             residents: {
-              where: {
-                OR: [
-                  { isActive: true },
-                  // 退居後1ヶ月以内の方も含める
-                  { isActive: false, endDate: { gte: oneMonthAgo } },
-                ],
-              },
+              where: { isActive: true },
               select: {
                 id: true,
                 name: true,
@@ -57,17 +51,14 @@ export async function GET() {
       const sortedUnits = sortUnitsForDisplay(facility.units)
 
       const sortedUnitWithResidents = sortedUnits.map((unit) => {
-        const activeResidents = unit.residents.filter(r => r.isActive)
-        const recentlyDischargedResidents = unit.residents.filter(r => !r.isActive)
-
-        const sortedActive = sortResidentsForDisplay(
-          activeResidents,
+        const sortedResidents = sortResidentsForDisplay(
+          unit.residents,
           facility.units,
           false,
           (facility.residentDisplaySortMode as 'manual' | 'aiueo' | null | undefined) ?? null
         )
 
-        const allResidents = [...sortedActive, ...recentlyDischargedResidents].map(r => ({
+        const residents = sortedResidents.map(r => ({
           id: r.id,
           name: r.name,
           nameFurigana: r.nameFurigana,
@@ -76,10 +67,8 @@ export async function GET() {
           displaySortOrder: r.displaySortOrder,
           unitId: r.unitId,
           isRecentAdmission:
-            r.isActive &&
             r.startDate !== null &&
             new Date(r.startDate) >= oneMonthAgo,
-          isRecentDischarge: !r.isActive,
         }))
 
         return {
@@ -87,13 +76,12 @@ export async function GET() {
           name: unit.name,
           capacity: unit.capacity,
           displaySortOrder: unit.displaySortOrder,
-          residents: allResidents,
+          residents,
         }
       })
 
-      // 総数はアクティブな利用者のみカウント
       const totalResidents = facility.units.reduce(
-        (sum, u) => sum + u.residents.filter(r => r.isActive).length,
+        (sum, u) => sum + u.residents.length,
         0
       )
 

@@ -80,5 +80,10 @@ body {
     size: A4 landscape;
     margin: 1cm;
   }
+  /* 背景色（ピンク・黄色）を印刷時も反映させる */
+  .whiteboard-print-content * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }
 

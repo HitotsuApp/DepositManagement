@@ -16,7 +16,6 @@ interface Resident {
   displaySortOrder: number | null
   unitId: number
   isRecentAdmission: boolean
-  isRecentDischarge: boolean
 }
 
 interface Unit {
@@ -37,8 +36,12 @@ interface Facility {
 
 const UNITS_PER_PRINT_PAGE = 3
 
-/** 列幅：全角10文字相当（画面・印刷共通） */
-const COL_WIDTH = '10em'
+/** 列幅：全角12文字相当（画面用） */
+const COL_WIDTH = '12em'
+/** 印刷用ユニット1列の幅（A4横3列＋隙間が収まるサイズ） */
+const PRINT_UNIT_WIDTH = '82mm'
+/** 印刷用ユニット間の余白 */
+const PRINT_GAP = '9mm'
 
 export default function WhiteboardPage() {
   const router = useRouter()
@@ -218,7 +221,7 @@ function FacilityBoard({ facility }: { facility: Facility }) {
         <div className="flex items-center justify-between px-4 py-2 bg-gray-700 text-white rounded-t-xl">
           <Link
             href={`/facilities/${facility.id}`}
-            className="font-semibold text-sm hover:text-blue-300 transition-colors"
+            className="font-semibold text-base hover:text-blue-300 transition-colors"
           >
             {facility.name}
           </Link>
@@ -240,12 +243,12 @@ function FacilityBoard({ facility }: { facility: Facility }) {
                 {facility.units.map(unit => (
                   <th
                     key={unit.id}
-                    className="border border-black px-2 py-2 text-sm font-semibold text-gray-700 bg-gray-100 text-center"
+                    className="border border-black px-2 py-2 text-base font-semibold text-gray-700 bg-gray-100 text-center"
                     style={{ width: COL_WIDTH, minWidth: COL_WIDTH, maxWidth: COL_WIDTH }}
                   >
                     <div>{unit.name}</div>
                     <div className="text-xs font-normal text-gray-500 mt-0.5">
-                      {unit.residents.filter(r => !r.isRecentDischarge).length}名
+                      {unit.residents.length}名
                     </div>
                   </th>
                 ))}
@@ -267,14 +270,14 @@ function FacilityBoard({ facility }: { facility: Facility }) {
                     {facility.units.map(unit => {
                       const resident = unit.residents[rowIdx]
                       const highlighted =
-                        resident && (resident.isRecentAdmission || resident.isRecentDischarge)
+                        resident && resident.isRecentAdmission
                       // 定員設定あり、かつ利用者がいない行 = 空床
                       const isEmptyBed =
                         !resident && unit.capacity != null && rowIdx < unit.capacity
                       return (
                         <td
                           key={unit.id}
-                          className="border border-black px-1 py-1.5 text-sm text-center"
+                          className="border border-black px-1 py-1.5 text-base text-center"
                           style={{
                             width: COL_WIDTH,
                             minWidth: COL_WIDTH,
@@ -288,13 +291,7 @@ function FacilityBoard({ facility }: { facility: Facility }) {
                           }}
                         >
                           {resident ? (
-                            <span
-                              className={
-                                resident.isRecentDischarge
-                                  ? 'text-gray-400 line-through'
-                                  : 'text-gray-800'
-                              }
-                            >
+                            <span className="text-gray-800">
                               {getResidentDisplayName(resident, 'screen')}
                             </span>
                           ) : isEmptyBed ? (
@@ -314,7 +311,7 @@ function FacilityBoard({ facility }: { facility: Facility }) {
   )
 }
 
-/** 印刷用レイアウト（最大3ユニット/ページ、横向きA4、表のみ） */
+/** 印刷用レイアウト（最大3ユニット/ページ、横向きA4、ユニットごとに独立テーブル） */
 function PrintLayout({ facility }: { facility: Facility }) {
   const units = facility.units
   const groups: Unit[][] = []
@@ -326,12 +323,6 @@ function PrintLayout({ facility }: { facility: Facility }) {
   return (
     <>
       {groups.map((group, groupIdx) => {
-        const maxRows = Math.max(
-          ...group.map(u =>
-            u.capacity != null ? Math.max(u.residents.length, u.capacity) : u.residents.length
-          ),
-          0
-        )
         const isLast = groupIdx === groups.length - 1
 
         return (
@@ -343,100 +334,103 @@ function PrintLayout({ facility }: { facility: Facility }) {
               overflow: 'hidden',
               pageBreakAfter: isLast ? 'avoid' : 'always',
               display: 'flex',
-              flexDirection: 'column',
+              flexDirection: 'row',
+              gap: PRINT_GAP,
+              alignItems: 'stretch',
             }}
           >
-            <table
-              style={{
-                borderCollapse: 'collapse',
-                tableLayout: 'fixed',
-                width: `calc(${group.length} * ${COL_WIDTH})`,
-                height: '100%',
-              }}
-            >
-              <thead>
-                <tr>
-                  {group.map(unit => (
-                    <th
-                      key={unit.id}
-                      style={{
-                        border: '1px solid black',
-                        padding: '4px 6px',
-                        fontSize: '11pt',
-                        fontWeight: 'bold',
-                        backgroundColor: '#e5e7eb',
-                        textAlign: 'center',
-                        width: COL_WIDTH,
-                        minWidth: COL_WIDTH,
-                        maxWidth: COL_WIDTH,
-                      }}
-                    >
-                      {unit.name}（{unit.residents.filter(r => !r.isRecentDischarge).length}名）
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {maxRows === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={group.length}
-                      style={{
-                        border: '1px solid black',
-                        padding: '8px',
-                        textAlign: 'center',
-                        fontSize: '10pt',
-                        color: '#888',
-                      }}
-                    >
-                      利用者が登録されていません
-                    </td>
-                  </tr>
-                ) : (
-                  Array.from({ length: maxRows }, (_, rowIdx) => (
-                    <tr key={rowIdx} style={{ height: `${Math.floor(100 / maxRows)}%` }}>
-                      {group.map(unit => {
-                        const resident = unit.residents[rowIdx]
-                        const highlighted =
-                          resident &&
-                          (resident.isRecentAdmission || resident.isRecentDischarge)
-                        const isEmptyBed =
-                          !resident && unit.capacity != null && rowIdx < unit.capacity
-                        return (
+            {group.map(unit => {
+              const maxRows = unit.capacity != null
+                ? Math.max(unit.residents.length, unit.capacity)
+                : unit.residents.length
+
+              return (
+                <div
+                  key={unit.id}
+                  style={{
+                    width: PRINT_UNIT_WIDTH,
+                    minWidth: PRINT_UNIT_WIDTH,
+                    maxWidth: PRINT_UNIT_WIDTH,
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <table
+                    style={{
+                      borderCollapse: 'collapse',
+                      tableLayout: 'fixed',
+                      width: '100%',
+                      height: '100%',
+                    }}
+                  >
+                    <thead>
+                      <tr>
+                        <th
+                          style={{
+                            border: '1px solid black',
+                            padding: '4px 6px',
+                            fontSize: '13pt',
+                            fontWeight: 'bold',
+                            backgroundColor: '#e5e7eb',
+                            textAlign: 'center',
+                          }}
+                        >
+                          {unit.name}（{unit.residents.length}名）
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {maxRows === 0 ? (
+                        <tr>
                           <td
-                            key={unit.id}
                             style={{
                               border: '1px solid black',
-                              padding: '2px 6px',
-                              fontSize: '11pt',
+                              padding: '8px',
                               textAlign: 'center',
-                              wordBreak: 'break-all',
-                              width: COL_WIDTH,
-                              minWidth: COL_WIDTH,
-                              maxWidth: COL_WIDTH,
-                              backgroundColor: isEmptyBed
-                                ? '#fce7f3'
-                                : highlighted
-                                ? '#fde68a'
-                                : undefined,
-                              textDecoration:
-                                resident?.isRecentDischarge ? 'line-through' : undefined,
-                              color: resident?.isRecentDischarge ? '#9ca3af' : undefined,
+                              fontSize: '11pt',
+                              color: '#888',
                             }}
                           >
-                            {resident
-                              ? getResidentDisplayName(resident, 'print')
-                              : isEmptyBed
-                              ? '空床'
-                              : ''}
+                            利用者が登録されていません
                           </td>
-                        )
-                      })}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                        </tr>
+                      ) : (
+                        Array.from({ length: maxRows }, (_, rowIdx) => {
+                          const resident = unit.residents[rowIdx]
+                          const highlighted = resident && resident.isRecentAdmission
+                          const isEmptyBed =
+                            !resident && unit.capacity != null && rowIdx < unit.capacity
+                          return (
+                            <tr key={rowIdx} style={{ height: `${Math.floor(100 / maxRows)}%` }}>
+                              <td
+                                style={{
+                                  border: '1px solid black',
+                                  padding: '3px 8px',
+                                  fontSize: '13pt',
+                                  textAlign: 'center',
+                                  wordBreak: 'break-all',
+                                  backgroundColor: isEmptyBed
+                                    ? '#fce7f3'
+                                    : highlighted
+                                    ? '#fde68a'
+                                    : undefined,
+                                }}
+                              >
+                                {resident
+                                  ? getResidentDisplayName(resident, 'print')
+                                  : isEmptyBed
+                                  ? '空床'
+                                  : ''}
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })}
           </div>
         )
       })}
