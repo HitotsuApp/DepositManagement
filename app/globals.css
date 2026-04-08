@@ -35,3 +35,27 @@ body {
   background-color: rgba(59, 130, 246, 0.8);
 }
 
+/* ホワイトボード印刷スタイル */
+.whiteboard-print-content {
+  display: none;
+}
+
+@media print {
+  .whiteboard-screen-content {
+    display: none !important;
+  }
+  .whiteboard-print-content {
+    display: block !important;
+  }
+  .no-print-sidebar {
+    display: none !important;
+  }
+  .print-page-break {
+    page-break-after: always;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 1cm;
+  }
+}
+
