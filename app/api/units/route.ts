@@ -26,6 +26,7 @@ export async function GET(request: Request) {
         id: true,
         name: true,
         facilityId: true,
+        capacity: true,
         displaySortOrder: true,
         printSortOrder: true,
         isActive: true,
@@ -94,10 +95,16 @@ export async function POST(request: Request) {
     const displaySortOrder = validateSortOrder(body.displaySortOrder)
     const printSortOrder = validateSortOrder(body.printSortOrder)
 
+    const capacity =
+      body.capacity !== undefined && body.capacity !== null && body.capacity !== ''
+        ? Number(body.capacity)
+        : null
+
     const unit = await prisma.unit.create({
       data: {
         facilityId: body.facilityId,
         name: body.name.trim(),
+        capacity: capacity !== null && !isNaN(capacity) && capacity > 0 ? capacity : null,
         displaySortOrder,
         printSortOrder,
         isActive: body.isActive !== undefined ? body.isActive : true,

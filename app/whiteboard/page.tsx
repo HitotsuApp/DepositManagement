@@ -22,6 +22,7 @@ interface Resident {
 interface Unit {
   id: number
   name: string
+  capacity: number | null
   displaySortOrder: number | null
   residents: Resident[]
 }
@@ -198,7 +199,13 @@ export default function WhiteboardPage() {
 
 /** 施設ボード（画面表示用） */
 function FacilityBoard({ facility }: { facility: Facility }) {
-  const maxRows = Math.max(...facility.units.map(u => u.residents.length), 0)
+  // 各ユニットの行数は「入居者数」と「定員数」の大きい方
+  const maxRows = Math.max(
+    ...facility.units.map(u =>
+      u.capacity != null ? Math.max(u.residents.length, u.capacity) : u.residents.length
+    ),
+    0
+  )
 
   return (
     /* overflow-x-auto で横スクロール。内側は fit-content でユニット数に応じた幅 */
@@ -216,7 +223,6 @@ function FacilityBoard({ facility }: { facility: Facility }) {
             {facility.name}
           </Link>
           <div className="flex items-center gap-2 ml-4">
-            <span className="text-xs text-gray-300">{facility.units.length}ユニット</span>
             <span className="bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
               {facility.totalResidents}名
             </span>
@@ -262,6 +268,9 @@ function FacilityBoard({ facility }: { facility: Facility }) {
                       const resident = unit.residents[rowIdx]
                       const highlighted =
                         resident && (resident.isRecentAdmission || resident.isRecentDischarge)
+                      // 定員設定あり、かつ利用者がいない行 = 空床
+                      const isEmptyBed =
+                        !resident && unit.capacity != null && rowIdx < unit.capacity
                       return (
                         <td
                           key={unit.id}
@@ -271,7 +280,11 @@ function FacilityBoard({ facility }: { facility: Facility }) {
                             minWidth: COL_WIDTH,
                             maxWidth: COL_WIDTH,
                             wordBreak: 'break-all',
-                            backgroundColor: highlighted ? '#fefce8' : undefined,
+                            backgroundColor: isEmptyBed
+                              ? '#fce7f3'
+                              : highlighted
+                              ? '#fde68a'
+                              : undefined,
                           }}
                         >
                           {resident ? (
@@ -284,6 +297,8 @@ function FacilityBoard({ facility }: { facility: Facility }) {
                             >
                               {getResidentDisplayName(resident, 'screen')}
                             </span>
+                          ) : isEmptyBed ? (
+                            <span className="text-pink-300 text-xs">空床</span>
                           ) : null}
                         </td>
                       )
@@ -311,7 +326,12 @@ function PrintLayout({ facility }: { facility: Facility }) {
   return (
     <>
       {groups.map((group, groupIdx) => {
-        const maxRows = Math.max(...group.map(u => u.residents.length), 0)
+        const maxRows = Math.max(
+          ...group.map(u =>
+            u.capacity != null ? Math.max(u.residents.length, u.capacity) : u.residents.length
+          ),
+          0
+        )
         const isLast = groupIdx === groups.length - 1
 
         return (
@@ -380,6 +400,8 @@ function PrintLayout({ facility }: { facility: Facility }) {
                         const highlighted =
                           resident &&
                           (resident.isRecentAdmission || resident.isRecentDischarge)
+                        const isEmptyBed =
+                          !resident && unit.capacity != null && rowIdx < unit.capacity
                         return (
                           <td
                             key={unit.id}
@@ -392,13 +414,21 @@ function PrintLayout({ facility }: { facility: Facility }) {
                               width: COL_WIDTH,
                               minWidth: COL_WIDTH,
                               maxWidth: COL_WIDTH,
-                              backgroundColor: highlighted ? '#fefce8' : undefined,
+                              backgroundColor: isEmptyBed
+                                ? '#fce7f3'
+                                : highlighted
+                                ? '#fde68a'
+                                : undefined,
                               textDecoration:
                                 resident?.isRecentDischarge ? 'line-through' : undefined,
                               color: resident?.isRecentDischarge ? '#9ca3af' : undefined,
                             }}
                           >
-                            {resident ? getResidentDisplayName(resident, 'print') : ''}
+                            {resident
+                              ? getResidentDisplayName(resident, 'print')
+                              : isEmptyBed
+                              ? '空床'
+                              : ''}
                           </td>
                         )
                       })}

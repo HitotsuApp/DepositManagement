@@ -53,6 +53,10 @@ body {
   .no-print-sidebar {
     display: none !important;
   }
+  /* ヘッダー（システム名・ログイン情報）を印刷時に非表示 */
+  body.whiteboard-page header {
+    display: none !important;
+  }
   /* ブランクページ防止：min-h-screen による余白を除去 */
   body.whiteboard-page {
     margin: 0 !important;

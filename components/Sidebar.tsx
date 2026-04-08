@@ -67,7 +67,7 @@ export default function Sidebar() {
       )}
       
       <nav className="space-y-2">
-        {/* 法人ダッシュボード・所属一覧: 法人全体表示時のみ表示 */}
+        {/* 法人ダッシュボード・所属一覧ボード: 法人全体表示時のみ表示 */}
         {selectedFacilityId === null && (
           <>
             <Link
@@ -84,7 +84,7 @@ export default function Sidebar() {
                 isActive('/whiteboard') ? 'bg-gray-700' : ''
               }`}
             >
-              所属一覧
+              所属一覧ボード
             </Link>
           </>
         )}

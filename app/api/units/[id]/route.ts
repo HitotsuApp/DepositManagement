@@ -107,9 +107,18 @@ export async function PUT(
       )
     }
 
+    const capacityRaw = body.capacity
+    const capacity =
+      capacityRaw !== undefined && capacityRaw !== null && capacityRaw !== ''
+        ? Number(capacityRaw)
+        : null
+    const capacityValue =
+      capacity !== null && !isNaN(capacity) && capacity > 0 ? capacity : null
+
     const updateData: Record<string, unknown> = {
       facilityId: body.facilityId,
       name: body.name.trim(),
+      capacity: capacityValue,
     }
     if (displaySortOrder !== undefined) updateData.displaySortOrder = displaySortOrder
     if (printSortOrder !== undefined) updateData.printSortOrder = printSortOrder

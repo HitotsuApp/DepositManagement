@@ -38,6 +38,7 @@ model Unit {
   id               Int        @id @default(autoincrement())
   facilityId       Int
   name             String     // 最大30文字（アプリケーションレベルで制限）
+  capacity         Int?       // 定員数（NULL=定員管理なし）
   displaySortOrder Int?       // 表示順（NULL=従来通りid順）
   printSortOrder   Int?       // 印刷順（NULL=従来通りid順）
   isActive         Boolean    @default(true)

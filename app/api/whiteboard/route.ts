@@ -20,9 +20,10 @@ export async function GET() {
         residentDisplaySortMode: true,
         units: {
           where: { isActive: true },
-          select: {
+            select: {
             id: true,
             name: true,
+            capacity: true,
             displaySortOrder: true,
             printSortOrder: true,
             residents: {
@@ -84,6 +85,7 @@ export async function GET() {
         return {
           id: unit.id,
           name: unit.name,
+          capacity: unit.capacity,
           displaySortOrder: unit.displaySortOrder,
           residents: allResidents,
         }

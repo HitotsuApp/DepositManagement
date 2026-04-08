@@ -29,6 +29,7 @@ interface Unit {
   id: number
   facilityId: number
   name: string
+  capacity?: number | null
   displaySortOrder?: number | null
   printSortOrder?: number | null
   isActive: boolean
@@ -93,7 +94,7 @@ function MasterContent() {
   // ユニットマスタ用の状態
   const [showUnitModal, setShowUnitModal] = useState(false)
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null)
-  const [unitForm, setUnitForm] = useState({ facilityId: 0, name: '', displaySortOrder: '', printSortOrder: '' })
+  const [unitForm, setUnitForm] = useState({ facilityId: 0, name: '', capacity: '', displaySortOrder: '', printSortOrder: '' })
 
   // 利用者マスタ用の状態
   const [showResidentModal, setShowResidentModal] = useState(false)
@@ -371,7 +372,7 @@ function MasterContent() {
     setEditingUnit(null)
     // 選択された施設がある場合はそれをデフォルトで選択
     const defaultFacilityId = selectedFacilityId || (facilities.length > 0 ? facilities[0].id : 0)
-    setUnitForm({ facilityId: defaultFacilityId, name: '', displaySortOrder: '', printSortOrder: '' })
+    setUnitForm({ facilityId: defaultFacilityId, name: '', capacity: '', displaySortOrder: '', printSortOrder: '' })
     setShowUnitModal(true)
   }
 
@@ -380,6 +381,7 @@ function MasterContent() {
     setUnitForm({
       facilityId: unit.facilityId,
       name: unit.name,
+      capacity: unit.capacity != null ? String(unit.capacity) : '',
       displaySortOrder: unit.displaySortOrder != null ? String(unit.displaySortOrder) : '',
       printSortOrder: unit.printSortOrder != null ? String(unit.printSortOrder) : '',
     })
@@ -403,6 +405,7 @@ function MasterContent() {
     try {
       const unitPayload = {
         ...unitForm,
+        capacity: unitForm.capacity === '' ? null : Number(unitForm.capacity),
         displaySortOrder: unitForm.displaySortOrder === '' ? null : Number(unitForm.displaySortOrder),
         printSortOrder: unitForm.printSortOrder === '' ? null : Number(unitForm.printSortOrder),
       }
@@ -1025,6 +1028,21 @@ function MasterContent() {
                       className="w-full px-3 py-2 border rounded"
                       placeholder="ユニット名を入力"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-0.5">定員数</label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      value={unitForm.capacity}
+                      onChange={(e) => setUnitForm({ ...unitForm, capacity: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="空欄で定員管理なし"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">設定すると所属一覧で空床をピンク色で表示します。空欄の場合は空床管理を行いません。</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-0.5">表示順</label>
