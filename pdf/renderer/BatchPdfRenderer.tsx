@@ -153,7 +153,6 @@ const renderPages = (
 
   if (hasUnitSummaryPage) {
     return [
-      ...pageElements,
       <Page
         key={`${pageKeyPrefix}-unit`}
         size={template.document.paper as any}
@@ -162,6 +161,7 @@ const renderPages = (
       >
         <UnitSummaryBlock unitSummaries={data.unitSummaries} />
       </Page>,
+      ...pageElements,
     ]
   }
 

@@ -309,7 +309,7 @@ function PrintPreviewContent() {
                   ? "預り金明細書（期間指定）印刷プレビュー"
                 : printType === "resident" 
                   ? "預り金明細書 印刷プレビュー" 
-                  : "出納帳および預り金報告書印刷プレビュー"}
+                  : "本部報告（ユニット合計＋出納帳）プレビュー"}
             </h1>
             {printType === "family" ? (
               <div className="text-gray-700">

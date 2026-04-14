@@ -79,7 +79,7 @@ export default function PrintPage() {
 
         <div className="space-y-6">
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">本部報告（出納帳＋ユニット合計）</h2>
+            <h2 className="text-xl font-semibold mb-4">本部報告（ユニット合計＋出納帳）</h2>
 
             <DateSelector year={year} month={month} onDateChange={handleDateChange} />
 

@@ -125,6 +125,17 @@ export const PdfRenderer = ({ template, data }: PdfRendererProps) => {
 
   return (
     <Document>
+      {/* 本部報告：ユニット合計を出納帳より先に配置 */}
+      {hasUnitSummaryPage && (
+        <Page
+          key="deposit-unit-summary"
+          size={template.document.paper as any}
+          orientation={template.document.orientation}
+          style={[styles.page, pagePadding]}
+        >
+          <UnitSummaryBlock unitSummaries={data.unitSummaries} />
+        </Page>
+      )}
       {pages.map((pageRows, pageIndex) => (
         <Page
           key={pageIndex}
@@ -135,7 +146,7 @@ export const PdfRenderer = ({ template, data }: PdfRendererProps) => {
             pagePadding,
           ]}
         >
-          {/* ヘッダーは1ページ目のみ */}
+          {/* ヘッダーは出納帳の1ページ目のみ */}
           {pageIndex === 0 && template.header?.rows.map((row, i) => (
             <TextBlock key={i} row={row} data={data} />
           ))}
@@ -167,16 +178,6 @@ export const PdfRenderer = ({ template, data }: PdfRendererProps) => {
           )}
         </Page>
       ))}
-      {hasUnitSummaryPage && (
-        <Page
-          key="deposit-unit-summary"
-          size={template.document.paper as any}
-          orientation={template.document.orientation}
-          style={[styles.page, pagePadding]}
-        >
-          <UnitSummaryBlock unitSummaries={data.unitSummaries} />
-        </Page>
-      )}
     </Document>
   )
 }
