@@ -1,6 +1,14 @@
 'use client'
 
-import { useCallback, useMemo, useRef } from 'react'
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 type Props = {
   value: string // カンマなしの数値文字列（DB/送信用）
@@ -11,29 +19,16 @@ type Props = {
   disabled?: boolean
 }
 
-function countDigitsBefore(value: string, pos: number) {
-  const end = Math.max(0, Math.min(pos, value.length))
-  let count = 0
-  for (let i = 0; i < end; i++) {
-    const ch = value[i]
-    if (ch >= '0' && ch <= '9') count++
-  }
-  return count
+export type FormattedAmountInputHandle = {
+  /** ドラフトを確定し半角数字のみ親へ渡す。戻り値は正規化後の文字列 */
+  commit: () => string
 }
 
-function mapRawDigitIndexToFormattedCaret(formatted: string, rawDigitIndex: number) {
-  // rawDigitIndex は「数字何文字目の後ろ（=カーソル位置）」を表す
-  if (rawDigitIndex <= 0) return 0
-  let digitCount = 0
-  for (let i = 0; i < formatted.length; i++) {
-    const ch = formatted[i]
-    if (ch >= '0' && ch <= '9') {
-      digitCount++
-      if (digitCount === rawDigitIndex) return i + 1
-    }
-  }
-  // rawDigitIndex が末尾を超える場合は末尾へ
-  return formatted.length
+/** 全角数字（U+FF10–FF19）を半角 0–9 に寄せる（その他はそのまま） */
+function fullWidthDigitsToAscii(s: string): string {
+  return s.replace(/[０-９]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30)
+  )
 }
 
 function formatWithCommas(rawDigits: string) {
@@ -44,95 +39,127 @@ function formatWithCommas(rawDigits: string) {
 }
 
 function sanitizeDigitsAndNormalize(raw: string) {
-  // 数字以外を除去（例: カンマなど）
-  const digitsOnly = raw.replace(/[^\d]/g, '')
-  // 先頭0を落とす（ただし「0」だけは残る）
-  // ※ caret 計算のため、onChange側で落ちた先頭0を考慮する
+  const asciiDigitsFirst = fullWidthDigitsToAscii(raw)
+  const digitsOnly = asciiDigitsFirst.replace(/[^\d]/g, '')
   const normalized = digitsOnly.replace(/^0+(?=\d)/, '')
-  const removedLeadingZeros = digitsOnly.length - normalized.length
-  return { normalized, removedLeadingZeros }
+  return { normalized }
 }
 
-export default function FormattedAmountInput({
-  value,
-  onChange,
-  placeholder = '0',
-  variant = 'sm',
-  focusRingClassName = 'focus:ring-blue-500',
-  disabled = false,
-}: Props) {
-  const inputRef = useRef<HTMLInputElement | null>(null)
+const FormattedAmountInput = forwardRef<FormattedAmountInputHandle, Props>(
+  function FormattedAmountInput(
+    {
+      value,
+      onChange,
+      placeholder = '0',
+      variant = 'sm',
+      focusRingClassName = 'focus:ring-blue-500',
+      disabled = false,
+    },
+    ref
+  ) {
+    const [draft, setDraft] = useState(() =>
+      value === '' ? '' : formatWithCommas(value)
+    )
+    const draftRef = useRef(draft)
+    draftRef.current = draft
 
-  const formattedValue = useMemo(() => formatWithCommas(value), [value])
+    /**
+     * 親の value は未コミットの入力中ずっと古いままなので、effect で毎回 setDraft すると draft が潰れる。
+     * value プロップが「実際に変わった」ときだけ同期する（Strict Mode でも安全）。
+     */
+    const prevValuePropRef = useRef<string | undefined>(undefined)
 
-  const { inputClassName, suffixClassName } = useMemo(() => {
-    if (variant === 'md') {
-      return {
-        inputClassName: `w-full px-3 py-2 pr-10 border rounded focus:outline-none focus:ring-2 ${focusRingClassName} text-sm`,
-        suffixClassName: 'absolute right-3 top-2 text-gray-500 text-sm',
+    useEffect(() => {
+      if (prevValuePropRef.current === undefined) {
+        prevValuePropRef.current = value
+        setDraft(value === '' ? '' : formatWithCommas(value))
+        return
       }
-    }
-    return {
-      inputClassName: `w-full px-2 py-1.5 pr-8 border rounded focus:outline-none focus:ring-2 ${focusRingClassName} text-sm`,
-      suffixClassName: 'absolute right-2 top-1.5 text-gray-500 text-sm',
-    }
-  }, [variant, focusRingClassName])
+      if (value !== prevValuePropRef.current) {
+        prevValuePropRef.current = value
+        setDraft(value === '' ? '' : formatWithCommas(value))
+      }
+    }, [value])
 
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const currentDisplay = e.target.value
-      const selectionStart = e.target.selectionStart ?? currentDisplay.length
+    const commit = useCallback((): string => {
+      const { normalized } = sanitizeDigitsAndNormalize(draftRef.current)
+      onChange(normalized)
+      setDraft(normalized === '' ? '' : formatWithCommas(normalized))
+      return normalized
+    }, [onChange])
 
-      const digitsBeforeCaretInDisplay = countDigitsBefore(currentDisplay, selectionStart)
+    useImperativeHandle(ref, () => ({ commit }), [commit])
 
-      const { normalized, removedLeadingZeros } = sanitizeDigitsAndNormalize(currentDisplay)
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const next = e.target.value.replace(/[^\d０-９]/g, '')
+      setDraft(next)
+    }, [])
 
-      // 先頭0を落とした分、カーソル位置（数字何文字目）も補正
-      let normalizedCaretDigitIndex = digitsBeforeCaretInDisplay
-      if (removedLeadingZeros > 0) {
-        // 先頭0より前にカーソルがあるならその位置は残る
-        // 先頭0内にカーソルがあるなら 0 へ寄せる
-        if (digitsBeforeCaretInDisplay <= removedLeadingZeros) {
-          normalizedCaretDigitIndex = 0
-        } else {
-          normalizedCaretDigitIndex = digitsBeforeCaretInDisplay - removedLeadingZeros
+    /** 全角数字 IME で Enter 確定した直後に半角化・カンマまで一発で反映（2 回 Enter 不要に） */
+    const handleCompositionEnd = useCallback(
+      (e: React.CompositionEvent<HTMLInputElement>) => {
+        const next = e.currentTarget.value.replace(/[^\d０-９]/g, '')
+        if (next.length === 0) return
+        draftRef.current = next
+        setDraft(next)
+        queueMicrotask(() => {
+          commit()
+        })
+      },
+      [commit]
+    )
+
+    const handleBlur = useCallback(() => {
+      commit()
+    }, [commit])
+
+    const handleKeyDown = useCallback(
+      (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key !== 'Enter') return
+        // IME 変換中の Enter は compositionEnd 側で commit する
+        if (e.nativeEvent.isComposing) return
+        if ((e.nativeEvent as KeyboardEvent & { keyCode?: number }).keyCode === 229) return
+        e.preventDefault()
+        commit()
+      },
+      [commit]
+    )
+
+    const { inputClassName, suffixClassName } = useMemo(() => {
+      if (variant === 'md') {
+        return {
+          inputClassName: `w-full px-3 py-2 pr-10 border rounded focus:outline-none focus:ring-2 ${focusRingClassName} text-sm`,
+          suffixClassName: 'absolute right-3 top-2 text-gray-500 text-sm',
         }
       }
+      return {
+        inputClassName: `w-full px-2 py-1.5 pr-8 border rounded focus:outline-none focus:ring-2 ${focusRingClassName} text-sm`,
+        suffixClassName: 'absolute right-2 top-1.5 text-gray-500 text-sm',
+      }
+    }, [variant, focusRingClassName])
 
-      onChange(normalized)
+    return (
+      <div className="relative">
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={draft}
+          onChange={handleChange}
+          onCompositionEnd={handleCompositionEnd}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          onWheel={(e) => e.currentTarget.blur()}
+          disabled={disabled}
+          placeholder={placeholder}
+          className={inputClassName}
+        />
+        <span className={suffixClassName}>円</span>
+      </div>
+    )
+  }
+)
 
-      // state反映後にカーソル位置を整える（表示整形のため）
-      requestAnimationFrame(() => {
-        const el = inputRef.current
-        if (!el) return
+FormattedAmountInput.displayName = 'FormattedAmountInput'
 
-        const nextFormatted = formatWithCommas(normalized)
-        const caretInFormatted = mapRawDigitIndexToFormattedCaret(
-          nextFormatted,
-          normalizedCaretDigitIndex
-        )
-        el.setSelectionRange(caretInFormatted, caretInFormatted)
-      })
-    },
-    [onChange]
-  )
-
-  return (
-    <div className="relative">
-      <input
-        ref={inputRef}
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={formattedValue}
-        onChange={handleChange}
-        onWheel={(e) => e.currentTarget.blur()}
-        disabled={disabled}
-        placeholder={placeholder}
-        className={inputClassName}
-      />
-      <span className={suffixClassName}>円</span>
-    </div>
-  )
-}
-
+export default FormattedAmountInput

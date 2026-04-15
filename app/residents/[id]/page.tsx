@@ -2,18 +2,21 @@
 
 export const runtime = 'edge';
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
 import Toast from '@/components/Toast'
-import FormattedAmountInput from '@/components/FormattedAmountInput'
+import FormattedAmountInput, {
+  type FormattedAmountInputHandle,
+} from '@/components/FormattedAmountInput'
 import { useFacility } from '@/contexts/FacilityContext'
 import { isValidDate } from '@/lib/validation'
 import { invalidateTransactionCache } from '@/lib/cache'
 import { getResidentDisplayName } from '@/lib/displayName'
+import { halfWidthToFullWidthFormText } from '@/lib/japaneseWidth'
 
 interface Transaction {
   id: number
@@ -93,6 +96,15 @@ export default function ResidentDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [pendingTransactions, setPendingTransactions] = useState<PendingTransaction[]>([])
   const [editingPendingId, setEditingPendingId] = useState<string | null>(null)
+
+  const inOutAmountInputRef = useRef<FormattedAmountInputHandle>(null)
+  const correctAmountInputRef = useRef<FormattedAmountInputHandle>(null)
+
+  const commitAmountStr = useCallback((): string => {
+    if (showInOutForm) return inOutAmountInputRef.current?.commit() ?? formData.amount
+    if (showCorrectForm) return correctAmountInputRef.current?.commit() ?? formData.amount
+    return formData.amount
+  }, [showInOutForm, showCorrectForm, formData.amount])
 
   const currentDate = new Date()
   const currentYear = currentDate.getFullYear()
@@ -200,8 +212,11 @@ export default function ResidentDetailPage() {
     setShowCorrectForm(false)
   }
 
-  // フォームのバリデーション
+  // フォームのバリデーション（金額は入力欄のドラフトを commit してから検証）
   const validateForm = (): boolean => {
+    const amountStr = commitAmountStr()
+    const amount = parseFloat(amountStr)
+
     if (!formData.transactionDate) {
       setToast({
         message: '対象日を入力してください',
@@ -245,7 +260,6 @@ export default function ResidentDetailPage() {
       }
     }
 
-    const amount = parseFloat(formData.amount)
     if (isNaN(amount) || amount < 1 || amount % 1 !== 0) {
       setToast({
         message: '金額は1円以上の整数を入力してください',
@@ -290,7 +304,7 @@ export default function ResidentDetailPage() {
       return
     }
 
-    const amount = parseFloat(formData.amount)
+    const amount = parseFloat(commitAmountStr())
     const newPending: PendingTransaction = {
       id: editingPendingId || `pending-${Date.now()}-${Math.random()}`,
       transactionDate: formData.transactionDate,
@@ -328,7 +342,7 @@ export default function ResidentDetailPage() {
         return
       }
 
-      const amount = parseFloat(formData.amount)
+      const amount = parseFloat(commitAmountStr())
       setIsSubmitting(true)
       
       try {
@@ -395,9 +409,9 @@ export default function ResidentDetailPage() {
     try {
       // フォームに入力がある場合はそれも追加
       const transactionsToSubmit = [...pendingTransactions]
-      if (formData.transactionDate && formData.amount) {
+      if (formData.transactionDate && commitAmountStr()) {
         if (validateForm()) {
-          const amount = parseFloat(formData.amount)
+          const amount = parseFloat(commitAmountStr())
           transactionsToSubmit.push({
             id: `pending-${Date.now()}-${Math.random()}`,
             transactionDate: formData.transactionDate,
@@ -770,8 +784,6 @@ export default function ResidentDetailPage() {
                   value={formData.transactionDate}
                   onChange={(e) => setFormData({ ...formData, transactionDate: e.target.value })}
                   className="w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  min={isCurrentMonth ? inOutDateRange.min : undefined}
-                  max={isCurrentMonth ? inOutDateRange.max : undefined}
                 />
               </div>
 
@@ -780,6 +792,7 @@ export default function ResidentDetailPage() {
                   金額 <span className="text-red-500">*</span>
                 </label>
                 <FormattedAmountInput
+                  ref={inOutAmountInputRef}
                   value={formData.amount}
                   onChange={(nextRawDigits) => setFormData({ ...formData, amount: nextRawDigits })}
                   focusRingClassName="focus:ring-blue-500"
@@ -794,6 +807,12 @@ export default function ResidentDetailPage() {
                   maxLength={100}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onFocus={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      description: halfWidthToFullWidthFormText(prev.description),
+                    }))
+                  }
                   className="w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   placeholder="例: 預り金、返金など"
                 />
@@ -806,6 +825,12 @@ export default function ResidentDetailPage() {
                   maxLength={30}
                   value={formData.payee}
                   onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
+                  onFocus={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      payee: halfWidthToFullWidthFormText(prev.payee),
+                    }))
+                  }
                   className="w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   placeholder="支払先を入力"
                 />
@@ -964,6 +989,7 @@ export default function ResidentDetailPage() {
                   金額 <span className="text-red-500">*</span>
                 </label>
                 <FormattedAmountInput
+                  ref={correctAmountInputRef}
                   value={formData.amount}
                   onChange={(nextRawDigits) => setFormData({ ...formData, amount: nextRawDigits })}
                   focusRingClassName="focus:ring-orange-500"
@@ -993,6 +1019,12 @@ export default function ResidentDetailPage() {
                   maxLength={100}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onFocus={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      description: halfWidthToFullWidthFormText(prev.description),
+                    }))
+                  }
                   className="w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                   placeholder="補足情報があれば入力"
                 />
@@ -1005,6 +1037,12 @@ export default function ResidentDetailPage() {
                   maxLength={30}
                   value={formData.payee}
                   onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
+                  onFocus={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      payee: halfWidthToFullWidthFormText(prev.payee),
+                    }))
+                  }
                   className="w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                   placeholder="支払先を入力"
                 />
