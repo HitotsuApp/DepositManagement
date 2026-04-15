@@ -142,8 +142,6 @@ const FormattedAmountInput = forwardRef<FormattedAmountInputHandle, Props>(
       <div className="relative">
         <input
           type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
           value={draft}
           onChange={handleChange}
           onCompositionEnd={handleCompositionEnd}

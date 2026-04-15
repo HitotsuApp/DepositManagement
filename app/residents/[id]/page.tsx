@@ -804,6 +804,7 @@ export default function ResidentDetailPage() {
                 <label className="block text-sm font-medium mb-0.5">内容（備考）</label>
                 <input
                   type="text"
+                  lang="ja"
                   maxLength={100}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -822,6 +823,7 @@ export default function ResidentDetailPage() {
                 <label className="block text-sm font-medium mb-0.5">支払先</label>
                 <input
                   type="text"
+                  lang="ja"
                   maxLength={30}
                   value={formData.payee}
                   onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
@@ -1016,6 +1018,7 @@ export default function ResidentDetailPage() {
                 <label className="block text-sm font-medium mb-0.5">内容（備考）</label>
                 <input
                   type="text"
+                  lang="ja"
                   maxLength={100}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -1034,6 +1037,7 @@ export default function ResidentDetailPage() {
                 <label className="block text-sm font-medium mb-0.5">支払先</label>
                 <input
                   type="text"
+                  lang="ja"
                   maxLength={30}
                   value={formData.payee}
                   onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
