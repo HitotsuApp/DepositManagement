@@ -362,8 +362,9 @@ export default function CashVerificationPage() {
               margin: 0 !important;
             }
             
-            /* ページの余白を調整 */
+            /* ページの余白・向き（ブラウザ印刷を A4 縦に固定） */
             @page {
+              size: A4 portrait;
               margin: 1cm;
             }
             
