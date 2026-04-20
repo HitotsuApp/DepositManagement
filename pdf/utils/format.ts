@@ -59,3 +59,34 @@ export function formatJapaneseEraYmd(date: Date): string {
   const d = date.getDate()
   return `${y}年${m}月${d}日`
 }
+
+/**
+ * 年月を和暦表記にする（例: 令和7年4月）。
+ * 対象月の1日を基準に `Intl` の日本暦を用いる。
+ * 取得できない場合は西暦「YYYY年M月」にフォールバックする。
+ */
+export function formatJapaneseEraYearMonth(year: number, month: number): string {
+  const date = new Date(year, month - 1, 1)
+  try {
+    const parts = new Intl.DateTimeFormat("ja-JP-u-ca-japanese", {
+      era: "long",
+      year: "numeric",
+      month: "numeric",
+    }).formatToParts(date)
+
+    let era = ""
+    let y = ""
+    let m = ""
+    for (const p of parts) {
+      if (p.type === "era") era = p.value
+      else if (p.type === "year") y = p.value
+      else if (p.type === "month") m = p.value
+    }
+    if (era && y && m) {
+      return `${era}${y}年${m}月`
+    }
+  } catch {
+    // noop → fallback below
+  }
+  return `${year}年${month}月`
+}

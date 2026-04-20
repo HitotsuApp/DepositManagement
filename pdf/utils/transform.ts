@@ -1,6 +1,6 @@
 import { Facility, Unit, Resident, Transaction } from "@prisma/client"
 import { filterTransactionsByMonth } from "@/lib/balance"
-import { formatDate, formatJapaneseEraYmd } from "./format"
+import { formatDate, formatJapaneseEraYmd, formatJapaneseEraYearMonth, formatYen } from "./format"
 import { getResidentDisplayName } from "@/lib/displayName"
 import { sortResidentsForPrint, sortUnitsForPrint } from "@/lib/sortOrder"
 
@@ -382,6 +382,8 @@ export interface ResidentPrintData {
     month: string
     /** 家族向け期間印刷で使用（例: "預り金明細書（令和7年2月1日〜令和7年3月10日）"） */
     title?: string
+    /** ヘッダー用「残高：1,234円」 */
+    balanceLine: string
   }
   unit: {
     name: string
@@ -464,13 +466,14 @@ interface ResidentWithRelations extends Resident {
   unit: Unit
 }
 
-/**
- * Prismaで取得した利用者データを印刷用JSONに整形する
- */
+export type ResidentStatementMonthHeader = "monthOnly" | "japaneseEraYearMonth"
+
+/** Prismaで取得した利用者データを印刷用JSONに整形する */
 export function transformToResidentPrintData(
   resident: ResidentWithRelations,
   year: number,
-  month: number
+  month: number,
+  statementMonthHeader: ResidentStatementMonthHeader = "monthOnly"
 ): ResidentPrintData {
   // 前月末日を計算（繰越行用）
   const previousMonthEnd = new Date(year, month - 1, 0, 23, 59, 59, 999)
@@ -616,12 +619,15 @@ export function transformToResidentPrintData(
   const totalExpense = transactions.reduce((sum, t) => sum + t.expense, 0)
   const currentBalance = runningBalance
 
-  // 年月を日本語形式に変換（例: "4月"）
-  const monthStr = `${month}月`
+  const monthStr =
+    statementMonthHeader === "japaneseEraYearMonth"
+      ? formatJapaneseEraYearMonth(year, month)
+      : `${month}月`
 
   return {
     statement: {
       month: monthStr,
+      balanceLine: `残高：${formatYen(currentBalance)}円`,
     },
     unit: {
       name: resident.unit.name,
@@ -796,6 +802,7 @@ export function transformToResidentPrintDataForRange(
       // monthは互換のために残しつつ、家族向けテンプレでは title のみ使用
       month: "",
       title: `預り金明細書（${startLabel}〜${endLabel}）`,
+      balanceLine: `残高：${formatYen(currentBalance)}円`,
     },
     unit: {
       name: resident.unit.name,

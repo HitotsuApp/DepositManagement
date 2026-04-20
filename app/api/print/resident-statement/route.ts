@@ -42,7 +42,8 @@ export async function GET(request: Request) {
     const printData = transformToResidentPrintData(
       resident,
       Number(year),
-      Number(month)
+      Number(month),
+      noticeType === "moveout" ? "japaneseEraYearMonth" : "monthOnly"
     )
 
     const facility = resident.facility as { noticeTemplateNormal?: string | null; noticeTemplateMoveOut?: string | null }

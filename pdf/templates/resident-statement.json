@@ -24,14 +24,13 @@
       },
       {
         "type": "text",
-        "value": "{{unit.name}}",
+        "value": "{{unit.name}}　{{resident.name}}　様",
         "align": "right",
-        "fontSize": 12,
-        "marginBottom": 4
+        "fontSize": 12
       },
       {
         "type": "text",
-        "value": "{{resident.name}}　様",
+        "value": "{{statement.balanceLine}}",
         "align": "right",
         "fontSize": 12
       }
