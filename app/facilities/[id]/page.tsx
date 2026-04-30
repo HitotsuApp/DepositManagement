@@ -2,8 +2,8 @@
 
 export const runtime = 'edge';
 
-import { useState, useEffect } from 'react'
-import { useParams, useSearchParams, useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
@@ -28,9 +28,10 @@ export default function FacilityDetailPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const pathname = usePathname()
   const { selectedFacilityId } = useFacility()
   const facilityId = Number(params.id)
-  
+
   const [year, setYear] = useState(() => {
     const y = searchParams.get('year')
     return y ? Number(y) : new Date().getFullYear()
@@ -39,7 +40,7 @@ export default function FacilityDetailPage() {
     const m = searchParams.get('month')
     return m ? Number(m) : new Date().getMonth() + 1
   })
-  
+
   const [facilityName, setFacilityName] = useState('')
   const [totalAmount, setTotalAmount] = useState(0)
   const [units, setUnits] = useState<UnitSummary[]>([])
@@ -47,125 +48,133 @@ export default function FacilityDetailPage() {
   const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    // URLパラメータのタイムスタンプを削除（クリーンなURLを保つ）
-    const currentUrl = new URL(window.location.href)
-    const hasTimestamp = currentUrl.searchParams.has('_t')
-    if (hasTimestamp) {
-      currentUrl.searchParams.delete('_t')
-      window.history.replaceState({}, '', currentUrl.toString())
-    }
-    
-    // タイムスタンプパラメータがある場合（戻るボタンから遷移）または
-    // year/monthパラメータがない場合（Sidebarの「施設TOP」から遷移）は
-    // キャッシュを無効化して最新データを取得
-    const shouldSkipCache = hasTimestamp || !searchParams.get('year') || !searchParams.get('month')
-    fetchFacilityData(shouldSkipCache)
-    
-    // まとめて入力に必要なデータをプリフェッチ
-    prefetchBulkInputData()
-    // 現金確認画面に必要なデータをプリフェッチ
-    prefetchCashVerificationData()
-  }, [facilityId, year, month, selectedUnitId])
+  const skipDupAfterStripRef = useRef(false)
+  const silentRefetchAtRef = useRef(0)
+  const queryKeyForEffect = searchParams.toString()
 
-  // まとめて入力に必要なデータをプリフェッチ
-  const prefetchBulkInputData = async () => {
+  const prefetchBulkInputData = useCallback(async () => {
     try {
       const currentDate = new Date()
       const currentYear = currentDate.getFullYear()
       const currentMonth = currentDate.getMonth() + 1
-      
-      // 並列でデータをプリフェッチ（バックグラウンドで実行）
+
       Promise.all([
-        // 施設情報
         fetch(`/api/facilities/${facilityId}`).catch(() => null),
-        // 利用者一覧
         fetch(`/api/residents?facilityId=${facilityId}`).catch(() => null),
-        // ユニット一覧
         fetch(`/api/units?facilityId=${facilityId}`).catch(() => null),
-        // 取引データ（当月）
-        fetch(`/api/facilities/${facilityId}/transactions?year=${currentYear}&month=${currentMonth}`).catch(() => null),
+        fetch(
+          `/api/facilities/${facilityId}/transactions?year=${currentYear}&month=${currentMonth}`
+        ).catch(() => null),
       ])
     } catch (error) {
-      // プリフェッチのエラーは無視（本番のデータ取得には影響しない）
       console.debug('Prefetch error (ignored):', error)
     }
-  }
+  }, [facilityId])
 
-  // 現金確認画面に必要なデータをプリフェッチ
-  const prefetchCashVerificationData = async () => {
+  const prefetchCashVerificationData = useCallback(async () => {
     try {
       const currentDate = new Date()
       const currentYear = currentDate.getFullYear()
       const currentMonth = currentDate.getMonth() + 1
-      
-      // 並列でデータをプリフェッチ（バックグラウンドで実行）
+
       Promise.all([
-        // 施設一覧（アクティブな施設のみ）
         fetch('/api/facilities').catch(() => null),
-        // 施設情報（選択された施設）
         fetch(`/api/facilities/${facilityId}`).catch(() => null),
-        // 施設残高（選択された施設、当月）
-        fetch(`/api/facilities/${facilityId}?year=${currentYear}&month=${currentMonth}`).catch(() => null),
+        fetch(
+          `/api/facilities/${facilityId}?year=${currentYear}&month=${currentMonth}`
+        ).catch(() => null),
       ])
     } catch (error) {
-      // プリフェッチのエラーは無視（本番のデータ取得には影響しない）
       console.debug('Prefetch error (ignored):', error)
     }
-  }
+  }, [facilityId])
 
-  // ページがフォーカスされた時（戻るボタンで戻ってきた時など）に最新データを取得
+  const fetchFacilityData = useCallback(
+    async (skipCache = false, showLoading = true) => {
+      if (showLoading) setIsLoading(true)
+      try {
+        const unitParam = selectedUnitId ? `&unitId=${selectedUnitId}` : ''
+        const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
+
+        const response = await fetch(
+          `/api/facilities/${facilityId}?year=${year}&month=${month}${unitParam}`,
+          fetchOptions
+        )
+        if (!response.ok) {
+          throw new Error('Failed to fetch facility data')
+        }
+        const data = await response.json()
+        setFacilityName(data.facilityName || '')
+        setTotalAmount(data.totalAmount || 0)
+        setUnits(data.units || [])
+        setResidents(data.residents || [])
+      } catch (error) {
+        console.error('Failed to fetch facility data:', error)
+        setFacilityName('')
+        setTotalAmount(0)
+        setUnits([])
+        setResidents([])
+      } finally {
+        if (showLoading) setIsLoading(false)
+      }
+    },
+    [facilityId, year, month, selectedUnitId]
+  )
+
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        // ページが表示された時にキャッシュを無効化して再取得
-        fetchFacilityData(true)
-      }
+    const hasTimestamp = searchParams.has('_t')
+    const shouldSkipCache =
+      hasTimestamp ||
+      !searchParams.get('year') ||
+      !searchParams.get('month')
+
+    if (!shouldSkipCache && skipDupAfterStripRef.current) {
+      skipDupAfterStripRef.current = false
+      return
     }
 
-    const handleFocus = () => {
-      // ウィンドウがフォーカスされた時にキャッシュを無効化して再取得
-      fetchFacilityData(true)
+    if (hasTimestamp) {
+      skipDupAfterStripRef.current = true
+      const p = new URLSearchParams(searchParams.toString())
+      p.delete('_t')
+      const qs = p.toString()
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
     }
 
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
+    fetchFacilityData(shouldSkipCache, true)
+    prefetchBulkInputData()
+    prefetchCashVerificationData()
+  }, [
+    facilityId,
+    year,
+    month,
+    selectedUnitId,
+    queryKeyForEffect,
+    pathname,
+    router,
+    fetchFacilityData,
+    prefetchBulkInputData,
+    prefetchCashVerificationData,
+  ])
 
+  useEffect(() => {
+    const runSilent = () => {
+      const now = Date.now()
+      if (now - silentRefetchAtRef.current < 250) return
+      silentRefetchAtRef.current = now
+      fetchFacilityData(true, false)
+    }
+    const onPopState = () => runSilent()
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) runSilent()
+    }
+    window.addEventListener('popstate', onPopState)
+    window.addEventListener('pageshow', onPageShow as EventListener)
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('popstate', onPopState)
+      window.removeEventListener('pageshow', onPageShow as EventListener)
     }
-  }, [facilityId, year, month, selectedUnitId])
-
-  const fetchFacilityData = async (skipCache = false) => {
-    setIsLoading(true)
-    try {
-      const unitParam = selectedUnitId ? `&unitId=${selectedUnitId}` : ''
-      // キャッシュを無効化するオプション
-      const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
-      
-      const response = await fetch(
-        `/api/facilities/${facilityId}?year=${year}&month=${month}${unitParam}`,
-        fetchOptions
-      )
-      if (!response.ok) {
-        throw new Error('Failed to fetch facility data')
-      }
-      const data = await response.json()
-      setFacilityName(data.facilityName || '')
-      setTotalAmount(data.totalAmount || 0)
-      setUnits(data.units || [])
-      setResidents(data.residents || [])
-    } catch (error) {
-      console.error('Failed to fetch facility data:', error)
-      setFacilityName('')
-      setTotalAmount(0)
-      setUnits([])
-      setResidents([])
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  }, [fetchFacilityData])
 
   const handleDateChange = (newYear: number, newMonth: number) => {
     setYear(newYear)

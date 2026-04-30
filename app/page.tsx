@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
@@ -42,58 +42,28 @@ export default function DashboardPage() {
     // 施設が選択されている場合は施設TOP画面にリダイレクト
     if (!isChecking && hasCompletedSelection && selectedFacilityId !== null) {
       const currentPath = window.location.pathname
-      // 施設TOP画面やその他の画面にいない場合のみリダイレクト
       if (currentPath === '/' || currentPath === '/dashboard') {
-        router.push(`/facilities/${selectedFacilityId}`)
+        const d = new Date()
+        const y = d.getFullYear()
+        const m = d.getMonth() + 1
+        router.push(`/facilities/${selectedFacilityId}?year=${y}&month=${m}&_t=${Date.now()}`)
       }
     }
   }, [isChecking, hasCompletedSelection, selectedFacilityId, router])
 
-  useEffect(() => {
-    if (!isChecking && hasCompletedSelection) {
-      fetchDashboardData()
-    }
-  }, [year, month, isChecking, hasCompletedSelection, selectedFacilityId])
+  const dashboardSilentAtRef = useRef(0)
 
-  // ページがフォーカスされた時（戻るボタンで戻ってきた時など）に最新データを取得
-  useEffect(() => {
-    if (!isChecking && hasCompletedSelection) {
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible') {
-          // ページが表示された時にキャッシュを無効化して再取得
-          fetchDashboardData(true)
-        }
-      }
-
-      const handleFocus = () => {
-        // ウィンドウがフォーカスされた時にキャッシュを無効化して再取得
-        fetchDashboardData(true)
-      }
-
-      document.addEventListener('visibilitychange', handleVisibilityChange)
-      window.addEventListener('focus', handleFocus)
-
-      return () => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange)
-        window.removeEventListener('focus', handleFocus)
-      }
-    }
-  }, [isChecking, hasCompletedSelection, year, month, selectedFacilityId])
-
-  const fetchDashboardData = async (skipCache = false) => {
+  const fetchDashboardData = useCallback(async (skipCache = false) => {
     try {
-      // 選択された施設IDがある場合はフィルタリング
       const url = selectedFacilityId
         ? `/api/dashboard?year=${year}&month=${month}&facilityId=${selectedFacilityId}`
         : `/api/dashboard?year=${year}&month=${month}`
-      // キャッシュを無効化するオプション
       const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
       const response = await fetch(url, fetchOptions)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       const data = await response.json()
-      // エラーオブジェクトの場合はデフォルト値を設定
       if (data.error) {
         console.error('Failed to fetch dashboard data:', data.error)
         setTotalAmount(0)
@@ -107,7 +77,34 @@ export default function DashboardPage() {
       setTotalAmount(0)
       setFacilities([])
     }
-  }
+  }, [year, month, selectedFacilityId])
+
+  useEffect(() => {
+    if (!isChecking && hasCompletedSelection) {
+      fetchDashboardData()
+    }
+  }, [year, month, isChecking, hasCompletedSelection, selectedFacilityId, fetchDashboardData])
+
+  useEffect(() => {
+    if (isChecking || !hasCompletedSelection) return
+
+    const run = () => {
+      const now = Date.now()
+      if (now - dashboardSilentAtRef.current < 250) return
+      dashboardSilentAtRef.current = now
+      fetchDashboardData(true)
+    }
+    const onPopState = () => run()
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) run()
+    }
+    window.addEventListener('popstate', onPopState)
+    window.addEventListener('pageshow', onPageShow as EventListener)
+    return () => {
+      window.removeEventListener('popstate', onPopState)
+      window.removeEventListener('pageshow', onPageShow as EventListener)
+    }
+  }, [isChecking, hasCompletedSelection, fetchDashboardData])
 
   const handleDateChange = (newYear: number, newMonth: number) => {
     setYear(newYear)
@@ -115,7 +112,9 @@ export default function DashboardPage() {
   }
 
   const handleFacilityClick = (facilityId: number) => {
-    router.push(`/facilities/${facilityId}?year=${year}&month=${month}`)
+    router.push(
+      `/facilities/${facilityId}?year=${year}&month=${month}&_t=${Date.now()}`
+    )
   }
 
   const handlePrintClick = (facilityId: number) => {

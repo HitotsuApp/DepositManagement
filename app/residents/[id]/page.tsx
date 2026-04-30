@@ -595,30 +595,56 @@ export default function ResidentDetailPage() {
       <div>
         <div className="flex items-center gap-4 mb-6">
           <button
-            onClick={() => prevResidentId && handleResidentChange(prevResidentId)}
-            disabled={!prevResidentId}
-            className={`px-4 py-2 rounded ${
-              prevResidentId
-                ? 'bg-gray-200 hover:bg-gray-300'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            }`}
-            title={prevResidentId ? '前の利用者' : '前の利用者なし'}
+            type="button"
+            onClick={() => {
+              if (!residentFacilityId) return
+              router.push(
+                `/facilities/${residentFacilityId}?year=${year}&month=${month}&_t=${Date.now()}`
+              )
+            }}
+            disabled={!residentFacilityId}
+            className="shrink-0 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+            title="施設詳細に戻る"
           >
-            ◀
+            ← 戻る
           </button>
-          <h1 className="text-3xl font-bold">利用者詳細: {getResidentDisplayName({ name: residentName, ...residentDisplayOptions }, 'screen')}</h1>
-          <button
-            onClick={() => nextResidentId && handleResidentChange(nextResidentId)}
-            disabled={!nextResidentId}
-            className={`px-4 py-2 rounded ${
-              nextResidentId
-                ? 'bg-gray-200 hover:bg-gray-300'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            }`}
-            title={nextResidentId ? '次の利用者' : '次の利用者なし'}
-          >
-            ▶
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => prevResidentId && handleResidentChange(prevResidentId)}
+              disabled={!prevResidentId}
+              className={`px-4 py-2 rounded ${
+                prevResidentId
+                  ? 'bg-gray-200 hover:bg-gray-300'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }`}
+              title={prevResidentId ? '前の利用者' : '前の利用者なし'}
+            >
+              ◀
+            </button>
+            <button
+              type="button"
+              onClick={() => nextResidentId && handleResidentChange(nextResidentId)}
+              disabled={!nextResidentId}
+              className={`px-4 py-2 rounded ${
+                nextResidentId
+                  ? 'bg-gray-200 hover:bg-gray-300'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }`}
+              title={nextResidentId ? '次の利用者' : '次の利用者なし'}
+            >
+              ▶
+            </button>
+          </div>
+          <h1 className="text-3xl font-bold flex-1 min-w-0 break-words">
+            利用者詳細:{' '}
+            {isLoading
+              ? '読み込み中...'
+              : getResidentDisplayName(
+                  { name: residentName, ...residentDisplayOptions },
+                  'screen'
+                )}
+          </h1>
         </div>
         
         {/* 選択された施設と異なる施設の利用者のページにアクセスした場合の警告 */}

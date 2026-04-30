@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useFacility } from '@/contexts/FacilityContext'
 
@@ -13,6 +13,7 @@ interface Facility {
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { selectedFacilityId } = useFacility()
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
@@ -104,17 +105,22 @@ export default function Sidebar() {
           </div>
           {facilities.length > 0 ? (
             facilities.map(facility => (
-              <Link
+              <button
                 key={facility.id}
-                href={`/facilities/${facility.id}`}
-                className={`block px-4 py-2 rounded hover:bg-gray-700 ${
+                type="button"
+                onClick={() =>
+                  router.push(
+                    `/facilities/${facility.id}?year=${currentYear}&month=${currentMonth}&_t=${Date.now()}`
+                  )
+                }
+                className={`block w-full text-left px-4 py-2 rounded hover:bg-gray-700 ${
                   isActive(`/facilities/${facility.id}`) ? 'bg-gray-700' : ''
                 } ${
                   facility.id === selectedFacilityId ? 'bg-blue-600 hover:bg-blue-700' : ''
                 }`}
               >
                 {facility.name}
-              </Link>
+              </button>
             ))
           ) : selectedFacilityId !== null ? (
             <p className="px-4 py-2 text-sm text-gray-500">施設が見つかりません</p>
@@ -124,14 +130,19 @@ export default function Sidebar() {
         <div className="pt-4 border-t border-gray-700">
           {/* 施設TOP: 施設選択時のみ表示 */}
           {selectedFacilityId !== null && (
-            <Link
-              href={`/facilities/${selectedFacilityId}?year=${currentYear}&month=${currentMonth}&_t=${Date.now()}`}
-              className={`block px-4 py-2 rounded hover:bg-gray-700 ${
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  `/facilities/${selectedFacilityId}?year=${currentYear}&month=${currentMonth}&_t=${Date.now()}`
+                )
+              }
+              className={`block w-full text-left px-4 py-2 rounded hover:bg-gray-700 ${
                 isActive(`/facilities/${selectedFacilityId}`) ? 'bg-gray-700' : ''
               }`}
             >
               施設TOP
-            </Link>
+            </button>
           )}
           <Link
             href="/facility-select"

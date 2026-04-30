@@ -29,21 +29,27 @@ export default function DateSelector({ year, month, onDateChange }: DateSelector
 
   return (
     <div className="flex items-center gap-4 mb-6">
-      <button
-        onClick={handlePrevMonth}
-        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
-      >
-        ◀
-      </button>
-      <span className="text-xl font-semibold min-w-[120px] text-center">
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={handlePrevMonth}
+          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
+          title="前の月"
+        >
+          ◀
+        </button>
+        <button
+          type="button"
+          onClick={handleNextMonth}
+          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
+          title="次の月"
+        >
+          ▶
+        </button>
+      </div>
+      <span className="text-xl font-semibold min-w-[120px] text-center tabular-nums">
         {formatDate(year, month)}
       </span>
-      <button
-        onClick={handleNextMonth}
-        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
-      >
-        ▶
-      </button>
     </div>
   )
 }

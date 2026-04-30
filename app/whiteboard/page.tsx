@@ -64,7 +64,10 @@ export default function WhiteboardPage() {
       return
     }
     if (selectedFacilityId !== null) {
-      router.push(`/facilities/${selectedFacilityId}`)
+      const d = new Date()
+      const y = d.getFullYear()
+      const m = d.getMonth() + 1
+      router.push(`/facilities/${selectedFacilityId}?year=${y}&month=${m}&_t=${Date.now()}`)
     }
   }, [selectedFacilityId, hasCompletedSelection, router])
 
@@ -202,6 +205,11 @@ export default function WhiteboardPage() {
 
 /** 施設ボード（画面表示用） */
 function FacilityBoard({ facility }: { facility: Facility }) {
+  const router = useRouter()
+  const y = new Date().getFullYear()
+  const m = new Date().getMonth() + 1
+  const base = `/facilities/${facility.id}?year=${y}&month=${m}`
+
   // 各ユニットの行数は「入居者数」と「定員数」の大きい方
   const maxRows = Math.max(
     ...facility.units.map(u =>
@@ -220,7 +228,11 @@ function FacilityBoard({ facility }: { facility: Facility }) {
         {/* 施設ヘッダー */}
         <div className="px-4 py-2 bg-gray-700 text-white rounded-t-xl">
           <Link
-            href={`/facilities/${facility.id}`}
+            href={base}
+            onClick={e => {
+              e.preventDefault()
+              router.push(`${base}&_t=${Date.now()}`)
+            }}
             className="font-semibold text-base hover:text-blue-300 transition-colors"
           >
             {facility.name}

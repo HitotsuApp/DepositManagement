@@ -51,7 +51,9 @@ export default function FacilitySelectPage() {
     const currentDate = new Date()
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth() + 1
-    router.push(`/facilities/${facilityId}?year=${year}&month=${month}`)
+    router.push(
+      `/facilities/${facilityId}?year=${year}&month=${month}&_t=${Date.now()}`
+    )
   }
 
   const handleSelectAll = () => {
