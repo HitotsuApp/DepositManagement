@@ -1,231 +1,376 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
-import { invalidateMasterCache } from '@/lib/cache'
+import { useFacility } from '@/contexts/FacilityContext'
+import { invalidateTransactionCacheForResidents } from '@/lib/cache'
 
-interface ImportResult {
-  facilitiesCreated: number
-  unitsCreated: number
-  residentsCreated: number
-  transactionsCreated: number
-  errors: string[]
+type FacilityOption = { id: number; name: string }
+
+type PreviewCommitItem = {
+  residentId: number
+  transactionDate: string
+  transactionType: 'in' | 'out'
+  amount: number
+  description: string | null
+  payee: string | null
+  sourceSheetRow1Based: number
+}
+
+type PreviewResponse = {
+  success: boolean
+  sheetName: string
+  baseYear: number
+  sheetMonth: number
+  facilityId: number
+  totalRow: { deposit: number; withdrawal: number; balance: number; sheetRow1Based: number } | null
+  sumFromDrafts: { deposit: number; withdrawal: number }
+  totalMismatch: {
+    excelDeposit: number | null
+    excelWithdrawal: number | null
+    parsedDeposit: number
+    parsedWithdrawal: number
+  } | null
+  expandErrors: string[]
+  residentErrors: string[]
+  balanceWarnings: { sheetRow1Based: number; detail: string }[]
+  transactionCount: number
+  commitItems: PreviewCommitItem[]
+  canCommit: boolean
 }
 
 export default function ImportPage() {
   const router = useRouter()
-  const [csvData, setCsvData] = useState('')
-  const [isImporting, setIsImporting] = useState(false)
-  const [result, setResult] = useState<ImportResult | null>(null)
+  const { selectedFacilityId } = useFacility()
+  const [facilities, setFacilities] = useState<FacilityOption[]>([])
+  const [facilityId, setFacilityId] = useState<number | ''>('')
+  const [baseYear, setBaseYear] = useState(() => new Date().getFullYear())
+  const [sheetMonth, setSheetMonth] = useState(() => new Date().getMonth() + 1)
+  const [file, setFile] = useState<File | null>(null)
+  const [previewing, setPreviewing] = useState(false)
+  const [committing, setCommitting] = useState(false)
+  const [preview, setPreview] = useState<PreviewResponse | null>(null)
+  const [importMode, setImportMode] = useState<'append' | 'replace_month'>('replace_month')
+  const [message, setMessage] = useState<string | null>(null)
 
-  const parseCSV = (csv: string) => {
-    const lines = csv.trim().split('\n')
-    if (lines.length < 2) {
-      throw new Error('CSVデータが不正です。ヘッダー行とデータ行が必要です。')
+  useEffect(() => {
+    fetch('/api/facilities')
+      .then((r) => r.json())
+      .then((data: FacilityOption[]) => {
+        if (Array.isArray(data)) {
+          setFacilities(data)
+        }
+      })
+      .catch(() => setFacilities([]))
+  }, [])
+
+  useEffect(() => {
+    if (selectedFacilityId && facilityId === '') {
+      setFacilityId(selectedFacilityId)
     }
+  }, [selectedFacilityId, facilityId])
 
-    const headers = lines[0].split(',').map(h => h.trim())
-    
-    // 必須項目の検索
-    const facilityIndex = headers.findIndex(h => 
-      h.includes('施設') || h.toLowerCase().includes('facility')
-    )
-    const unitIndex = headers.findIndex(h => 
-      h.includes('ユニット') || h.toLowerCase().includes('unit')
-    )
-    const residentIndex = headers.findIndex(h => 
-      h.includes('利用者') || h.includes('名前') || h.toLowerCase().includes('resident') || h.toLowerCase().includes('name')
-    )
-    const balanceIndex = headers.findIndex(h => 
-      h.includes('残高') || h.includes('金額') || h.toLowerCase().includes('balance') || h.toLowerCase().includes('amount')
-    )
-    
-    // オプション項目の検索
-    const startDateIndex = headers.findIndex(h => 
-      h.includes('入居日') || h.includes('開始日') || h.toLowerCase().includes('startdate') || h.toLowerCase().includes('start_date')
-    )
-    const endDateIndex = headers.findIndex(h => 
-      h.includes('退居日') || h.includes('終了日') || h.toLowerCase().includes('enddate') || h.toLowerCase().includes('end_date')
-    )
-    const positionNameIndex = headers.findIndex(h => 
-      h.includes('役職名') || h.toLowerCase().includes('positionname') || h.toLowerCase().includes('position_name')
-    )
-    const positionHolderNameIndex = headers.findIndex(h => 
-      h.includes('役職者名') || h.includes('役職者') || h.toLowerCase().includes('positionholder') || h.toLowerCase().includes('position_holder')
-    )
-    const sortOrderIndex = headers.findIndex(h => 
-      h.includes('並び順') || h.includes('順序') || h.toLowerCase().includes('sortorder') || h.toLowerCase().includes('sort_order')
-    )
-    const furiganaIndex = headers.findIndex(h => 
-      h.includes('ふりがな') || h.toLowerCase().includes('furigana')
-    )
-
-    if (facilityIndex === -1 || unitIndex === -1 || residentIndex === -1 || balanceIndex === -1) {
-      throw new Error('CSVの列が見つかりません。施設名、ユニット名、利用者名、残高の列が必要です。')
+  const runPreview = async () => {
+    setMessage(null)
+    if (!file) {
+      setMessage('Excelファイルを選択してください')
+      return
     }
-
-    const rows = []
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim())
-      if (values.length > Math.max(facilityIndex, unitIndex, residentIndex, balanceIndex)) {
-        const row: any = {
-          facilityName: values[facilityIndex],
-          unitName: values[unitIndex],
-          residentName: values[residentIndex],
-          initialBalance: parseFloat(values[balanceIndex]) || 0,
-        }
-        
-        // オプション項目の追加
-        if (startDateIndex !== -1 && values[startDateIndex]) {
-          row.startDate = values[startDateIndex]
-        }
-        if (endDateIndex !== -1 && values[endDateIndex]) {
-          row.endDate = values[endDateIndex]
-        }
-        if (positionNameIndex !== -1 && values[positionNameIndex]) {
-          row.positionName = values[positionNameIndex]
-        }
-        if (positionHolderNameIndex !== -1 && values[positionHolderNameIndex]) {
-          row.positionHolderName = values[positionHolderNameIndex]
-        }
-        if (sortOrderIndex !== -1 && values[sortOrderIndex]) {
-          row.sortOrder = parseInt(values[sortOrderIndex]) || 0
-        }
-        if (furiganaIndex !== -1 && values[furiganaIndex]) {
-          row.nameFurigana = values[furiganaIndex]
-        }
-        
-        rows.push(row)
-      }
-    }
-
-    return rows
-  }
-
-  const handleImport = async () => {
-    if (!csvData.trim()) {
-      alert('CSVデータを入力してください')
+    if (facilityId === '' || !facilityId) {
+      setMessage('施設を選択してください')
       return
     }
 
-    setIsImporting(true)
-    setResult(null)
-
+    setPreviewing(true)
+    setPreview(null)
     try {
-      const rows = parseCSV(csvData)
-      
-      const response = await fetch('/api/import', {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('facilityId', String(facilityId))
+      fd.append('baseYear', String(baseYear))
+      fd.append('sheetMonth', String(sheetMonth))
+
+      const res = await fetch('/api/import/deposit-ledger/preview', {
+        method: 'POST',
+        body: fd,
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setMessage(data.error || 'プレビューに失敗しました')
+        if (data.availableSheets && Array.isArray(data.availableSheets)) {
+          setMessage(
+            (data.error || '') +
+              `（利用可能シート: ${data.availableSheets.join(', ')}）`
+          )
+        }
+        return
+      }
+      setPreview(data as PreviewResponse)
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'プレビューに失敗しました')
+    } finally {
+      setPreviewing(false)
+    }
+  }
+
+  const runCommit = async () => {
+    if (!preview?.canCommit || facilityId === '' || !facilityId) return
+
+    if (
+      importMode === 'replace_month' &&
+      !window.confirm(
+        `選択した施設について、${baseYear}年${sheetMonth}月の既存取引を対象利用者すべてで削除してから登録します。よろしいですか？`
+      )
+    ) {
+      return
+    }
+
+    setCommitting(true)
+    setMessage(null)
+    try {
+      const commitItems = preview.commitItems.map(
+        ({ sourceSheetRow1Based: _r, ...rest }) => rest
+      )
+
+      const res = await fetch('/api/import/deposit-ledger/commit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows }),
+        body: JSON.stringify({
+          facilityId,
+          baseYear,
+          sheetMonth,
+          mode: importMode,
+          commitItems,
+        }),
       })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setResult(data.results)
-        setCsvData('')
-        
-        // マスタデータのキャッシュを無効化（すべての施設）
-        await invalidateMasterCache()
-        
-        // Next.jsのサーバーコンポーネントのキャッシュも無効化
-        router.refresh()
-        
-        alert('インポートが完了しました')
-      } else {
-        alert(`インポートエラー: ${data.error}`)
+      const data = await res.json()
+      if (!res.ok) {
+        setMessage(data.error || '取込に失敗しました')
+        return
       }
-      } catch (error: any) {
-        console.error('Import error:', error)
-        alert(`エラー: ${error.message}`)
-      } finally {
-      setIsImporting(false)
+
+      const residentIds = [...new Set(preview.commitItems.map((c) => c.residentId))]
+      await invalidateTransactionCacheForResidents(
+        facilityId,
+        residentIds,
+        baseYear,
+        sheetMonth
+      )
+      router.refresh()
+      setMessage(
+        `取込が完了しました（${data.createdCount}件）${
+          data.truncatedFields ? ' ※長い摘要・支払先は切り詰めました' : ''
+        }`
+      )
+      setPreview(null)
+      setFile(null)
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : '取込に失敗しました')
+    } finally {
+      setCommitting(false)
     }
   }
 
   return (
     <MainLayout>
-      <div>
-        <h1 className="text-3xl font-bold mb-6">初期データインポート</h1>
+      <div className="max-w-5xl">
+        <h1 className="text-3xl font-bold mb-2">データインポート（出納帳Excel）</h1>
+        <p className="text-gray-600 mb-6 text-sm">
+          施設の預り金出納帳Excel（固定レイアウト・「N月分」シート）から入出金を取り込みます。
+          マスタのユニット名・利用者名とExcelの表記が一致する必要があります。詳細は{' '}
+          <code className="text-xs bg-gray-100 px-1 rounded">deposit_import_spec.md</code>{' '}
+          を参照してください。
+        </p>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">CSV形式</h2>
-          <p className="text-gray-600 mb-4">
-            CSVファイルは以下の形式である必要があります：
-          </p>
-          <div className="mb-4">
-            <h3 className="font-semibold mb-2">必須項目：</h3>
-            <ul className="list-disc list-inside text-sm text-gray-700 mb-4">
-              <li>施設名（「施設」を含む列名）</li>
-              <li>ユニット名（「ユニット」を含む列名）</li>
-              <li>利用者名（「利用者」または「名前」を含む列名）</li>
-              <li>残高（「残高」または「金額」を含む列名）</li>
-            </ul>
-            <h3 className="font-semibold mb-2">オプション項目：</h3>
-            <ul className="list-disc list-inside text-sm text-gray-700 mb-4">
-              <li>入居日（「入居日」または「開始日」を含む列名、形式: YYYY-MM-DD）</li>
-              <li>退居日（「退居日」または「終了日」を含む列名、形式: YYYY-MM-DD）</li>
-              <li>ふりがな（「ふりがな」を含む列名、ひらがな・ー・のみ、あいうえお順で使用）</li>
-              <li>役職名（「役職名」を含む列名）</li>
-              <li>役職者名（「役職者名」または「役職者」を含む列名）</li>
-              <li>並び順（「並び順」または「順序」を含む列名、数値）</li>
-            </ul>
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6 space-y-4">
+          <h2 className="text-xl font-semibold">1. 取込条件</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">施設</label>
+              <select
+                value={facilityId === '' ? '' : String(facilityId)}
+                onChange={(e) =>
+                  setFacilityId(e.target.value ? Number(e.target.value) : '')
+                }
+                className="w-full border rounded px-3 py-2"
+              >
+                <option value="">選択してください</option>
+                {facilities.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                日付に使う西暦年
+              </label>
+              <input
+                type="number"
+                min={1900}
+                max={2200}
+                value={baseYear}
+                onChange={(e) => setBaseYear(Number(e.target.value))}
+                className="w-full border rounded px-3 py-2"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                例: 2025年4月分のシートなら 2025。 C列・E列の月日と組み合わせます。
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                対象シートの月（1–12）
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={12}
+                value={sheetMonth}
+                onChange={(e) => setSheetMonth(Number(e.target.value))}
+                className="w-full border rounded px-3 py-2"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                シート名が「4月分～」で始まるものを自動選択します（未一致時はエラー）。
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Excelファイル（.xls / .xlsx）
+              </label>
+              <input
+                type="file"
+                accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="w-full text-sm"
+              />
+            </div>
           </div>
-          <pre className="bg-gray-100 p-4 rounded mb-4 overflow-x-auto">
-{`施設名,ユニット名,利用者名,ふりがな,残高,入居日,退居日,役職名,役職者名,並び順
-施設A,ユニット1,田中花子,たなかはなこ,100000,2024-01-01,,施設長,山田太郎,1
-施設A,ユニット1,佐藤一郎,さとういちろう,50000,2024-02-01,,施設長,山田太郎,1
-施設B,ユニット2,鈴木次郎,すずきじろう,200000,2024-03-01,,副施設長,佐藤花子,2`}
-          </pre>
-          <p className="text-sm text-gray-500">
-            ※ 必須項目の列名は「施設」「ユニット」「利用者」「残高」を含む必要があります<br/>
-            ※ 日付は YYYY-MM-DD 形式で入力してください（例: 2024-01-01）<br/>
-            ※ オプション項目は空欄でも構いません
-          </p>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">CSVデータ入力</h2>
-          <textarea
-            value={csvData}
-            onChange={(e) => setCsvData(e.target.value)}
-            placeholder="CSVデータを貼り付けてください"
-            className="w-full h-64 px-3 py-2 border rounded font-mono text-sm"
-          />
           <button
-            onClick={handleImport}
-            disabled={isImporting}
-            className="mt-4 px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
+            type="button"
+            onClick={runPreview}
+            disabled={previewing}
+            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
           >
-            {isImporting ? 'インポート中...' : 'インポート実行'}
+            {previewing ? 'プレビュー中…' : 'プレビュー'}
           </button>
         </div>
 
-        {result && (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">インポート結果</h2>
-            <div className="space-y-2">
-              <p>施設作成: {result.facilitiesCreated}件</p>
-              <p>ユニット作成: {result.unitsCreated}件</p>
-              <p>利用者作成: {result.residentsCreated}件</p>
-              <p>取引作成: {result.transactionsCreated}件</p>
-              {result.errors.length > 0 && (
-                <div className="mt-4">
-                  <p className="font-semibold text-red-600">エラー:</p>
-                  <ul className="list-disc list-inside">
-                    {result.errors.map((error, index) => (
-                      <li key={index} className="text-red-600">{error}</li>
-                    ))}
-                  </ul>
-                </div>
+        {message && (
+          <div
+            className={`mb-4 p-4 rounded ${
+              message.includes('完了') ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-900'
+            }`}
+          >
+            {message}
+          </div>
+        )}
+
+        {preview && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6 space-y-4">
+            <h2 className="text-xl font-semibold">2. プレビュー結果</h2>
+            <p className="text-sm text-gray-700">
+              シート: <strong>{preview.sheetName}</strong> / 登録候補:{' '}
+              <strong>{preview.transactionCount}</strong> 件
+            </p>
+
+            {preview.totalMismatch && (
+              <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+                <strong>合計行との不一致:</strong> Excel入金合計 {preview.totalMismatch.excelDeposit}{' '}
+                / 取込対象入金 {preview.totalMismatch.parsedDeposit}、Excel出金{' '}
+                {preview.totalMismatch.excelWithdrawal} / 取込対象出金{' '}
+                {preview.totalMismatch.parsedWithdrawal}
+                （利用者マッチ失敗行は集計から除きます）
+              </div>
+            )}
+
+            {preview.expandErrors.length > 0 && (
+              <div>
+                <p className="font-medium text-red-700">パースエラー</p>
+                <ul className="list-disc list-inside text-sm text-red-800 max-h-40 overflow-y-auto">
+                  {preview.expandErrors.map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {preview.residentErrors.length > 0 && (
+              <div>
+                <p className="font-medium text-red-700">利用者マスタ不一致</p>
+                <ul className="list-disc list-inside text-sm text-red-800 max-h-40 overflow-y-auto">
+                  {preview.residentErrors.map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {preview.balanceWarnings.length > 0 && (
+              <div>
+                <p className="font-medium text-amber-800">残高照合の警告（Excel L列）</p>
+                <ul className="list-disc list-inside text-sm text-amber-900 max-h-40 overflow-y-auto">
+                  {preview.balanceWarnings.map((w, i) => (
+                    <li key={i}>
+                      行 {w.sheetRow1Based}: {w.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="border-t pt-4 space-y-3">
+              <h3 className="font-medium">取込実行</h3>
+              <div className="flex flex-wrap gap-4 items-center">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="mode"
+                    checked={importMode === 'replace_month'}
+                    onChange={() => setImportMode('replace_month')}
+                  />
+                  対象年月を置換（同月の既存取引を削除してから登録）
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="mode"
+                    checked={importMode === 'append'}
+                    onChange={() => setImportMode('append')}
+                  />
+                  追加のみ（重複に注意）
+                </label>
+              </div>
+              <button
+                type="button"
+                onClick={runCommit}
+                disabled={!preview.canCommit || committing}
+                className="px-6 py-2 bg-green-700 text-white rounded hover:bg-green-800 disabled:bg-gray-400"
+              >
+                {committing ? '取込中…' : '取込実行'}
+              </button>
+              {!preview.canCommit && (
+                <p className="text-sm text-gray-500">
+                  エラーが解消され、登録候補が1件以上あるときに取込できます。
+                </p>
               )}
             </div>
           </div>
         )}
+
+        <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
+          <p className="font-medium text-gray-800 mb-2">取込仕様の要点</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>種別（G列）はDBに保存せず、摘要に [種別] を付けて格納します。</li>
+            <li>
+              繰越行・合計行・ユニット名(A)・利用者名(B)が両方空の行は取り込みません（繰越・期首は本システムの取引・残高に任せます）。
+            </li>
+            <li>残高列（L）は保存せず、プレビューで参考表示します（Excel の繰越を取り込まないため、先頭明細のLとは一致しないことがあります）。</li>
+            <li>入金・出金が同じ行に両方ある場合は、2件の取引に分割します。</li>
+          </ul>
+        </div>
       </div>
     </MainLayout>
   )
 }
-

@@ -8,13 +8,26 @@ neonConfig.webSocketConstructor = ws
 const connectionString = process.env.DATABASE_URL
 if (!connectionString) throw new Error('DATABASE_URL is not set')
 
-export const getPrisma = () => {
-  // 毎回Poolから作り直すことで、リクエスト間の衝突を完全に防ぐ
+/**
+ * Neon serverless は WebSocket 経由の接続のため、リクエストごとに Pool / Prisma を
+ * 新規作成すると接続が乱立し、切断時に "Connection terminated unexpectedly" や
+ * プレビューAPI失敗の原因になる。開発時の HMR でも global に1本持ち続ける。
+ */
+const globalForPrisma = globalThis as typeof globalThis & {
+  __prisma?: PrismaClient
+}
+
+function createPrisma(): PrismaClient {
   const pool = new Pool({ connectionString })
   const adapter = new PrismaNeon(pool)
   return new PrismaClient({ adapter })
 }
 
-// 既存コードへの影響を最小限にするため prisma インスタンスも export するが、
-// これも getPrisma() を呼び出すようにする
+export const getPrisma = (): PrismaClient => {
+  if (!globalForPrisma.__prisma) {
+    globalForPrisma.__prisma = createPrisma()
+  }
+  return globalForPrisma.__prisma
+}
+
 export const prisma = getPrisma()
