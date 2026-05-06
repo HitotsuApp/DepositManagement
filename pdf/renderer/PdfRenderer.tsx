@@ -5,7 +5,15 @@ import SummaryBlock from "./blocks/SummaryBlock"
 import UnitSummaryBlock from "./blocks/UnitSummaryBlock"
 import NoticeBlock from "./blocks/NoticeBlock"
 import FooterBlock from "./blocks/FooterBlock"
-import { chunkDepositStatementRows } from "../utils/depositPdfLayout"
+import {
+  chunkDepositStatementRows,
+  chunkResidentStatementRows,
+  COMPACT_DATA_ROW_PADDING_VERTICAL,
+  DEPOSIT_REPORT_COMPACT_CHUNK_OPTS,
+  FAMILY_COMPACT_TABLE_MARGIN_TOP_PT,
+  getPageHeightPt,
+  RESIDENT_COMPACT_CHUNK_OPTS,
+} from "../utils/depositPdfLayout"
 
 // 日本語フォントを登録（ローカルファイルから読み込み）
 try {
@@ -87,28 +95,32 @@ interface PdfRendererProps {
   data: Record<string, any>
 }
 
-const ROWS_PER_PAGE = 20
-
-const chunk = <T,>(arr: T[], size: number): T[][] => {
-  return arr.reduce(
-    (acc, _, i) => (i % size ? acc : [...acc, arr.slice(i, i + size)]),
-    [] as T[][]
-  )
-}
-
 /** 摘要列（26%幅）向け：半角1・全角2の表示幅で折り返し（列幅20%時22に合わせた比率） */
 const DEPOSIT_LABEL_WRAP_UNITS = 29
 
 export const PdfRenderer = ({ template, data }: PdfRendererProps) => {
   const transactions = data.transactions ?? []
   const isDeposit = template.templateId === "deposit-statement"
+  const pageHeightPt = getPageHeightPt(
+    template.document.paper,
+    template.document.orientation
+  )
+  const depositChunkOpts = DEPOSIT_REPORT_COMPACT_CHUNK_OPTS
   const pages = isDeposit
     ? chunkDepositStatementRows(
         transactions,
         template.document.margin.top,
-        template.document.margin.bottom
+        template.document.margin.bottom,
+        pageHeightPt,
+        depositChunkOpts
       )
-    : chunk(transactions, ROWS_PER_PAGE)
+    : chunkResidentStatementRows(
+        transactions,
+        template.document.margin.top,
+        template.document.margin.bottom,
+        pageHeightPt,
+        RESIDENT_COMPACT_CHUNK_OPTS
+      )
 
   // テーブルが1つだけの場合を想定
   const table = template.tables?.[0]
@@ -159,12 +171,16 @@ export const PdfRenderer = ({ template, data }: PdfRendererProps) => {
               wrapColumnUnits={isDeposit ? { label: DEPOSIT_LABEL_WRAP_UNITS } : undefined}
               summary={template.summary}
               showSummary={pageIndex === pages.length - 1}
+              dataRowPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
+              tableMarginTop={FAMILY_COMPACT_TABLE_MARGIN_TOP_PT}
+              headerPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
+              summaryPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
             />
           )}
 
           {/* 合計行の下に預り金総合計を表示（最終ページのみ、deposit-statementテンプレートの場合） */}
           {pageIndex === pages.length - 1 && template.summary && template.templateId === "deposit-statement" && (
-            <SummaryBlock summary={template.summary} data={data} />
+            <SummaryBlock summary={template.summary} data={data} dense />
           )}
 
           {/* お知らせは最終ページのみ（resident-statementテンプレートの場合） */}

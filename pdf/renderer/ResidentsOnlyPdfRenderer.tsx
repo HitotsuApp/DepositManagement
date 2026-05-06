@@ -4,6 +4,18 @@ import TableBlock from "./blocks/TableBlock"
 import NoticeBlock from "./blocks/NoticeBlock"
 import FooterBlock from "./blocks/FooterBlock"
 import { type ResidentPrintData } from "../utils/transform"
+import {
+  chunkResidentStatementRows,
+  COMPACT_DATA_ROW_PADDING_VERTICAL,
+  FAMILY_COMPACT_TABLE_MARGIN_TOP_PT,
+  getPageHeightPt,
+  RESIDENT_COMPACT_CHUNK_OPTS,
+} from "../utils/depositPdfLayout"
+
+/** TableBlock の列見出し行縦パディング（depositPdfLayout の FAMILY_COMPACT_TABLE_HEADER_ROW_PT と対応） */
+const FAMILY_TABLE_HEADER_PADDING_V = 1
+/** テーブル合計行の縦パディング（depositPdfLayout の FAMILY_COMPACT_TABLE_SUMMARY_ROW_PT と対応） */
+const FAMILY_TABLE_SUMMARY_PADDING_V = 1
 
 interface Template {
   templateId: string
@@ -60,23 +72,23 @@ interface Template {
   }
 }
 
-const ROWS_PER_PAGE = 20
-
-const chunk = <T,>(arr: T[], size: number): T[][] => {
-  if (arr.length === 0) return [[]]
-  return arr.reduce(
-    (acc, _, i) => (i % size ? acc : [...acc, arr.slice(i, i + size)]),
-    [] as T[][]
-  )
-}
-
 const renderPages = (
   template: Template,
   data: Record<string, any>,
   pageKeyPrefix: string
 ) => {
   const transactions = data.transactions ?? []
-  const pages = chunk(transactions, ROWS_PER_PAGE)
+  const pageHeightPt = getPageHeightPt(
+    template.document.paper,
+    template.document.orientation
+  )
+  const pages = chunkResidentStatementRows(
+    transactions,
+    template.document.margin.top,
+    template.document.margin.bottom,
+    pageHeightPt,
+    RESIDENT_COMPACT_CHUNK_OPTS
+  )
   const table = template.tables?.[0]
 
   return pages.map((pageRows, pageIndex) => (
@@ -107,6 +119,10 @@ const renderPages = (
           data={{ ...data, transactions: pageRows }}
           summary={template.summary}
           showSummary={pageIndex === pages.length - 1}
+          tableMarginTop={FAMILY_COMPACT_TABLE_MARGIN_TOP_PT}
+          headerPaddingVertical={FAMILY_TABLE_HEADER_PADDING_V}
+          summaryPaddingVertical={FAMILY_TABLE_SUMMARY_PADDING_V}
+          dataRowPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
         />
       )}
 

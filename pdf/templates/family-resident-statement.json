@@ -6,9 +6,9 @@
     "paper": "A4",
     "orientation": "portrait",
     "margin": {
-      "top": 20,
+      "top": 6,
       "right": 20,
-      "bottom": 20,
+      "bottom": 0,
       "left": 20
     }
   },
@@ -20,19 +20,21 @@
         "align": "center",
         "fontSize": 16,
         "bold": true,
-        "marginBottom": 10
+        "marginBottom": 0
       },
       {
         "type": "text",
         "value": "{{unit.name}}　{{resident.name}}　様",
         "align": "right",
-        "fontSize": 12
+        "fontSize": 12,
+        "marginBottom": 0
       },
       {
         "type": "text",
         "value": "{{statement.balanceLine}}",
         "align": "right",
-        "fontSize": 12
+        "fontSize": 12,
+        "marginBottom": 0
       }
     ]
   },
@@ -69,7 +71,7 @@
       "尚、残高が10,000円以下となられた方は、早急に補充の程よろしくお願い致します。"
     ],
     "fontSize": 10,
-    "marginTop": 20
+    "marginTop": 2
   },
   "footer": {
     "lines": [
@@ -77,7 +79,7 @@
       "{{facility.position}}　{{facility.staffName}}"
     ],
     "align": "right",
-    "marginTop": 30
+    "marginTop": 1
   }
 }
 

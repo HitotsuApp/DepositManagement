@@ -12,6 +12,7 @@ import DateSelector from "@/components/DateSelector"
 import depositStatementTemplate from "@/pdf/templates/deposit-statement.json"
 import residentStatementTemplate from "@/pdf/templates/resident-statement.json"
 import familyResidentStatementTemplate from "@/pdf/templates/family-resident-statement.json"
+import familyResidentStatementA5LandscapeTemplate from "@/pdf/templates/family-resident-statement-a5-landscape.json"
 import { formatJapaneseEraYmd } from "@/pdf/utils/format"
 import { PrintData, ResidentPrintData } from "@/pdf/utils/transform"
 
@@ -41,6 +42,7 @@ function PrintPreviewContent() {
   const noticeType = searchParams.get("noticeType") === "moveout" ? "moveout" : "normal"
   const startDateStr = searchParams.get("startDate")
   const endDateStr = searchParams.get("endDate")
+  const familyPaper = searchParams.get("familyPaper") === "a5" ? "a5" : "a4"
   
   const [year, setYear] = useState(() => {
     const y = searchParams.get("year")
@@ -240,6 +242,14 @@ function PrintPreviewContent() {
     window.print()
   }
 
+  const familyStatementTemplate = useMemo(
+    () =>
+      familyPaper === "a5"
+        ? familyResidentStatementA5LandscapeTemplate
+        : familyResidentStatementTemplate,
+    [familyPaper]
+  )
+
   const familyEraPeriodLabel = useMemo(() => {
     if (!startDateStr || !endDateStr) return null
     const parseYmd = (ymd: string): Date | null => {
@@ -312,9 +322,14 @@ function PrintPreviewContent() {
                   : "本部報告（ユニット合計＋出納帳）プレビュー"}
             </h1>
             {printType === "family" ? (
-              <div className="text-gray-700">
-                期間:{" "}
-                {familyEraPeriodLabel ?? `${startDateStr} 〜 ${endDateStr}`}
+              <div className="text-gray-700 space-y-1">
+                <div>
+                  期間:{" "}
+                  {familyEraPeriodLabel ?? `${startDateStr} 〜 ${endDateStr}`}
+                </div>
+                <div className="text-sm">
+                  用紙: {familyPaper === "a5" ? "A5 横" : "A4 縦"}
+                </div>
               </div>
             ) : (
               <DateSelector
@@ -376,7 +391,7 @@ function PrintPreviewContent() {
           ) : printType === "family" && familyPrintData ? (
             <PDFViewer width="100%" height="100%">
               <ResidentsOnlyPdfRenderer
-                template={familyResidentStatementTemplate as any}
+                template={familyStatementTemplate as any}
                 residentStatements={familyPrintData.residentStatements}
               />
             </PDFViewer>

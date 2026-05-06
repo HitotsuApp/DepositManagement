@@ -48,7 +48,11 @@ export default function PrintPage() {
     router.push(`/print/preview?facilityId=${selectedFacilityId}&year=${year}&month=${month}&type=facility`)
   }
 
-  const handleFamilyPrint = () => {
+  const buildFamilyPreviewPath = (familyPaper: 'a4' | 'a5') => {
+    return `/print/preview?facilityId=${selectedFacilityId}&startDate=${familyStartDate}&endDate=${familyEndDate}&type=family&familyPaper=${familyPaper}`
+  }
+
+  const handleFamilyPrintNavigate = (familyPaper: 'a4' | 'a5') => {
     if (!selectedFacilityId) {
       alert('施設が選択されていません')
       return
@@ -59,9 +63,7 @@ export default function PrintPage() {
       alert('期間の指定が正しくありません（開始日 <= 終了日）')
       return
     }
-    router.push(
-      `/print/preview?facilityId=${selectedFacilityId}&startDate=${familyStartDate}&endDate=${familyEndDate}&type=family`
-    )
+    router.push(buildFamilyPreviewPath(familyPaper))
   }
 
   return (
@@ -146,9 +148,10 @@ export default function PrintPage() {
                 </p>
               )}
 
-              <div>
+              <div className="flex flex-wrap items-start gap-3">
                 <button
-                  onClick={handleFamilyPrint}
+                  type="button"
+                  onClick={() => handleFamilyPrintNavigate('a4')}
                   disabled={selectedFacilityId === null}
                   className={`px-6 py-2 rounded ${
                     selectedFacilityId === null
@@ -156,8 +159,27 @@ export default function PrintPage() {
                       : 'bg-green-500 text-white hover:bg-green-600'
                   }`}
                 >
-                  印刷
+                  A4縦印刷
                 </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleFamilyPrintNavigate('a5')}
+                    disabled={selectedFacilityId === null}
+                    className={`px-6 py-2 rounded ${
+                      selectedFacilityId === null
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    }`}
+                  >
+                    A5横印刷
+                  </button>
+                  <p className="text-sm text-gray-600 max-w-md leading-relaxed">
+                    ※ A5横印刷の場合は明細が10行程度しか入りません。
+                    <br />
+                    　 収まらない場合はA4縦印刷をお勧めします。
+                  </p>
+                </div>
               </div>
             </div>
           </div>

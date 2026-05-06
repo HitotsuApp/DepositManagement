@@ -8,7 +8,15 @@ import FooterBlock from "./blocks/FooterBlock"
 import { PrintData, ResidentPrintData } from "../utils/transform"
 import depositStatementTemplate from "../templates/deposit-statement.json"
 import residentStatementTemplate from "../templates/resident-statement.json"
-import { chunkDepositStatementRows } from "../utils/depositPdfLayout"
+import {
+  chunkDepositStatementRows,
+  chunkResidentStatementRows,
+  COMPACT_DATA_ROW_PADDING_VERTICAL,
+  DEPOSIT_REPORT_COMPACT_CHUNK_OPTS,
+  FAMILY_COMPACT_TABLE_MARGIN_TOP_PT,
+  getPageHeightPt,
+  RESIDENT_COMPACT_CHUNK_OPTS,
+} from "../utils/depositPdfLayout"
 
 interface BatchPrintData {
   facilitySummary: PrintData
@@ -70,15 +78,6 @@ interface Template {
   }
 }
 
-const ROWS_PER_PAGE = 20
-
-const chunk = <T,>(arr: T[], size: number): T[][] => {
-  return arr.reduce(
-    (acc, _, i) => (i % size ? acc : [...acc, arr.slice(i, i + size)]),
-    [] as T[][]
-  )
-}
-
 /** 摘要列幅26%に合わせた表示幅単位（20%時22から比率換算） */
 const DEPOSIT_LABEL_WRAP_UNITS = 29
 
@@ -89,13 +88,26 @@ const renderPages = (
 ) => {
   const transactions = data.transactions ?? []
   const isDeposit = template.templateId === "deposit-statement"
+  const pageHeightPt = getPageHeightPt(
+    template.document.paper,
+    template.document.orientation
+  )
+  const depositChunkOpts = DEPOSIT_REPORT_COMPACT_CHUNK_OPTS
   const pages = isDeposit
     ? chunkDepositStatementRows(
         transactions,
         template.document.margin.top,
-        template.document.margin.bottom
+        template.document.margin.bottom,
+        pageHeightPt,
+        depositChunkOpts
       )
-    : chunk(transactions, ROWS_PER_PAGE)
+    : chunkResidentStatementRows(
+        transactions,
+        template.document.margin.top,
+        template.document.margin.bottom,
+        pageHeightPt,
+        RESIDENT_COMPACT_CHUNK_OPTS
+      )
   const table = template.tables?.[0]
 
   const pagePadding = {
@@ -131,12 +143,16 @@ const renderPages = (
           wrapColumnUnits={isDeposit ? { label: DEPOSIT_LABEL_WRAP_UNITS } : undefined}
           summary={template.summary}
           showSummary={pageIndex === pages.length - 1}
+          dataRowPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
+          tableMarginTop={FAMILY_COMPACT_TABLE_MARGIN_TOP_PT}
+          headerPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
+          summaryPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
         />
       )}
 
       {/* 合計行の下に預り金総合計を表示（最終ページのみ、deposit-statementテンプレートの場合） */}
       {pageIndex === pages.length - 1 && template.summary && template.templateId === "deposit-statement" && (
-        <SummaryBlock summary={template.summary} data={data} />
+        <SummaryBlock summary={template.summary} data={data} dense />
       )}
 
       {/* お知らせは最終ページのみ（resident-statementテンプレートの場合） */}

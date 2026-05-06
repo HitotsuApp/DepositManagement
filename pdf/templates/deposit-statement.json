@@ -6,9 +6,9 @@
     "paper": "A4",
     "orientation": "portrait",
     "margin": {
-      "top": 20,
+      "top": 6,
       "right": 20,
-      "bottom": 20,
+      "bottom": 0,
       "left": 20
     }
   },
@@ -20,13 +20,14 @@
         "align": "center",
         "fontSize": 16,
         "bold": true,
-        "marginBottom": 10
+        "marginBottom": 3
       },
       {
         "type": "text",
         "value": "{{facility.name}}",
         "align": "right",
-        "fontSize": 12
+        "fontSize": 12,
+        "marginBottom": 0
       }
     ]
   },

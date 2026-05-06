@@ -11,16 +11,21 @@ interface SummaryBlockProps {
     }>
   }
   data: Record<string, any>
+  /** true のときテーブル合計との隙間を詰める（本部報告コンパクト用） */
+  dense?: boolean
 }
 
-const SummaryBlock = ({ summary, data }: SummaryBlockProps) => {
+const SummaryBlock = ({ summary, data, dense }: SummaryBlockProps) => {
   // 預り金総合計のみを表示（合計行はTableBlock内で表示される）
   if (!data.grandTotal) {
     return null
   }
 
   return (
-    <View style={styles.container} wrap={false}>
+    <View
+      style={[styles.container, ...(dense ? [styles.containerDense] : [])]}
+      wrap={false}
+    >
       <View style={styles.grandTotalRow}>
         <Text style={styles.grandTotalLabel}>預り金総合計</Text>
         <Text style={styles.grandTotalValue}>
@@ -34,6 +39,9 @@ const SummaryBlock = ({ summary, data }: SummaryBlockProps) => {
 const styles = StyleSheet.create({
   container: {
     marginTop: 10,
+  },
+  containerDense: {
+    marginTop: 6,
   },
   /** ラベルと金額を同一行にし、ページ途中で分割されないよう wrap=false と併用 */
   grandTotalRow: {

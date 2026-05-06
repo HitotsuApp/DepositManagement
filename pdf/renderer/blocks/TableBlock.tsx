@@ -10,6 +10,11 @@ interface Column {
   align?: "left" | "center" | "right"
 }
 
+const DEFAULT_TABLE_MARGIN_TOP = 10
+const DEFAULT_HEADER_PADDING_VERTICAL = 4
+const DEFAULT_SUMMARY_PADDING_VERTICAL = 4
+const DEFAULT_ROW_PADDING_VERTICAL = 2
+
 interface TableBlockProps {
   table: {
     id: string
@@ -17,6 +22,14 @@ interface TableBlockProps {
     dataSource: string
   }
   data: Record<string, any>
+  /** テーブル先頭〜列見出しの上までの余白（省略時は 10） */
+  tableMarginTop?: number
+  /** 列名行の paddingVertical（省略時は 4） */
+  headerPaddingVertical?: number
+  /** 合計行の paddingVertical（省略時は 4） */
+  summaryPaddingVertical?: number
+  /** 明細データ行の paddingVertical（省略時は 2）。1 にすると行高が詰まる */
+  dataRowPaddingVertical?: number
   /** 列キーごとに、1行あたりの表示幅（半角=1・全角相当=2）で折り返す */
   wrapColumnUnits?: Partial<Record<string, number>>
   summary?: {
@@ -30,7 +43,17 @@ interface TableBlockProps {
   showSummary?: boolean
 }
 
-const TableBlock = ({ table, data, wrapColumnUnits, summary, showSummary }: TableBlockProps) => {
+const TableBlock = ({
+  table,
+  data,
+  tableMarginTop,
+  headerPaddingVertical,
+  summaryPaddingVertical,
+  dataRowPaddingVertical,
+  wrapColumnUnits,
+  summary,
+  showSummary,
+}: TableBlockProps) => {
   const rows = data[table.dataSource] ?? []
 
   // 合計行のデータを準備
@@ -57,10 +80,15 @@ const TableBlock = ({ table, data, wrapColumnUnits, summary, showSummary }: Tabl
     return summaryRowData
   })() : null
 
+  const marginTop = tableMarginTop ?? DEFAULT_TABLE_MARGIN_TOP
+  const headerPv = headerPaddingVertical ?? DEFAULT_HEADER_PADDING_VERTICAL
+  const summaryPv = summaryPaddingVertical ?? DEFAULT_SUMMARY_PADDING_VERTICAL
+  const rowPv = dataRowPaddingVertical ?? DEFAULT_ROW_PADDING_VERTICAL
+
   return (
-    <View style={styles.table}>
+    <View style={[styles.table, { marginTop }]}>
       {/* ヘッダー */}
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, { paddingVertical: headerPv }]}>
         {table.columns.map((col, colIndex) => (
           <View
             key={col.key}
@@ -79,7 +107,7 @@ const TableBlock = ({ table, data, wrapColumnUnits, summary, showSummary }: Tabl
 
       {/* ボディ */}
       {rows.map((row: Record<string, any>, i: number) => (
-        <View key={i} style={styles.row}>
+        <View key={i} style={[styles.row, { paddingVertical: rowPv }]}>
           {table.columns.map((col, colIndex) => {
             const raw = row[col.key]
             const wrapped =
@@ -116,7 +144,7 @@ const TableBlock = ({ table, data, wrapColumnUnits, summary, showSummary }: Tabl
 
       {/* 合計行 */}
       {summaryRow && (
-        <View style={styles.summaryRow}>
+        <View style={[styles.summaryRow, { paddingVertical: summaryPv }]}>
           {table.columns.map((col, colIndex) => {
             const raw = summaryRow[col.key]
             const value =
@@ -151,13 +179,10 @@ const TableBlock = ({ table, data, wrapColumnUnits, summary, showSummary }: Tabl
 }
 
 const styles = StyleSheet.create({
-  table: {
-    marginTop: 10,
-  },
+  table: {},
   headerRow: {
     flexDirection: "row",
     borderBottom: "2px solid #000",
-    paddingVertical: 4,
     backgroundColor: "#f0f0f0",
   },
   headerCellContainer: {
@@ -175,7 +200,6 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     borderBottom: "1px solid #ccc",
-    paddingVertical: 2,
   },
   cellContainer: {
     paddingHorizontal: 4,
@@ -188,7 +212,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderTop: "2px solid #000",
     borderBottom: "1px solid #ccc",
-    paddingVertical: 4,
     backgroundColor: "#f9f9f9",
   },
   summaryCellContainer: {

@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "document": {
     "title": "預り金明細書",
-    "paper": "A4",
-    "orientation": "portrait",
+    "paper": "A5",
+    "orientation": "landscape",
     "margin": {
       "top": 6,
       "right": 20,
@@ -67,7 +67,7 @@
     "title": "【お知らせ】",
     "lines": [
       "いつもお世話になっております。",
-      "先月の【預り金明細書】を送付させて頂きます。",
+      "対象期間の【預り金明細書】を送付させて頂きます。",
       "尚、残高が10,000円以下となられた方は、早急に補充の程よろしくお願い致します。"
     ],
     "fontSize": 10,

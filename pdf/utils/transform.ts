@@ -627,6 +627,7 @@ export function transformToResidentPrintData(
   return {
     statement: {
       month: monthStr,
+      title: `${monthStr}分　預り金明細書`,
       balanceLine: `残高：${formatYen(currentBalance)}円`,
     },
     unit: {
@@ -741,8 +742,8 @@ export function transformToResidentPrintDataForRange(
       runningBalance = previousBalance
       return {
         date: "",
-        type: "開始日時点より繰越",
-        label: "開始日時点より繰越",
+        type: "繰越",
+        label: "",
         payee: "",
         income: previousBalance > 0 ? previousBalance : 0,
         expense: previousBalance < 0 ? Math.abs(previousBalance) : 0,
