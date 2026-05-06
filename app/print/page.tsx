@@ -148,25 +148,25 @@ export default function PrintPage() {
                 </p>
               )}
 
-              <div className="flex flex-wrap items-start gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleFamilyPrintNavigate('a4')}
-                  disabled={selectedFacilityId === null}
-                  className={`px-6 py-2 rounded ${
-                    selectedFacilityId === null
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-green-500 text-white hover:bg-green-600'
-                  }`}
-                >
-                  A4縦印刷
-                </button>
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-stretch gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleFamilyPrintNavigate('a4')}
+                    disabled={selectedFacilityId === null}
+                    className={`inline-flex min-h-10 items-center justify-center rounded px-6 ${
+                      selectedFacilityId === null
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-green-500 text-white hover:bg-green-600'
+                    }`}
+                  >
+                    A4縦印刷
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleFamilyPrintNavigate('a5')}
                     disabled={selectedFacilityId === null}
-                    className={`px-6 py-2 rounded ${
+                    className={`inline-flex min-h-10 items-center justify-center rounded px-6 ${
                       selectedFacilityId === null
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-emerald-600 text-white hover:bg-emerald-700'
@@ -174,12 +174,12 @@ export default function PrintPage() {
                   >
                     A5横印刷
                   </button>
-                  <p className="text-sm text-gray-600 max-w-md leading-relaxed">
-                    ※ A5横印刷の場合は明細が10行程度しか入りません。
-                    <br />
-                    　 収まらない場合はA4縦印刷をお勧めします。
-                  </p>
                 </div>
+                <p className="text-sm text-gray-600 max-w-xl leading-relaxed">
+                  ※ A5横印刷の場合は明細が10行程度しか入りません。
+                  <br />
+                  収まらない場合はA4縦印刷をお勧めします。
+                </p>
               </div>
             </div>
           </div>
