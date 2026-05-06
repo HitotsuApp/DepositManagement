@@ -193,7 +193,7 @@ export default function DashboardPage() {
                       handleBulkInputClick(facility.id)
                     }}
                     className="absolute top-2 right-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 shadow-md hover:shadow-lg transition-shadow z-10"
-                    title="まとめて入力"
+                    title="フォームでまとめて入力"
                   >
                     📝
                   </button>
@@ -229,7 +229,7 @@ export default function DashboardPage() {
                       handleBulkInputClick(facility.id)
                     }}
                     className="absolute top-2 right-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 shadow-md hover:shadow-lg transition-shadow z-10"
-                    title="まとめて入力"
+                    title="フォームでまとめて入力"
                   >
                     📝
                   </button>

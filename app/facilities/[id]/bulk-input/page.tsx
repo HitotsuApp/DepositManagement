@@ -717,7 +717,7 @@ export default function BulkInputPage() {
           >
             ← 戻る
           </button>
-          <h1 className="text-3xl font-bold">まとめて入力: {isLoading ? '読み込み中...' : facilityName || '施設が見つかりません'}</h1>
+          <h1 className="text-3xl font-bold">フォームでまとめて入力: {isLoading ? '読み込み中...' : facilityName || '施設が見つかりません'}</h1>
         </div>
         
         {isMismatchedFacility && (
