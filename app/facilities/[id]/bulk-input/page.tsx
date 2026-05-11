@@ -15,6 +15,8 @@ import { isValidDate } from '@/lib/validation'
 import { invalidateTransactionCache, invalidateTransactionCacheForResidents } from '@/lib/cache'
 import { getResidentDisplayName } from '@/lib/displayName'
 import { halfWidthToFullWidthFormText } from '@/lib/japaneseWidth'
+import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
+import { defaultPastCorrectDateForFacilityMonth, getInOutDateRange } from '@/lib/bulkInputPageUtils'
 
 interface Transaction {
   id: number
@@ -64,11 +66,13 @@ export default function BulkInputPage() {
   
   const [year, setYear] = useState(() => {
     const y = searchParams.get('year')
-    return y ? Number(y) : new Date().getFullYear()
+    if (y) return Number(y)
+    return getZonedCalendarParts(new Date(), BUSINESS_TIME_ZONE).year
   })
   const [month, setMonth] = useState(() => {
     const m = searchParams.get('month')
-    return m ? Number(m) : new Date().getMonth() + 1
+    if (m) return Number(m)
+    return getZonedCalendarParts(new Date(), BUSINESS_TIME_ZONE).month
   })
   
   const [facilityName, setFacilityName] = useState('')
@@ -116,34 +120,13 @@ export default function BulkInputPage() {
     return formData.amount
   }, [showInOutForm, showCorrectForm, formData.amount])
 
-  const currentDate = new Date()
-  const currentYear = currentDate.getFullYear()
-  const currentMonth = currentDate.getMonth() + 1
-  const currentDay = currentDate.getDate()
+  const { year: currentYear, month: currentMonth, day: currentDay } = getZonedCalendarParts(
+    new Date(),
+    BUSINESS_TIME_ZONE
+  )
   const isCurrentMonth = year === currentYear && month === currentMonth
   const isPastMonth = year < currentYear || (year === currentYear && month < currentMonth)
-  
-  // 入金・出金モーダルの日付入力範囲を計算
-  // 10日までは先月1日〜今月末日まで、11日以降は今月1日〜今日まで
-  const getInOutDateRange = () => {
-    if (currentDay <= 10) {
-      // 10日以前の場合：先月1日〜今月末日まで
-      const previousMonthFirstDay = new Date(currentYear, currentMonth - 2, 1)
-      const currentMonthLastDay = new Date(currentYear, currentMonth, 0)
-      return {
-        min: previousMonthFirstDay.toISOString().split('T')[0],
-        max: currentMonthLastDay.toISOString().split('T')[0],
-      }
-    } else {
-      // 11日以降の場合：今月1日〜今日まで
-      const currentMonthFirstDay = new Date(currentYear, currentMonth - 1, 1)
-      return {
-        min: currentMonthFirstDay.toISOString().split('T')[0],
-        max: currentDate.toISOString().split('T')[0],
-      }
-    }
-  }
-  
+
   const inOutDateRange = getInOutDateRange()
 
   useEffect(() => {
@@ -257,7 +240,7 @@ export default function BulkInputPage() {
     // 入金・出金の場合、対象日が許可された範囲内かチェック
     if (isCurrentMonth && showInOutForm) {
       const transactionDate = new Date(formData.transactionDate)
-      const transactionDateStr = transactionDate.toISOString().split('T')[0]
+      const transactionDateStr = formatJapanCalendarDate(transactionDate)
       
       // 10日までは先月1日〜今月末日まで、11日以降は今月1日〜今日まで
       if (transactionDateStr < inOutDateRange.min || transactionDateStr > inOutDateRange.max) {
@@ -353,7 +336,7 @@ export default function BulkInputPage() {
     // フォームをリセット
     setFormData({
       residentId: '',
-      transactionDate: new Date().toISOString().split('T')[0],
+      transactionDate: formatJapanCalendarDate(new Date()),
       transactionType: formData.transactionType, // 区分は維持
       amount: '',
       description: '',
@@ -590,7 +573,7 @@ export default function BulkInputPage() {
       setEditingPendingId(null)
       setFormData({
         residentId: '',
-        transactionDate: new Date().toISOString().split('T')[0],
+        transactionDate: formatJapanCalendarDate(new Date()),
         transactionType: formData.transactionType,
         amount: '',
         description: '',
@@ -686,7 +669,7 @@ export default function BulkInputPage() {
     setCorrectResidentSearchQuery('')
     setSelectedCorrectUnitId(null)
 
-    const dateStr = new Date(transaction.transactionDate).toISOString().split('T')[0]
+    const dateStr = formatJapanCalendarDate(new Date(transaction.transactionDate))
 
     setFormData({
       residentId: '',
@@ -758,7 +741,7 @@ export default function BulkInputPage() {
                 setShowCorrectForm(false)
                 setFormData({
                   residentId: '',
-                  transactionDate: new Date().toISOString().split('T')[0],
+                  transactionDate: formatJapanCalendarDate(new Date()),
                   transactionType: 'in',
                   amount: '',
                   description: '',
@@ -776,7 +759,7 @@ export default function BulkInputPage() {
                 setShowCorrectForm(false)
                 setFormData({
                   residentId: '',
-                  transactionDate: new Date().toISOString().split('T')[0],
+                  transactionDate: formatJapanCalendarDate(new Date()),
                   transactionType: 'out',
                   amount: '',
                   description: '',
@@ -797,9 +780,7 @@ export default function BulkInputPage() {
               onClick={() => {
                 setShowCorrectForm(true)
                 setShowInOutForm(false)
-                const today = new Date()
-                const lastDayOfMonth = new Date(year, month, 0)
-                const defaultDate = today > lastDayOfMonth ? lastDayOfMonth.toISOString().split('T')[0] : today.toISOString().split('T')[0]
+                const defaultDate = defaultPastCorrectDateForFacilityMonth(year, month)
                 setFormData({
                   residentId: '',
                   transactionDate: defaultDate,

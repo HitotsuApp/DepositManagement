@@ -19,6 +19,7 @@ import {
   getInOutDateRange,
   getTransactionTypeLabel,
 } from '@/lib/bulkInputPageUtils'
+import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
 
 interface Transaction {
   id: number
@@ -121,10 +122,11 @@ export default function BulkRowInputPage() {
   const { selectedFacilityId } = useFacility()
   const facilityId = Number(params.id)
 
+  const jpNow = getZonedCalendarParts(new Date(), BUSINESS_TIME_ZONE)
   const year =
-    Number(searchParams.get('year')) || new Date().getFullYear()
+    Number(searchParams.get('year')) || jpNow.year
   const month =
-    Number(searchParams.get('month')) || new Date().getMonth() + 1
+    Number(searchParams.get('month')) || jpNow.month
 
   const [facilityName, setFacilityName] = useState('')
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -139,9 +141,10 @@ export default function BulkRowInputPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
-  const currentDate = new Date()
-  const currentYear = currentDate.getFullYear()
-  const currentMonth = currentDate.getMonth() + 1
+  const { year: currentYear, month: currentMonth } = getZonedCalendarParts(
+    new Date(),
+    BUSINESS_TIME_ZONE
+  )
   const isCurrentMonth = year === currentYear && month === currentMonth
   const isPastMonth = year < currentYear || (year === currentYear && month < currentMonth)
   const allowNewDrafts = isCurrentMonth || isPastMonth
@@ -244,7 +247,7 @@ export default function BulkRowInputPage() {
       return
     }
 
-    const dateStr = new Date(transaction.transactionDate).toISOString().split('T')[0]
+    const dateStr = formatJapanCalendarDate(new Date(transaction.transactionDate))
     const newRow: DraftRow = {
       id: newDraftId(),
       residentId: String(transaction.residentId),
@@ -319,7 +322,7 @@ export default function BulkRowInputPage() {
       if (isCurrentMonth && (d.transactionType === 'in' || d.transactionType === 'out')) {
         const td = d.transactionDate
         if (td < inOutDateRange.min || td > inOutDateRange.max) {
-          const currentDay = new Date().getDate()
+          const currentDay = getZonedCalendarParts(new Date(), BUSINESS_TIME_ZONE).day
           return `${indexOneBased}行目: ${currentDay <= 10 ? '対象日は先月1日から今月末日までの日付を入力してください' : '対象日は今月1日から今日までの日付を入力してください'}`
         }
       }

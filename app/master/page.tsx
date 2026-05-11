@@ -9,6 +9,7 @@ import { useFacility } from '@/contexts/FacilityContext'
 import { invalidateMasterCache } from '@/lib/cache'
 import { sanitizeFurigana } from '@/lib/furigana'
 import { MAX_LENGTHS } from '@/lib/validation'
+import { formatJapanCalendarDate } from '@/lib/calendarDate'
 
 interface Facility {
   id: number
@@ -558,7 +559,7 @@ function MasterContent() {
   const handleEndResident = async (residentId: number) => {
     try {
       // 今日の日付を設定
-      const today = new Date().toISOString().split('T')[0]
+      const today = formatJapanCalendarDate(new Date())
       const res = await fetch(`/api/residents/${residentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

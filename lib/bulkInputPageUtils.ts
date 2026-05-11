@@ -1,25 +1,29 @@
 /** まとめて入力系ページ共通：入出金の対象日範囲（当日基準の10日ルール） */
 
+import {
+  BUSINESS_TIME_ZONE,
+  formatJapanCalendarDate,
+  formatNumericCalendarDate,
+  getZonedCalendarParts,
+  lastDayOfGregorianMonth,
+} from '@/lib/calendarDate'
+
 export function getInOutDateRange(): { min: string; max: string } {
-  const currentDate = new Date()
-  const currentYear = currentDate.getFullYear()
-  const currentMonth = currentDate.getMonth() + 1
-  const currentDay = currentDate.getDate()
+  const now = new Date()
+  const { year: cy, month: cm, day: cd } = getZonedCalendarParts(now, BUSINESS_TIME_ZONE)
 
-  if (currentDay <= 10) {
-    const previousMonthFirstDay = new Date(currentYear, currentMonth - 2, 1)
-    const currentMonthLastDay = new Date(currentYear, currentMonth, 0)
-    return {
-      min: previousMonthFirstDay.toISOString().split('T')[0],
-      max: currentMonthLastDay.toISOString().split('T')[0],
-    }
+  if (cd <= 10) {
+    const prevY = cm === 1 ? cy - 1 : cy
+    const prevM = cm === 1 ? 12 : cm - 1
+    const min = formatNumericCalendarDate(prevY, prevM, 1)
+    const lastDay = lastDayOfGregorianMonth(cy, cm)
+    const max = formatNumericCalendarDate(cy, cm, lastDay)
+    return { min, max }
   }
 
-  const currentMonthFirstDay = new Date(currentYear, currentMonth - 1, 1)
-  return {
-    min: currentMonthFirstDay.toISOString().split('T')[0],
-    max: currentDate.toISOString().split('T')[0],
-  }
+  const min = formatNumericCalendarDate(cy, cm, 1)
+  const max = formatNumericCalendarDate(cy, cm, cd)
+  return { min, max }
 }
 
 /** 取引区分の表示ラベル */
@@ -45,7 +49,7 @@ export function getTransactionTypeLabel(type: string): string {
 /** 当年月表示の新規入出金行の初期日付（範囲内にクリップ） */
 export function defaultInOutDateForNewRow(): string {
   const range = getInOutDateRange()
-  const today = new Date().toISOString().split('T')[0]
+  const today = formatJapanCalendarDate(new Date())
   if (today < range.min) return range.min
   if (today > range.max) return range.max
   return today
@@ -56,9 +60,8 @@ export function defaultPastCorrectDateForFacilityMonth(
   facilityYear: number,
   facilityMonth: number
 ): string {
-  const today = new Date()
-  const lastDayOfMonth = new Date(facilityYear, facilityMonth, 0)
-  const todayStr = today.toISOString().split('T')[0]
-  const lastStr = lastDayOfMonth.toISOString().split('T')[0]
+  const todayStr = formatJapanCalendarDate(new Date())
+  const lastDay = lastDayOfGregorianMonth(facilityYear, facilityMonth)
+  const lastStr = formatNumericCalendarDate(facilityYear, facilityMonth, lastDay)
   return todayStr > lastStr ? lastStr : todayStr
 }

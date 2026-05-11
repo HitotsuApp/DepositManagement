@@ -1,3 +1,10 @@
+import {
+  BUSINESS_TIME_ZONE,
+  formatJapanCalendarDate,
+  formatNumericCalendarDate,
+  getZonedCalendarParts,
+  lastDayOfGregorianMonth,
+} from '@/lib/calendarDate'
 import { isValidDate, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 /** 単一 POST / バッチ POST で共通の取引作成ペイロード（正規化後） */
@@ -45,27 +52,23 @@ export function validateTransactionCreateBody(
   }
 
   const transactionDate = new Date(String(body.transactionDate))
-  const transactionDateStr = transactionDate.toISOString().split('T')[0] // 日付範囲比較用
-  const currentDate = new Date()
-  const currentYear = currentDate.getFullYear()
-  const currentMonth = currentDate.getMonth() + 1
-  const currentDay = currentDate.getDate()
+  const transactionDateStr = formatJapanCalendarDate(transactionDate)
+  const { year: cy, month: cm, day: cd } = getZonedCalendarParts(new Date(), BUSINESS_TIME_ZONE)
 
   if (transactionType === 'in' || transactionType === 'out') {
     let minDate: string
     let maxDate: string
     let errorMessage: string
 
-    if (currentDay <= 10) {
-      const previousMonthFirstDay = new Date(currentYear, currentMonth - 2, 1)
-      const currentMonthLastDay = new Date(currentYear, currentMonth, 0)
-      minDate = previousMonthFirstDay.toISOString().split('T')[0]
-      maxDate = currentMonthLastDay.toISOString().split('T')[0]
+    if (cd <= 10) {
+      const prevY = cm === 1 ? cy - 1 : cy
+      const prevM = cm === 1 ? 12 : cm - 1
+      minDate = formatNumericCalendarDate(prevY, prevM, 1)
+      maxDate = formatNumericCalendarDate(cy, cm, lastDayOfGregorianMonth(cy, cm))
       errorMessage = '対象日は先月1日から今月末日までの日付を入力してください'
     } else {
-      const currentMonthFirstDay = new Date(currentYear, currentMonth - 1, 1)
-      minDate = currentMonthFirstDay.toISOString().split('T')[0]
-      maxDate = currentDate.toISOString().split('T')[0]
+      minDate = formatNumericCalendarDate(cy, cm, 1)
+      maxDate = formatNumericCalendarDate(cy, cm, cd)
       errorMessage = '対象日は今月1日から今日までの日付を入力してください'
     }
 
@@ -75,9 +78,8 @@ export function validateTransactionCreateBody(
   }
 
   if (transactionType === 'past_correct_in' || transactionType === 'past_correct_out') {
-    const transactionYear = transactionDate.getFullYear()
-    const transactionMonth = transactionDate.getMonth() + 1
-    if (transactionYear > currentYear || (transactionYear === currentYear && transactionMonth >= currentMonth)) {
+    const { year: ty, month: tm } = getZonedCalendarParts(transactionDate, BUSINESS_TIME_ZONE)
+    if (ty > cy || (ty === cy && tm >= cm)) {
       return { ok: false, error: '過去訂正入力は過去の月の日付のみ入力できます' }
     }
   }
