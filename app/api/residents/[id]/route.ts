@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
-import { calculateBalance, calculateBalanceUpToMonth } from '@/lib/balance'
+import { computeResidentMonthViewFromSortedTransactions } from '@/lib/balance'
 import { validateId, validateMaxLength, validateSortOrder, MAX_LENGTHS, NAME_PREFIX_DISPLAY_OPTIONS } from '@/lib/validation'
 import { sanitizeFurigana } from '@/lib/furigana'
 
@@ -23,7 +23,9 @@ export async function GET(
     const year = Number(searchParams.get('year')) || new Date().getFullYear()
     const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
 
-    // select を使用して必要なフィールドのみを取得（パフォーマンス最適化）
+    const endOfSelectedMonth = new Date(year, month, 0, 23, 59, 59, 999)
+
+    // select を使用して必要なフィールドのみを取得（対象月末までに絞って転送量・CPU を削減）
     const resident = await prisma.resident.findUnique({
       where: { id: residentId },
       select: {
@@ -34,6 +36,9 @@ export async function GET(
         displayNamePrefix: true,
         namePrefixDisplayOption: true,
         transactions: {
+          where: {
+            transactionDate: { lte: endOfSelectedMonth },
+          },
           select: {
             id: true,
             transactionDate: true,
@@ -54,28 +59,10 @@ export async function GET(
       return NextResponse.json({ error: 'Resident not found' }, { status: 404 })
     }
 
-    // 指定年月までの累積残高を計算
-    const balance = calculateBalanceUpToMonth(resident.transactions as any, year, month)
+    const { balance, previousMonthBalance, monthTransactionsWithBalance } =
+      computeResidentMonthViewFromSortedTransactions(resident.transactions as any, year, month)
 
-    // 全取引から累積残高を計算し、指定年月の取引のみをフィルタリング
-    const allTransactionsWithBalance = calculateBalance(resident.transactions as any)
-    const monthTransactions = allTransactionsWithBalance.filter(t => {
-      const transactionDate = new Date(t.transactionDate)
-      const startDate = new Date(year, month - 1, 1)
-      const endDate = new Date(year, month, 0, 23, 59, 59, 999)
-      return transactionDate >= startDate && transactionDate <= endDate
-    })
-
-    // 前月末残高（PDF の「前月より繰越」と同じ計算ルール）
-    const prevYear = month === 1 ? year - 1 : year
-    const prevMonth = month === 1 ? 12 : month - 1
-    const previousMonthBalance = calculateBalanceUpToMonth(
-      resident.transactions as any,
-      prevYear,
-      prevMonth
-    )
-
-    let transactionsWithBalance = monthTransactions
+    let transactionsWithBalance = monthTransactionsWithBalance
     if (previousMonthBalance !== 0) {
       const previousMonthEnd = new Date(year, month - 1, 0, 23, 59, 59, 999)
       transactionsWithBalance = [
@@ -92,7 +79,7 @@ export async function GET(
           residentId,
           isCarryOver: true,
         } as any,
-        ...monthTransactions,
+        ...monthTransactionsWithBalance,
       ]
     }
 
