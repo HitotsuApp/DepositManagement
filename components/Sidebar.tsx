@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFacility } from '@/contexts/FacilityContext'
 
 interface Facility {
@@ -44,6 +44,29 @@ export default function Sidebar() {
         }
       })
       .catch(err => console.error('Failed to fetch facilities:', err))
+  }, [selectedFacilityId])
+
+  const cashPrefetchGuardRef = useRef<string | null>(null)
+
+  const prefetchCashVerificationOnHover = useCallback(() => {
+    const d = new Date()
+    const y = d.getFullYear()
+    const m = d.getMonth() + 1
+    const key =
+      selectedFacilityId !== null
+        ? `cash-${selectedFacilityId}-${y}-${m}`
+        : `cash-all-${y}-${m}`
+    if (cashPrefetchGuardRef.current === key) return
+    cashPrefetchGuardRef.current = key
+
+    const promises: Promise<unknown>[] = [fetch('/api/facilities').catch(() => null)]
+    if (selectedFacilityId !== null) {
+      promises.push(
+        fetch(`/api/facilities/${selectedFacilityId}`).catch(() => null),
+        fetch(`/api/facilities/${selectedFacilityId}?year=${y}&month=${m}`).catch(() => null)
+      )
+    }
+    Promise.all(promises).catch(() => {})
   }, [selectedFacilityId])
 
   const isActive = (path: string) => pathname === path
@@ -181,6 +204,7 @@ export default function Sidebar() {
           )}
           <Link
             href="/cash-verification"
+            onMouseEnter={prefetchCashVerificationOnHover}
             className={`block px-4 py-2 rounded hover:bg-gray-700 ${
               isActive('/cash-verification') ? 'bg-gray-700' : ''
             }`}

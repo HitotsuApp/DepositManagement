@@ -52,42 +52,25 @@ export default function FacilityDetailPage() {
   const silentRefetchAtRef = useRef(0)
   const queryKeyForEffect = searchParams.toString()
 
-  const prefetchBulkInputData = useCallback(async () => {
-    try {
-      const currentDate = new Date()
-      const currentYear = currentDate.getFullYear()
-      const currentMonth = currentDate.getMonth() + 1
+  const bulkPrefetchGuardRef = useRef<string | null>(null)
 
+  const prefetchBulkInputOnHover = useCallback(() => {
+    const key = `${facilityId}-${year}-${month}`
+    if (bulkPrefetchGuardRef.current === key) return
+    bulkPrefetchGuardRef.current = key
+    try {
       Promise.all([
         fetch(`/api/facilities/${facilityId}`).catch(() => null),
         fetch(`/api/residents?facilityId=${facilityId}`).catch(() => null),
         fetch(`/api/units?facilityId=${facilityId}`).catch(() => null),
         fetch(
-          `/api/facilities/${facilityId}/transactions?year=${currentYear}&month=${currentMonth}`
+          `/api/facilities/${facilityId}/transactions?year=${year}&month=${month}`
         ).catch(() => null),
       ])
     } catch (error) {
       console.debug('Prefetch error (ignored):', error)
     }
-  }, [facilityId])
-
-  const prefetchCashVerificationData = useCallback(async () => {
-    try {
-      const currentDate = new Date()
-      const currentYear = currentDate.getFullYear()
-      const currentMonth = currentDate.getMonth() + 1
-
-      Promise.all([
-        fetch('/api/facilities').catch(() => null),
-        fetch(`/api/facilities/${facilityId}`).catch(() => null),
-        fetch(
-          `/api/facilities/${facilityId}?year=${currentYear}&month=${currentMonth}`
-        ).catch(() => null),
-      ])
-    } catch (error) {
-      console.debug('Prefetch error (ignored):', error)
-    }
-  }, [facilityId])
+  }, [facilityId, year, month])
 
   const fetchFacilityData = useCallback(
     async (skipCache = false, showLoading = true) => {
@@ -142,8 +125,6 @@ export default function FacilityDetailPage() {
     }
 
     fetchFacilityData(shouldSkipCache, true)
-    prefetchBulkInputData()
-    prefetchCashVerificationData()
   }, [
     facilityId,
     year,
@@ -153,8 +134,6 @@ export default function FacilityDetailPage() {
     pathname,
     router,
     fetchFacilityData,
-    prefetchBulkInputData,
-    prefetchCashVerificationData,
   ])
 
   useEffect(() => {
@@ -242,6 +221,7 @@ export default function FacilityDetailPage() {
                 <button
                   type="button"
                   onClick={handleBulkInputClick}
+                  onMouseEnter={prefetchBulkInputOnHover}
                   className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 shadow-md hover:shadow-lg transition-shadow whitespace-nowrap"
                   title="モーダルフォームで入出金をまとめて入力"
                 >
@@ -250,6 +230,7 @@ export default function FacilityDetailPage() {
                 <button
                   type="button"
                   onClick={handleBulkRowInputClick}
+                  onMouseEnter={prefetchBulkInputOnHover}
                   className="px-4 py-2 bg-indigo-500 text-white text-sm rounded hover:bg-indigo-600 shadow-md hover:shadow-lg transition-shadow whitespace-nowrap"
                   title="明細を行単位でインライン入力"
                 >

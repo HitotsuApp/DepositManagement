@@ -62,15 +62,6 @@ export async function GET(
               printSortOrder: true,
               displayNamePrefix: true,
               namePrefixDisplayOption: true,
-              transactions: {
-                select: {
-                  id: true,
-                  transactionDate: true,
-                  transactionType: true,
-                  amount: true,
-                },
-                orderBy: { transactionDate: 'asc' },
-              },
             },
             orderBy: [{ id: 'asc' }], // ソートはメモリで実施
           },
