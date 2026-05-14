@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
 import Modal from '@/components/Modal'
+import ConfirmModal from '@/components/ConfirmModal'
 import Toast from '@/components/Toast'
 import { BulkInputTransactionFiltersToolbar } from '@/components/BulkInputTransactionFilters'
 import FormattedAmountInput, {
@@ -17,7 +18,11 @@ import { invalidateTransactionCache, invalidateTransactionCacheForResidents } fr
 import { getResidentDisplayName } from '@/lib/displayName'
 import { halfWidthToFullWidthFormText } from '@/lib/japaneseWidth'
 import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
-import { defaultPastCorrectDateForFacilityMonth, getInOutDateRange } from '@/lib/bulkInputPageUtils'
+import {
+  defaultPastCorrectDateForFacilityMonth,
+  getInOutDateRange,
+  isRowCorrectMarkAllowedForViewMonth,
+} from '@/lib/bulkInputPageUtils'
 import {
   filterBulkInputTransactions,
   getFrequentDescriptions,
@@ -109,6 +114,8 @@ export default function BulkInputPage() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [markCorrectTransactionId, setMarkCorrectTransactionId] = useState<number | null>(null)
+  const [markCorrectSubmitting, setMarkCorrectSubmitting] = useState(false)
   const [residentSearchQuery, setResidentSearchQuery] = useState('')
   const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null)
   const [correctResidentSearchQuery, setCorrectResidentSearchQuery] = useState('')
@@ -132,7 +139,9 @@ export default function BulkInputPage() {
     BUSINESS_TIME_ZONE
   )
   const isCurrentMonth = year === currentYear && month === currentMonth
-  const isPastMonth = year < currentYear || (year === currentYear && month < currentMonth)
+  const isPastMonth =
+    year < currentYear || (year === currentYear && month < currentMonth)
+  const allowRowCorrectMark = isRowCorrectMarkAllowedForViewMonth(year, month)
 
   const inOutDateRange = getInOutDateRange()
 
@@ -631,13 +640,11 @@ export default function BulkInputPage() {
     }
   }
 
-  const handleCorrectTransaction = async (transactionId: number) => {
-    // 確認ダイアログ
-    if (!confirm('この取引を訂正としてマークしますか？\n訂正後、この取引は計算から除外され、印刷にも含まれません。')) {
-      return
-    }
-
+  const handleMarkCorrectConfirm = async () => {
+    if (markCorrectTransactionId == null) return
+    setMarkCorrectSubmitting(true)
     try {
+      const transactionId = markCorrectTransactionId
       const response = await fetch(`/api/transactions/${transactionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -646,16 +653,9 @@ export default function BulkInputPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
-        // データ再取得の前にキャッシュを無効化することで、確実に最新データを取得
         await invalidateTransactionCache(facilityId, undefined, year, month)
-        
-        // データを再取得（キャッシュを無効化して最新データを取得）
         await fetchBulkData(true)
-        
-        // Next.jsのサーバーコンポーネントのキャッシュも無効化
         router.refresh()
-        
         setToast({
           message: '取引を訂正としてマークしました',
           type: 'success',
@@ -675,6 +675,9 @@ export default function BulkInputPage() {
         type: 'error',
         isVisible: true,
       })
+    } finally {
+      setMarkCorrectSubmitting(false)
+      setMarkCorrectTransactionId(null)
     }
   }
 
@@ -833,6 +836,18 @@ export default function BulkInputPage() {
           onClose={() => setToast({ ...toast, isVisible: false })}
         />
 
+        <ConfirmModal
+          isOpen={markCorrectTransactionId !== null}
+          onClose={() => setMarkCorrectTransactionId(null)}
+          title="取引の訂正確認"
+          confirmLabel="訂正する"
+          onConfirm={handleMarkCorrectConfirm}
+          isSubmitting={markCorrectSubmitting}
+        >
+          <p>この取引を訂正としてマークしますか？</p>
+          <p>訂正後、この取引は計算から除外され、印刷にも含まれません。</p>
+        </ConfirmModal>
+
         {/* 明細テーブル */}
         <h2 className="text-xl font-semibold mb-4">明細</h2>
         {isLoading ? (
@@ -884,7 +899,8 @@ export default function BulkInputPage() {
                     const isIn = transaction.transactionType === 'in' || transaction.transactionType === 'correct_in' || transaction.transactionType === 'past_correct_in'
                     const isCorrect = transaction.transactionType === 'correct_in' || transaction.transactionType === 'correct_out'
                     const isPastCorrect = transaction.transactionType === 'past_correct_in' || transaction.transactionType === 'past_correct_out'
-                    const canCorrect = !isCarryOver && !isCorrect && !isPastCorrect && isCurrentMonth
+                    const canCorrect =
+                      !isCarryOver && !isCorrect && !isPastCorrect && allowRowCorrectMark
                     
                     return (
                       <tr 
@@ -965,7 +981,7 @@ export default function BulkInputPage() {
                           {canCorrect && (
                             <div className="flex gap-0.5 justify-center flex-wrap">
                                 <button
-                                  onClick={() => handleCorrectTransaction(transaction.id)}
+                                  onClick={() => setMarkCorrectTransactionId(transaction.id)}
                                   className="px-2 py-0.5 bg-orange-500 text-white text-[10px] rounded hover:bg-orange-600 shadow-sm transition-shadow"
                                   title="この取引を訂正としてマーク"
                                 >

@@ -26,6 +26,24 @@ export function getInOutDateRange(): { min: string; max: string } {
   return { min, max }
 }
 
+/**
+ * 明細行の「訂正」（in/out → correct_in/out）を UI で出してよいか。
+ * - 閲覧中の年月がカレンダー上の当月、または
+ * - 当日が10日以内で閲覧中の年月が直前の先月（前月締め後のグレース期間用）。
+ */
+export function isRowCorrectMarkAllowedForViewMonth(
+  viewYear: number,
+  viewMonth: number,
+  now: Date = new Date()
+): boolean {
+  const { year: cy, month: cm, day: cd } = getZonedCalendarParts(now, BUSINESS_TIME_ZONE)
+  if (viewYear === cy && viewMonth === cm) return true
+  if (cd > 10) return false
+  const prevY = cm === 1 ? cy - 1 : cy
+  const prevM = cm === 1 ? 12 : cm - 1
+  return viewYear === prevY && viewMonth === prevM
+}
+
 /** 取引区分の表示ラベル */
 export function getTransactionTypeLabel(type: string): string {
   switch (type) {

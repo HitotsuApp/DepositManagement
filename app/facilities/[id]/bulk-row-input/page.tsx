@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
 import Toast from '@/components/Toast'
+import ConfirmModal from '@/components/ConfirmModal'
 import { BulkInputTransactionFiltersToolbar } from '@/components/BulkInputTransactionFilters'
 import FormattedAmountInput from '@/components/FormattedAmountInput'
 import { useFacility } from '@/contexts/FacilityContext'
@@ -19,6 +20,7 @@ import {
   defaultPastCorrectDateForFacilityMonth,
   getInOutDateRange,
   getTransactionTypeLabel,
+  isRowCorrectMarkAllowedForViewMonth,
 } from '@/lib/bulkInputPageUtils'
 import {
   filterBulkInputTransactions,
@@ -145,6 +147,8 @@ export default function BulkRowInputPage() {
   }>({ message: '', type: 'info', isVisible: false })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [markCorrectTransactionId, setMarkCorrectTransactionId] = useState<number | null>(null)
+  const [markCorrectSubmitting, setMarkCorrectSubmitting] = useState(false)
   const [txnFilterExact, setTxnFilterExact] = useState('')
   const [txnFilterKeyword, setTxnFilterKeyword] = useState('')
 
@@ -154,6 +158,7 @@ export default function BulkRowInputPage() {
   )
   const isCurrentMonth = year === currentYear && month === currentMonth
   const isPastMonth = year < currentYear || (year === currentYear && month < currentMonth)
+  const allowRowCorrectMark = isRowCorrectMarkAllowedForViewMonth(year, month)
   const allowNewDrafts = isCurrentMonth || isPastMonth
   const inOutDateRange = getInOutDateRange()
 
@@ -292,48 +297,44 @@ export default function BulkRowInputPage() {
     setDraftRows((rows) => [...rows, newRow])
   }, [])
 
-  const handleCorrectTransaction = useCallback(
-    async (transactionId: number) => {
-      if (
-        !confirm(
-          'この取引を訂正としてマークしますか？\n訂正後、この取引は計算から除外され、印刷にも含まれません。'
-        )
-      ) {
-        return
-      }
-      try {
-        const response = await fetch(`/api/transactions/${transactionId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-        })
-        const data = await response.json()
-        if (response.ok) {
-          await invalidateTransactionCache(facilityId, undefined, year, month)
-          await fetchBulkData(true)
-          router.refresh()
-          setToast({
-            message: '取引を訂正としてマークしました',
-            type: 'success',
-            isVisible: true,
-          })
-        } else {
-          setToast({
-            message: data.error || '訂正の処理に失敗しました',
-            type: 'error',
-            isVisible: true,
-          })
-        }
-      } catch (e) {
-        console.error(e)
+  const handleMarkCorrectConfirm = async () => {
+    if (markCorrectTransactionId == null) return
+    setMarkCorrectSubmitting(true)
+    try {
+      const transactionId = markCorrectTransactionId
+      const response = await fetch(`/api/transactions/${transactionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await response.json()
+      if (response.ok) {
+        await invalidateTransactionCache(facilityId, undefined, year, month)
+        await fetchBulkData(true)
+        router.refresh()
         setToast({
-          message: '訂正の処理に失敗しました',
+          message: '取引を訂正としてマークしました',
+          type: 'success',
+          isVisible: true,
+        })
+      } else {
+        setToast({
+          message: data.error || '訂正の処理に失敗しました',
           type: 'error',
           isVisible: true,
         })
       }
-    },
-    [facilityId, year, month, fetchBulkData, router]
-  )
+    } catch (e) {
+      console.error(e)
+      setToast({
+        message: '訂正の処理に失敗しました',
+        type: 'error',
+        isVisible: true,
+      })
+    } finally {
+      setMarkCorrectSubmitting(false)
+      setMarkCorrectTransactionId(null)
+    }
+  }
 
   const validateDraftRow = useCallback(
     (d: DraftRow, indexOneBased: number): string | null => {
@@ -529,6 +530,18 @@ export default function BulkRowInputPage() {
           onClose={() => setToast((t) => ({ ...t, isVisible: false }))}
         />
 
+        <ConfirmModal
+          isOpen={markCorrectTransactionId !== null}
+          onClose={() => setMarkCorrectTransactionId(null)}
+          title="取引の訂正確認"
+          confirmLabel="訂正する"
+          onConfirm={handleMarkCorrectConfirm}
+          isSubmitting={markCorrectSubmitting}
+        >
+          <p>この取引を訂正としてマークしますか？</p>
+          <p>訂正後、この取引は計算から除外され、印刷にも含まれません。</p>
+        </ConfirmModal>
+
         <h2 className="text-xl font-semibold mb-4">明細</h2>
         {isLoading ? (
           <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
@@ -611,7 +624,7 @@ export default function BulkRowInputPage() {
                       !isCarryOver &&
                       !isCorrect &&
                       !isPastCorrect &&
-                      isCurrentMonth
+                      allowRowCorrectMark
 
                     return (
                       <tr
@@ -714,7 +727,7 @@ export default function BulkRowInputPage() {
                             <div className="flex gap-0.5 justify-center flex-wrap">
                               <button
                                 type="button"
-                                onClick={() => handleCorrectTransaction(transaction.id)}
+                                onClick={() => setMarkCorrectTransactionId(transaction.id)}
                                 className="px-2 py-0.5 bg-orange-500 text-white text-[10px] rounded hover:bg-orange-600 shadow-sm transition-shadow"
                                 title="この取引を訂正としてマーク"
                               >

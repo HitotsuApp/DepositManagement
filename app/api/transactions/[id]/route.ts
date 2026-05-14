@@ -3,6 +3,8 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { validateId } from '@/lib/validation'
+import { isRowCorrectMarkAllowedForViewMonth } from '@/lib/bulkInputPageUtils'
+import { BUSINESS_TIME_ZONE, getZonedCalendarParts } from '@/lib/calendarDate'
 
 export async function PATCH(
   request: Request,
@@ -48,6 +50,17 @@ export async function PATCH(
     } else if (currentTransaction.transactionType === 'out') {
       newTransactionType = 'correct_out'
     } else {
+      return NextResponse.json(
+        { error: 'この取引は訂正できません' },
+        { status: 400 }
+      )
+    }
+
+    const { year: txYear, month: txMonth } = getZonedCalendarParts(
+      new Date(currentTransaction.transactionDate),
+      BUSINESS_TIME_ZONE
+    )
+    if (!isRowCorrectMarkAllowedForViewMonth(txYear, txMonth)) {
       return NextResponse.json(
         { error: 'この取引は訂正できません' },
         { status: 400 }

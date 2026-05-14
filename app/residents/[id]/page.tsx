@@ -8,6 +8,7 @@ import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
+import ConfirmModal from '@/components/ConfirmModal'
 import Toast from '@/components/Toast'
 import FormattedAmountInput, {
   type FormattedAmountInputHandle,
@@ -18,7 +19,11 @@ import { invalidateTransactionCache } from '@/lib/cache'
 import { getResidentDisplayName } from '@/lib/displayName'
 import { halfWidthToFullWidthFormText } from '@/lib/japaneseWidth'
 import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
-import { defaultPastCorrectDateForFacilityMonth, getInOutDateRange } from '@/lib/bulkInputPageUtils'
+import {
+  defaultPastCorrectDateForFacilityMonth,
+  getInOutDateRange,
+  isRowCorrectMarkAllowedForViewMonth,
+} from '@/lib/bulkInputPageUtils'
 
 interface Transaction {
   id: number
@@ -98,6 +103,8 @@ export default function ResidentDetailPage() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [markCorrectTransactionId, setMarkCorrectTransactionId] = useState<number | null>(null)
+  const [markCorrectSubmitting, setMarkCorrectSubmitting] = useState(false)
   const [pendingTransactions, setPendingTransactions] = useState<PendingTransaction[]>([])
   const [editingPendingId, setEditingPendingId] = useState<string | null>(null)
 
@@ -116,6 +123,7 @@ export default function ResidentDetailPage() {
   )
   const isCurrentMonth = year === currentYear && month === currentMonth
   const isPastMonth = year < currentYear || (year === currentYear && month < currentMonth)
+  const allowRowCorrectMark = isRowCorrectMarkAllowedForViewMonth(year, month)
 
   const inOutDateRange = getInOutDateRange()
 
@@ -526,13 +534,11 @@ export default function ResidentDetailPage() {
     }
   }
 
-  const handleCorrectTransaction = async (transactionId: number) => {
-    // 確認ダイアログ
-    if (!confirm('この取引を訂正としてマークしますか？\n訂正後、この取引は計算から除外され、印刷にも含まれません。')) {
-      return
-    }
-
+  const handleMarkCorrectConfirm = async () => {
+    if (markCorrectTransactionId == null) return
+    setMarkCorrectSubmitting(true)
     try {
+      const transactionId = markCorrectTransactionId
       const response = await fetch(`/api/transactions/${transactionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -541,16 +547,9 @@ export default function ResidentDetailPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // 関連する画面のキャッシュを無効化（施設詳細、ダッシュボードなど）
-        // データ再取得の前にキャッシュを無効化することで、確実に最新データを取得
         await invalidateTransactionCache(residentFacilityId || undefined, residentId, year, month)
-        
-        // データを再取得（キャッシュを無効化して最新データを取得）
         await fetchResidentData(true)
-        
-        // Next.jsのサーバーコンポーネントのキャッシュも無効化
         router.refresh()
-        
         setToast({
           message: '取引を訂正としてマークしました',
           type: 'success',
@@ -570,6 +569,9 @@ export default function ResidentDetailPage() {
         type: 'error',
         isVisible: true,
       })
+    } finally {
+      setMarkCorrectSubmitting(false)
+      setMarkCorrectTransactionId(null)
     }
   }
 
@@ -649,7 +651,15 @@ export default function ResidentDetailPage() {
 
         {isPastMonth && (
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
-            <span className="text-yellow-800">🔒 締め済み　※次の月の１０日までは次の月の入金・出金で入力してください。</span>
+            <span className="text-yellow-800">
+              {allowRowCorrectMark ? (
+                <>
+                  🔒 締め済み　※当月10日までは下の一覧の「訂正」でこの月の入出金を訂正できます。新規の入出金は当月画面から入力してください。
+                </>
+              ) : (
+                <>🔒 締め済み　※次の月の１０日までは次の月の入金・出金で入力してください。</>
+              )}
+            </span>
           </div>
         )}
 
@@ -1166,6 +1176,18 @@ export default function ResidentDetailPage() {
           onClose={() => setToast({ ...toast, isVisible: false })}
         />
 
+        <ConfirmModal
+          isOpen={markCorrectTransactionId !== null}
+          onClose={() => setMarkCorrectTransactionId(null)}
+          title="取引の訂正確認"
+          confirmLabel="訂正する"
+          onConfirm={handleMarkCorrectConfirm}
+          isSubmitting={markCorrectSubmitting}
+        >
+          <p>この取引を訂正としてマークしますか？</p>
+          <p>訂正後、この取引は計算から除外され、印刷にも含まれません。</p>
+        </ConfirmModal>
+
         <h2 className="text-xl font-semibold mb-4">明細</h2>
         {isLoading ? (
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -1215,7 +1237,8 @@ export default function ResidentDetailPage() {
                     const isIn = transaction.transactionType === 'in' || transaction.transactionType === 'correct_in' || transaction.transactionType === 'past_correct_in'
                     const isCorrect = transaction.transactionType === 'correct_in' || transaction.transactionType === 'correct_out'
                     const isPastCorrect = transaction.transactionType === 'past_correct_in' || transaction.transactionType === 'past_correct_out'
-                    const canCorrect = !isCarryOver && !isCorrect && !isPastCorrect && isCurrentMonth
+                    const canCorrect =
+                      !isCarryOver && !isCorrect && !isPastCorrect && allowRowCorrectMark
                     
                     return (
                       <tr 
@@ -1281,7 +1304,7 @@ export default function ResidentDetailPage() {
                         <td className="px-4 py-3 text-center">
                           {canCorrect && (
                             <button
-                              onClick={() => handleCorrectTransaction(transaction.id)}
+                              onClick={() => setMarkCorrectTransactionId(transaction.id)}
                               className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 shadow-md hover:shadow-lg transition-shadow"
                               title="この取引を訂正としてマーク"
                             >
