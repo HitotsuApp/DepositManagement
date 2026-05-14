@@ -2,10 +2,11 @@
 
 export const runtime = 'edge'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
 import Toast from '@/components/Toast'
+import { BulkInputTransactionFiltersToolbar } from '@/components/BulkInputTransactionFilters'
 import FormattedAmountInput from '@/components/FormattedAmountInput'
 import { useFacility } from '@/contexts/FacilityContext'
 import { isValidDate } from '@/lib/validation'
@@ -19,6 +20,10 @@ import {
   getInOutDateRange,
   getTransactionTypeLabel,
 } from '@/lib/bulkInputPageUtils'
+import {
+  filterBulkInputTransactions,
+  getFrequentDescriptions,
+} from '@/lib/bulkInputTransactionFilters'
 import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
 
 interface Transaction {
@@ -140,6 +145,8 @@ export default function BulkRowInputPage() {
   }>({ message: '', type: 'info', isVisible: false })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [txnFilterExact, setTxnFilterExact] = useState('')
+  const [txnFilterKeyword, setTxnFilterKeyword] = useState('')
 
   const { year: currentYear, month: currentMonth } = getZonedCalendarParts(
     new Date(),
@@ -226,6 +233,26 @@ export default function BulkRowInputPage() {
   useEffect(() => {
     fetchBulkData()
   }, [fetchBulkData])
+
+  useEffect(() => {
+    setTxnFilterExact('')
+    setTxnFilterKeyword('')
+  }, [facilityId, year, month])
+
+  const frequentDescriptions = useMemo(
+    () => getFrequentDescriptions(transactions),
+    [transactions]
+  )
+
+  const displayTransactions = useMemo(
+    () =>
+      filterBulkInputTransactions(transactions, {
+        exactDescription: txnFilterExact || null,
+        keyword: txnFilterKeyword,
+        alwaysIncludeCarryOver: true,
+      }),
+    [transactions, txnFilterExact, txnFilterKeyword]
+  )
 
   const patchDraft = useCallback((id: string, partial: Partial<DraftRow>) => {
     setDraftRows((rows) =>
@@ -509,6 +536,15 @@ export default function BulkRowInputPage() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <BulkInputTransactionFiltersToolbar
+              frequentDescriptions={frequentDescriptions}
+              exactDescription={txnFilterExact}
+              onExactDescriptionChange={setTxnFilterExact}
+              keyword={txnFilterKeyword}
+              onKeywordChange={setTxnFilterKeyword}
+              displayCount={displayTransactions.length + draftRows.length}
+              totalCount={transactions.length + draftRows.length}
+            />
             <div className="overflow-x-auto">
               <table className="w-full min-w-[56rem]">
                 <thead className="bg-gray-100">
@@ -547,7 +583,19 @@ export default function BulkRowInputPage() {
                     </tr>
                   ) : null}
 
-                  {transactions.map((transaction) => {
+                  {(transactions.length > 0 || draftRows.length > 0) && (
+                    <>
+                      {transactions.length > 0 &&
+                      displayTransactions.length === 0 &&
+                      draftRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                            条件に該当する明細がありません。検索・絞り込みを変更してください。
+                          </td>
+                        </tr>
+                      ) : null}
+
+                      {displayTransactions.map((transaction) => {
                     const isCarryOver = transaction.isCarryOver === true
                     const isIn =
                       transaction.transactionType === 'in' ||
@@ -875,6 +923,8 @@ export default function BulkRowInputPage() {
                       </tr>
                     )
                   })}
+                    </>
+                  )}
 
                   {allowNewDrafts && (
                     <tr className="border-t bg-gray-50">

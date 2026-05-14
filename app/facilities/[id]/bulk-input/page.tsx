@@ -2,11 +2,12 @@
 
 export const runtime = 'edge';
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import MainLayout from '@/components/MainLayout'
 import Modal from '@/components/Modal'
 import Toast from '@/components/Toast'
+import { BulkInputTransactionFiltersToolbar } from '@/components/BulkInputTransactionFilters'
 import FormattedAmountInput, {
   type FormattedAmountInputHandle,
 } from '@/components/FormattedAmountInput'
@@ -17,6 +18,10 @@ import { getResidentDisplayName } from '@/lib/displayName'
 import { halfWidthToFullWidthFormText } from '@/lib/japaneseWidth'
 import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
 import { defaultPastCorrectDateForFacilityMonth, getInOutDateRange } from '@/lib/bulkInputPageUtils'
+import {
+  filterBulkInputTransactions,
+  getFrequentDescriptions,
+} from '@/lib/bulkInputTransactionFilters'
 
 interface Transaction {
   id: number
@@ -110,6 +115,8 @@ export default function BulkInputPage() {
   const [selectedCorrectUnitId, setSelectedCorrectUnitId] = useState<number | null>(null)
   const [pendingTransactions, setPendingTransactions] = useState<PendingTransaction[]>([])
   const [editingPendingId, setEditingPendingId] = useState<string | null>(null)
+  const [txnFilterExact, setTxnFilterExact] = useState('')
+  const [txnFilterKeyword, setTxnFilterKeyword] = useState('')
 
   const inOutAmountInputRef = useRef<FormattedAmountInputHandle>(null)
   const correctAmountInputRef = useRef<FormattedAmountInputHandle>(null)
@@ -132,6 +139,26 @@ export default function BulkInputPage() {
   useEffect(() => {
     fetchBulkData()
   }, [facilityId, year, month])
+
+  useEffect(() => {
+    setTxnFilterExact('')
+    setTxnFilterKeyword('')
+  }, [facilityId, year, month])
+
+  const frequentDescriptions = useMemo(
+    () => getFrequentDescriptions(transactions),
+    [transactions]
+  )
+
+  const displayTransactions = useMemo(
+    () =>
+      filterBulkInputTransactions(transactions, {
+        exactDescription: txnFilterExact || null,
+        keyword: txnFilterKeyword,
+        alwaysIncludeCarryOver: true,
+      }),
+    [transactions, txnFilterExact, txnFilterKeyword]
+  )
 
   const fetchBulkData = async (skipCache = false) => {
     setIsLoading(true)
@@ -814,6 +841,15 @@ export default function BulkInputPage() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <BulkInputTransactionFiltersToolbar
+              frequentDescriptions={frequentDescriptions}
+              exactDescription={txnFilterExact}
+              onExactDescriptionChange={setTxnFilterExact}
+              keyword={txnFilterKeyword}
+              onKeywordChange={setTxnFilterKeyword}
+              displayCount={displayTransactions.length}
+              totalCount={transactions.length}
+            />
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-100">
@@ -836,8 +872,14 @@ export default function BulkInputPage() {
                         明細がありません
                       </td>
                     </tr>
+                  ) : displayTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                        条件に該当する明細がありません。検索・絞り込みを変更してください。
+                      </td>
+                    </tr>
                   ) : (
-                  transactions.map((transaction) => {
+                  displayTransactions.map((transaction) => {
                     const isCarryOver = transaction.isCarryOver === true
                     const isIn = transaction.transactionType === 'in' || transaction.transactionType === 'correct_in' || transaction.transactionType === 'past_correct_in'
                     const isCorrect = transaction.transactionType === 'correct_in' || transaction.transactionType === 'correct_out'
