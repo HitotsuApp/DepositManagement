@@ -12,6 +12,7 @@ import {
   chunkDepositStatementRows,
   chunkResidentStatementRows,
   COMPACT_DATA_ROW_PADDING_VERTICAL,
+  DEPOSIT_LABEL_WRAP_DISPLAY_UNITS,
   DEPOSIT_REPORT_COMPACT_CHUNK_OPTS,
   FAMILY_COMPACT_TABLE_MARGIN_TOP_PT,
   getPageHeightPt,
@@ -78,9 +79,6 @@ interface Template {
   }
 }
 
-/** 摘要列幅26%に合わせた表示幅単位（20%時22から比率換算） */
-const DEPOSIT_LABEL_WRAP_UNITS = 29
-
 const renderPages = (
   template: Template,
   data: Record<string, any>,
@@ -140,13 +138,14 @@ const renderPages = (
         <TableBlock
           table={table}
           data={{ ...data, transactions: pageRows }}
-          wrapColumnUnits={isDeposit ? { label: DEPOSIT_LABEL_WRAP_UNITS } : undefined}
+          wrapColumnUnits={isDeposit ? { label: DEPOSIT_LABEL_WRAP_DISPLAY_UNITS } : undefined}
           summary={template.summary}
           showSummary={pageIndex === pages.length - 1}
           dataRowPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
           tableMarginTop={FAMILY_COMPACT_TABLE_MARGIN_TOP_PT}
           headerPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
           summaryPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
+          showColumnHeader={!isDeposit || pageIndex === 0}
         />
       )}
 

@@ -30,3 +30,11 @@ export function wrapTextByDisplayWidth(text: string, maxUnitsPerLine: number): s
   if (current.length > 0) lines.push(current)
   return lines.join("\n")
 }
+
+/** `wrapTextByDisplayWidth` と同じ規則で折り返したときの行数（最低1行） */
+export function countWrappedLines(text: string, maxUnitsPerLine: number): number {
+  if (maxUnitsPerLine < 1) return 1
+  const wrapped = wrapTextByDisplayWidth(text, maxUnitsPerLine)
+  if (wrapped.length === 0) return 1
+  return wrapped.split(/\n/).length
+}

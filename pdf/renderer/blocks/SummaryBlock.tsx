@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   containerDense: {
-    marginTop: 6,
+    marginTop:0,
   },
   /** ラベルと金額を同一行にし、ページ途中で分割されないよう wrap=false と併用 */
   grandTotalRow: {

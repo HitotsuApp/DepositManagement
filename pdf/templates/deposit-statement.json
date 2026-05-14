@@ -6,10 +6,10 @@
     "paper": "A4",
     "orientation": "portrait",
     "margin": {
-      "top": 6,
-      "right": 20,
+      "top": 12,
+      "right": 42.52,
       "bottom": 0,
-      "left": 20
+      "left": 42.52
     }
   },
   "header": {
@@ -36,12 +36,12 @@
       "id": "deposit-details",
       "columns": [
         { "key": "category", "label": "種別", "width": 9 },
-        { "key": "userName", "label": "利用者名", "width": 18 },
+        { "key": "userName", "label": "利用者名", "width": 14 },
         { "key": "date", "label": "日付", "width": 7 },
-        { "key": "label", "label": "摘要", "width": 26 },
-        { "key": "payee", "label": "支払先", "width": 20 },
-        { "key": "income", "label": "入金", "width": 10, "align": "right" },
-        { "key": "expense", "label": "出金", "width": 10, "align": "right" }
+        { "key": "label", "label": "摘要", "width": 30 },
+        { "key": "payee", "label": "支払先", "width": 24 },
+        { "key": "income", "label": "入金", "width": 8, "align": "right" },
+        { "key": "expense", "label": "出金", "width": 8, "align": "right" }
       ],
       "dataSource": "transactions"
     }

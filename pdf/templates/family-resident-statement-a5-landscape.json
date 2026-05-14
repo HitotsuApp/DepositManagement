@@ -6,10 +6,10 @@
     "paper": "A5",
     "orientation": "landscape",
     "margin": {
-      "top": 6,
-      "right": 20,
+      "top": 12,
+      "right": 42.52,
       "bottom": 0,
-      "left": 20
+      "left": 42.52
     }
   },
   "header": {
@@ -45,10 +45,10 @@
         { "key": "date", "label": "日付", "width": 9 },
         { "key": "type", "label": "区分", "width": 12 },
         { "key": "label", "label": "摘要", "width": 29 },
-        { "key": "payee", "label": "支払先", "width": 20 },
-        { "key": "income", "label": "入金", "width": 15, "align": "right" },
-        { "key": "expense", "label": "出金", "width": 15, "align": "right" },
-        { "key": "balance", "label": "残高", "width": 15, "align": "right" }
+        { "key": "payee", "label": "支払先", "width": 15 },
+        { "key": "income", "label": "入金", "width": 11, "align": "right" },
+        { "key": "expense", "label": "出金", "width": 11, "align": "right" },
+        { "key": "balance", "label": "残高", "width": 13, "align": "right" }
       ],
       "dataSource": "transactions"
     }

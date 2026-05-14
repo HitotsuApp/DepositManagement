@@ -9,6 +9,7 @@ import {
   chunkDepositStatementRows,
   chunkResidentStatementRows,
   COMPACT_DATA_ROW_PADDING_VERTICAL,
+  DEPOSIT_LABEL_WRAP_DISPLAY_UNITS,
   DEPOSIT_REPORT_COMPACT_CHUNK_OPTS,
   FAMILY_COMPACT_TABLE_MARGIN_TOP_PT,
   getPageHeightPt,
@@ -95,9 +96,6 @@ interface PdfRendererProps {
   data: Record<string, any>
 }
 
-/** 摘要列（26%幅）向け：半角1・全角2の表示幅で折り返し（列幅20%時22に合わせた比率） */
-const DEPOSIT_LABEL_WRAP_UNITS = 29
-
 export const PdfRenderer = ({ template, data }: PdfRendererProps) => {
   const transactions = data.transactions ?? []
   const isDeposit = template.templateId === "deposit-statement"
@@ -168,13 +166,14 @@ export const PdfRenderer = ({ template, data }: PdfRendererProps) => {
             <TableBlock
               table={table}
               data={{ ...data, transactions: pageRows }}
-              wrapColumnUnits={isDeposit ? { label: DEPOSIT_LABEL_WRAP_UNITS } : undefined}
+              wrapColumnUnits={isDeposit ? { label: DEPOSIT_LABEL_WRAP_DISPLAY_UNITS } : undefined}
               summary={template.summary}
               showSummary={pageIndex === pages.length - 1}
               dataRowPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
               tableMarginTop={FAMILY_COMPACT_TABLE_MARGIN_TOP_PT}
               headerPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
               summaryPaddingVertical={COMPACT_DATA_ROW_PADDING_VERTICAL}
+              showColumnHeader={!isDeposit || pageIndex === 0}
             />
           )}
 

@@ -30,6 +30,8 @@ interface TableBlockProps {
   summaryPaddingVertical?: number
   /** 明細データ行の paddingVertical（省略時は 2）。1 にすると行高が詰まる */
   dataRowPaddingVertical?: number
+  /** false のとき列見出し行を出さない（続きページ用）。true が既定 */
+  showColumnHeader?: boolean
   /** 列キーごとに、1行あたりの表示幅（半角=1・全角相当=2）で折り返す */
   wrapColumnUnits?: Partial<Record<string, number>>
   summary?: {
@@ -53,6 +55,7 @@ const TableBlock = ({
   wrapColumnUnits,
   summary,
   showSummary,
+  showColumnHeader = true,
 }: TableBlockProps) => {
   const rows = data[table.dataSource] ?? []
 
@@ -87,27 +90,38 @@ const TableBlock = ({
 
   return (
     <View style={[styles.table, { marginTop }]}>
-      {/* ヘッダー */}
-      <View style={[styles.headerRow, { paddingVertical: headerPv }]}>
-        {table.columns.map((col, colIndex) => (
-          <View
-            key={col.key}
-            style={[
-              styles.headerCellContainer,
-              { width: `${col.width}%` },
-              ...(colIndex < table.columns.length - 1 ? [styles.cellBorderRight] : []),
-            ]}
-          >
-            <Text style={styles.headerCell}>
-              {col.label}
-            </Text>
-          </View>
-        ))}
-      </View>
+      {/* 列見出し */}
+      {showColumnHeader && (
+        <View style={[styles.headerRow, { paddingVertical: headerPv }]}>
+          {table.columns.map((col, colIndex) => (
+            <View
+              key={col.key}
+              style={[
+                styles.headerCellContainer,
+                { width: `${col.width}%` },
+                ...(colIndex < table.columns.length - 1 ? [styles.cellBorderRight] : []),
+              ]}
+            >
+              <Text style={styles.headerCell}>
+                {col.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* ボディ */}
       {rows.map((row: Record<string, any>, i: number) => (
-        <View key={i} style={[styles.row, { paddingVertical: rowPv }]}>
+        <View
+          key={i}
+          style={[
+            styles.row,
+            { paddingVertical: rowPv },
+            ...(!showColumnHeader && i === 0
+              ? [styles.rowFirstNoColHeader]
+              : []),
+          ]}
+        >
           {table.columns.map((col, colIndex) => {
             const raw = row[col.key]
             const wrapped =
@@ -200,6 +214,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     borderBottom: "1px solid #ccc",
+  },
+  /** 列見出しが無い続きページ先頭行：表頭相当の上罫線 */
+  rowFirstNoColHeader: {
+    borderTop: "2px solid #000",
   },
   cellContainer: {
     paddingHorizontal: 4,
