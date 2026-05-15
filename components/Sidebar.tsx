@@ -31,9 +31,14 @@ export default function Sidebar() {
   }, [pathname])
 
   useEffect(() => {
-    fetch('/api/facilities')
-      .then(res => res.json())
-      .then(data => {
+    fetch('/api/facilities', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!Array.isArray(data)) {
+          console.error('Sidebar: /api/facilities did not return an array', data)
+          setFacilities([])
+          return
+        }
         const activeFacilities = data.filter((f: Facility) => f.isActive)
         // 施設が選択されている場合、その施設のみを表示
         if (selectedFacilityId !== null) {

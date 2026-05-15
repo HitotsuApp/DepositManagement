@@ -50,7 +50,6 @@ export default function FacilityDetailPage() {
   const [isSummaryLoading, setIsSummaryLoading] = useState(true)
   const [isResidentsLoading, setIsResidentsLoading] = useState(false)
 
-  const skipDupAfterStripRef = useRef(false)
   const silentRefetchAtRef = useRef(0)
   const residentsAbortRef = useRef<AbortController | null>(null)
   const selectedUnitIdRef = useRef<number | null>(null)
@@ -166,13 +165,7 @@ export default function FacilityDetailPage() {
       !searchParams.get('year') ||
       !searchParams.get('month')
 
-    if (!shouldSkipCache && skipDupAfterStripRef.current) {
-      skipDupAfterStripRef.current = false
-      return
-    }
-
     if (hasTimestamp) {
-      skipDupAfterStripRef.current = true
       const p = new URLSearchParams(searchParams.toString())
       p.delete('_t')
       const qs = p.toString()
