@@ -9,9 +9,12 @@ const connectionString = process.env.DATABASE_URL
 if (!connectionString) throw new Error('DATABASE_URL is not set')
 
 /**
- * - 開発: HMR や短時間に複数リクエストが走るため global に1本キャッシュする。
- * - 本番（Edge / サーバーレス）: ワーカー再開後も global の接続が古いまま残り
- *   クエリ失敗（施設・ユニット取得エラー等）になることがあるため、都度作り直す。
+ * Isolate（サーバレスワーカー）あたり 1 本の PrismaClient + Pool を再利用する。
+ *
+ * `.env`: `PRISMA_NEW_CLIENT_EACH_REQUEST=true` のときのみ、従来どおりリクエストごとに
+ * Client を生成する（接続トラブル切り分け・緊急ロールバック用）。
+ *
+ * Neon サーバレスでは DATABASE_URL に **プーラー用ホスト**（`-pooler`）を推奨。README を参照。
  */
 const globalForPrisma = globalThis as typeof globalThis & {
   __prisma?: PrismaClient
@@ -23,14 +26,16 @@ function createPrisma(): PrismaClient {
   return new PrismaClient({ adapter })
 }
 
-const isDev = process.env.NODE_ENV === 'development'
+const newClientEachRequest =
+  process.env.PRISMA_NEW_CLIENT_EACH_REQUEST === 'true' ||
+  process.env.PRISMA_FORCE_NEW_CLIENT_EACH_REQUEST === 'true'
 
 export const getPrisma = (): PrismaClient => {
-  if (isDev) {
-    if (!globalForPrisma.__prisma) {
-      globalForPrisma.__prisma = createPrisma()
-    }
-    return globalForPrisma.__prisma
+  if (newClientEachRequest) {
+    return createPrisma()
   }
-  return createPrisma()
+  if (!globalForPrisma.__prisma) {
+    globalForPrisma.__prisma = createPrisma()
+  }
+  return globalForPrisma.__prisma
 }

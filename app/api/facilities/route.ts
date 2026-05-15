@@ -15,15 +15,18 @@ export async function GET(request: Request) {
     const facilities = await prisma.facility.findMany({
       where: {
         ...(includeInactive ? {} : { isActive: true }),
-        ...(facilityId ? { id: facilityId } : {}),
+        ...(facilityId && Number.isInteger(facilityId) && facilityId > 0 ? { id: facilityId } : {}),
       },
       orderBy: { sortOrder: 'asc' },
     })
     
     const response = NextResponse.json(facilities)
-    
-    // マスタ管理の更新直後に古い一覧が返らないように、キャッシュを無効化
-    response.headers.set('Cache-Control', 'no-store')
+
+    // 全ユーザー共通 URL。共有キャッシュの最大遅れを抑えるため s-maxage は短め。
+    response.headers.set(
+      'Cache-Control',
+      'public, s-maxage=60, stale-while-revalidate=120'
+    )
     
     return response
   } catch (error) {

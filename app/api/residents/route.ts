@@ -15,13 +15,17 @@ export async function GET(request: Request) {
     const includeInactive = searchParams.get('includeInactive') === 'true'
     const facilityIdParam = searchParams.get('facilityId')
     const facilityId = facilityIdParam ? Number(facilityIdParam) : null
+    const facilityScoped =
+      facilityId != null &&
+      Number.isInteger(facilityId) &&
+      facilityId > 0
 
     console.time('main-query')
     // 必要なフィールドのみをselectで取得
     const residents = await prisma.resident.findMany({
       where: {
         ...(includeInactive ? {} : { isActive: true }),
-        ...(facilityId ? { facilityId } : {}),
+        ...(facilityScoped ? { facilityId } : {}),
       },
       select: {
         id: true,
@@ -54,9 +58,13 @@ export async function GET(request: Request) {
     console.timeEnd('main-query')
 
     const response = NextResponse.json(residents)
-    
-    // マスタ管理の更新直後に古い一覧が返らないように、キャッシュを無効化
-    response.headers.set('Cache-Control', 'no-store')
+
+    response.headers.set(
+      'Cache-Control',
+      facilityScoped
+        ? 'public, s-maxage=90, stale-while-revalidate=180'
+        : 'public, s-maxage=60, stale-while-revalidate=120'
+    )
     
     return response
   } catch (error) {
