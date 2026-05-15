@@ -64,7 +64,9 @@ export async function invalidateTransactionCache(
   // 施設詳細
   if (facilityId && year && month) {
     paths.push(`/api/facilities/${facilityId}?year=${year}&month=${month}`)
-    paths.push(`/api/facilities/${facilityId}/transactions?year=${year}&month=${month}`)
+    paths.push(
+      `/api/facilities/${facilityId}/transactions?year=${year}&month=${month}&limit=20`
+    )
   }
   
   // 利用者詳細
@@ -88,7 +90,9 @@ export async function invalidateTransactionCacheForResidents(
 
   paths.push(`/api/dashboard?year=${year}&month=${month}&facilityId=${facilityId}`)
   paths.push(`/api/facilities/${facilityId}?year=${year}&month=${month}`)
-  paths.push(`/api/facilities/${facilityId}/transactions?year=${year}&month=${month}`)
+  paths.push(
+    `/api/facilities/${facilityId}/transactions?year=${year}&month=${month}&limit=20`
+  )
 
   for (const rid of new Set(residentIds)) {
     paths.push(`/api/residents/${rid}?year=${year}&month=${month}`)

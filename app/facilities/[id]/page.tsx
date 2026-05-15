@@ -8,6 +8,7 @@ import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
 import { useFacility } from '@/contexts/FacilityContext'
+import { getFacilityTransactionsChunk1Path } from '@/lib/bulkFacilityTransactionsFetch'
 import { getResidentDisplayName } from '@/lib/displayName'
 
 interface UnitSummary {
@@ -67,9 +68,7 @@ export default function FacilityDetailPage() {
         fetch(`/api/facilities/${facilityId}`).catch(() => null),
         fetch(`/api/residents?facilityId=${facilityId}`).catch(() => null),
         fetch(`/api/units?facilityId=${facilityId}`).catch(() => null),
-        fetch(
-          `/api/facilities/${facilityId}/transactions?year=${year}&month=${month}`
-        ).catch(() => null),
+        fetch(getFacilityTransactionsChunk1Path(facilityId, year, month)).catch(() => null),
       ])
     } catch (error) {
       console.debug('Prefetch error (ignored):', error)

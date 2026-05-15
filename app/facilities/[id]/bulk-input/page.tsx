@@ -27,23 +27,10 @@ import {
   filterBulkInputTransactions,
   getFrequentDescriptions,
 } from '@/lib/bulkInputTransactionFilters'
-
-interface Transaction {
-  id: number
-  transactionDate: string
-  transactionType: string
-  amount: number
-  description: string | null
-  payee: string | null
-  reason: string | null
-  balance: number
-  /** その行の時点での施設全体の預り金合計 */
-  facilityBalance: number
-  residentId: number
-  residentName: string
-  /** API が合成する「前月より繰越」行（施設合計・DB には存在しない） */
-  isCarryOver?: boolean
-}
+import {
+  fetchMergedFacilityTransactions,
+  type FacilityTransactionPayload,
+} from '@/lib/bulkFacilityTransactionsFetch'
 
 interface TransactionFormData {
   residentId: string
@@ -86,7 +73,7 @@ export default function BulkInputPage() {
   })
   
   const [facilityName, setFacilityName] = useState('')
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactions, setTransactions] = useState<FacilityTransactionPayload[]>([])
   const [residents, setResidents] = useState<{
     id: number
     name: string
@@ -146,7 +133,9 @@ export default function BulkInputPage() {
   const inOutDateRange = getInOutDateRange()
 
   useEffect(() => {
-    fetchBulkData()
+    const ac = new AbortController()
+    void fetchBulkData(false, ac.signal)
+    return () => ac.abort()
   }, [facilityId, year, month])
 
   useEffect(() => {
@@ -169,18 +158,18 @@ export default function BulkInputPage() {
     [transactions, txnFilterExact, txnFilterKeyword]
   )
 
-  const fetchBulkData = async (skipCache = false) => {
+  const fetchBulkData = async (skipCache = false, signal?: AbortSignal) => {
     setIsLoading(true)
     console.log('🚀 [パフォーマンス計測] まとめて入力画面のデータ取得を開始')
     console.time('📊 まとめて入力画面 - データ取得全体')
     try {
-      // キャッシュを無効化するオプション
       const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
+      const reqInit: RequestInit = signal ? { ...fetchOptions, signal } : fetchOptions
 
       // 施設情報を取得
       console.log('🏢 [パフォーマンス計測] 施設情報取得を開始')
       console.time('🏢 施設情報取得')
-      const facilityResponse = await fetch(`/api/facilities/${facilityId}`, fetchOptions)
+      const facilityResponse = await fetch(`/api/facilities/${facilityId}`, reqInit)
       const facilityData = await facilityResponse.json()
       console.timeEnd('🏢 施設情報取得')
       setFacilityName(facilityData.name || '')
@@ -188,7 +177,7 @@ export default function BulkInputPage() {
       // 施設内の全利用者を取得
       console.log('👥 [パフォーマンス計測] 利用者一覧取得を開始')
       console.time('👥 利用者一覧取得')
-      const residentsResponse = await fetch(`/api/residents?facilityId=${facilityId}`, fetchOptions)
+      const residentsResponse = await fetch(`/api/residents?facilityId=${facilityId}`, reqInit)
       const residentsData = await residentsResponse.json()
       console.timeEnd('👥 利用者一覧取得')
       setResidents(residentsData.map((r: {
@@ -210,7 +199,7 @@ export default function BulkInputPage() {
       // 施設内の全ユニットを取得
       console.log('🏠 [パフォーマンス計測] ユニット一覧取得を開始')
       console.time('🏠 ユニット一覧取得')
-      const unitsResponse = await fetch(`/api/units?facilityId=${facilityId}`, fetchOptions)
+      const unitsResponse = await fetch(`/api/units?facilityId=${facilityId}`, reqInit)
       const unitsData = await unitsResponse.json()
       console.timeEnd('🏠 ユニット一覧取得')
       setUnits(unitsData.map((u: { id: number; name: string }) => ({
@@ -218,19 +207,23 @@ export default function BulkInputPage() {
         name: u.name,
       })).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)))
 
-      // 施設内の全利用者の取引を取得（最も重い処理）
+      // 施設内の全利用者の取引を取得（チャンク1→hasMore 時のみ継続取得）
       console.log('💰 [パフォーマンス計測] 取引一覧取得を開始（最重要）')
       console.time('💰 取引一覧取得（最重要）')
-      const transactionsResponse = await fetch(
-        `/api/facilities/${facilityId}/transactions?year=${year}&month=${month}`,
-        fetchOptions
-      )
-      const transactionsData = await transactionsResponse.json()
+      const merged = await fetchMergedFacilityTransactions(facilityId, year, month, reqInit)
       console.timeEnd('💰 取引一覧取得（最重要）')
-      setTransactions(transactionsData.transactions || [])
+      setTransactions(merged)
       
       console.log('✅ [パフォーマンス計測] すべてのデータ取得が完了')
     } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'name' in error &&
+        (error as DOMException).name === 'AbortError'
+      ) {
+        return
+      }
       console.error('❌ [パフォーマンス計測] データ取得エラー:', error)
       setToast({
         message: 'データの取得に失敗しました',
@@ -239,7 +232,9 @@ export default function BulkInputPage() {
       })
     } finally {
       console.timeEnd('📊 まとめて入力画面 - データ取得全体')
-      setIsLoading(false)
+      if (!signal?.aborted) {
+        setIsLoading(false)
+      }
     }
   }
 
@@ -683,7 +678,7 @@ export default function BulkInputPage() {
 
   // 明細テーブルの「訂正」対象行を元に、新規の入金/出金フォームを立ち上げる
   // 要望: 区分/対象日/内容/支払先 をコピー、利用者と金額は空にする
-  const handleCopyFromTransaction = (transaction: Transaction) => {
+  const handleCopyFromTransaction = (transaction: FacilityTransactionPayload) => {
     if (transaction.isCarryOver) return
     // canCorrect の表示条件から in/out の想定だが、念のためガード
     if (transaction.transactionType !== 'in' && transaction.transactionType !== 'out') {

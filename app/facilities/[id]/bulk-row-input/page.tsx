@@ -26,22 +26,11 @@ import {
   filterBulkInputTransactions,
   getFrequentDescriptions,
 } from '@/lib/bulkInputTransactionFilters'
+import {
+  fetchMergedFacilityTransactions,
+  type FacilityTransactionPayload,
+} from '@/lib/bulkFacilityTransactionsFetch'
 import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
-
-interface Transaction {
-  id: number
-  transactionDate: string
-  transactionType: string
-  amount: number
-  description: string | null
-  payee: string | null
-  reason: string | null
-  balance: number
-  facilityBalance: number
-  residentId: number
-  residentName: string
-  isCarryOver?: boolean
-}
 
 type Resident = {
   id: number
@@ -136,7 +125,7 @@ export default function BulkRowInputPage() {
     Number(searchParams.get('month')) || jpNow.month
 
   const [facilityName, setFacilityName] = useState('')
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactions, setTransactions] = useState<FacilityTransactionPayload[]>([])
   const [residents, setResidents] = useState<Resident[]>([])
   const [units, setUnits] = useState<{ id: number; name: string }[]>([])
   const [draftRows, setDraftRows] = useState<DraftRow[]>([])
@@ -166,20 +155,21 @@ export default function BulkRowInputPage() {
     selectedFacilityId !== null && selectedFacilityId !== facilityId
 
   const fetchBulkData = useCallback(
-    async (skipCache = false) => {
+    async (skipCache = false, signal?: AbortSignal) => {
       setIsLoading(true)
       const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
+      const reqInit: RequestInit = signal ? { ...fetchOptions, signal } : fetchOptions
       try {
         const facilityResponse = await fetch(
           `/api/facilities/${facilityId}`,
-          fetchOptions
+          reqInit
         )
         const facilityData = await facilityResponse.json()
         setFacilityName(facilityData.name || '')
 
         const residentsResponse = await fetch(
           `/api/residents?facilityId=${facilityId}`,
-          fetchOptions
+          reqInit
         )
         const residentsData = await residentsResponse.json()
         setResidents(
@@ -204,7 +194,7 @@ export default function BulkRowInputPage() {
 
         const unitsResponse = await fetch(
           `/api/units?facilityId=${facilityId}`,
-          fetchOptions
+          reqInit
         )
         const unitsData = await unitsResponse.json()
         setUnits(
@@ -215,13 +205,22 @@ export default function BulkRowInputPage() {
             )
         )
 
-        const transactionsResponse = await fetch(
-          `/api/facilities/${facilityId}/transactions?year=${year}&month=${month}`,
-          fetchOptions
+        const merged = await fetchMergedFacilityTransactions(
+          facilityId,
+          year,
+          month,
+          reqInit
         )
-        const transactionsData = await transactionsResponse.json()
-        setTransactions(transactionsData.transactions || [])
+        setTransactions(merged)
       } catch (e) {
+        if (
+          typeof e === 'object' &&
+          e !== null &&
+          'name' in e &&
+          (e as DOMException).name === 'AbortError'
+        ) {
+          return
+        }
         console.error(e)
         setToast({
           message: 'データの取得に失敗しました',
@@ -229,15 +228,19 @@ export default function BulkRowInputPage() {
           isVisible: true,
         })
       } finally {
-        setIsLoading(false)
+        if (!signal?.aborted) {
+          setIsLoading(false)
+        }
       }
     },
     [facilityId, year, month]
   )
 
   useEffect(() => {
-    fetchBulkData()
-  }, [fetchBulkData])
+    const ac = new AbortController()
+    void fetchBulkData(false, ac.signal)
+    return () => ac.abort()
+  }, [facilityId, year, month, fetchBulkData])
 
   useEffect(() => {
     setTxnFilterExact('')
@@ -273,7 +276,7 @@ export default function BulkRowInputPage() {
     setDraftRows((rows) => rows.filter((r) => r.id !== id))
   }, [])
 
-  const copyFullFromTransaction = useCallback((transaction: Transaction) => {
+  const copyFullFromTransaction = useCallback((transaction: FacilityTransactionPayload) => {
     if (transaction.isCarryOver) return
     if (transaction.transactionType !== 'in' && transaction.transactionType !== 'out') {
       return
