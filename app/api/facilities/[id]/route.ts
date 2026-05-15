@@ -22,7 +22,27 @@ export async function GET(
     const month = searchParams.get('month')
     // 施設詳細画面用のリクエスト（yearとmonthが指定されている場合）
     if (year && month) {
-      // ユニット別・施設合計のみ。利用者一覧は /resident-summaries で取得する。
+      const yearNum = Number(year)
+      const monthNum = Number(month)
+      if (
+        !Number.isInteger(yearNum) ||
+        yearNum < 1970 ||
+        yearNum > 2100 ||
+        !Number.isInteger(monthNum) ||
+        monthNum < 1 ||
+        monthNum > 12
+      ) {
+        return NextResponse.json(
+          { error: 'year, month が不正です' },
+          { status: 400 }
+        )
+      }
+
+      const targetDate = new Date(yearNum, monthNum, 0, 23, 59, 59, 999)
+      if (Number.isNaN(targetDate.getTime())) {
+        return NextResponse.json({ error: '指定日付が無効です' }, { status: 400 })
+      }
+
       const facility = await prisma.facility.findUnique({
         where: { id: facilityId },
         select: {
@@ -49,7 +69,6 @@ export async function GET(
       }
 
       // ユニット別・利用者別・施設別の残高をDB側で一括集計（パフォーマンス最適化）
-      const targetDate = new Date(Number(year), Number(month), 0, 23, 59, 59, 999)
       interface BalanceRow {
         unitId: number | null
         residentId: number
