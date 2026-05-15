@@ -3,7 +3,6 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { validateId, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
-import { sortResidentsForDisplay, type SortableResident, type SortableUnit } from '@/lib/sortOrder'
 
 export async function GET(
   request: Request,
@@ -21,19 +20,14 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const year = searchParams.get('year')
     const month = searchParams.get('month')
-    const unitId = searchParams.get('unitId')
-
     // 施設詳細画面用のリクエスト（yearとmonthが指定されている場合）
     if (year && month) {
-      // ユニット別合計の計算には全ての利用者が必要なため、unitIdでフィルタリングせずに取得
-      // select を使用して必要なフィールドのみを取得（パフォーマンス最適化）
+      // ユニット別・施設合計のみ。利用者一覧は /resident-summaries で取得する。
       const facility = await prisma.facility.findUnique({
         where: { id: facilityId },
         select: {
           id: true,
           name: true,
-          useUnitOrderForPrint: true,
-          residentDisplaySortMode: true,
           units: {
             where: { 
               isActive: true,
@@ -46,24 +40,6 @@ export async function GET(
               printSortOrder: true,
             },
             orderBy: [{ displaySortOrder: 'asc' }, { id: 'asc' }],
-          },
-          residents: {
-            where: {
-              isActive: true,
-              endDate: null, // 終了日が設定されていない利用者のみ
-              facilityId: facilityId, // 明示的に施設IDでフィルタリング
-            },
-            select: {
-              id: true,
-              name: true,
-              nameFurigana: true,
-              unitId: true,
-              displaySortOrder: true,
-              printSortOrder: true,
-              displayNamePrefix: true,
-              namePrefixDisplayOption: true,
-            },
-            orderBy: [{ id: 'asc' }], // ソートはメモリで実施
           },
         },
       })
@@ -101,15 +77,13 @@ export async function GET(
         GROUP BY r."unitId", r.id
       `
 
-      // ユニット別合計と利用者別残高を計算
+      // ユニット別合計と施設合計
       const unitBalancesMap = new Map<number, number>()
-      const residentBalancesMap = new Map<number, number>()
       let facilityTotal = 0
 
       balancesRaw.forEach(row => {
         const balance = Number(row.balance)
         facilityTotal += balance
-        residentBalancesMap.set(row.residentId, balance)
         if (row.unitId) {
           unitBalancesMap.set(row.unitId, (unitBalancesMap.get(row.unitId) || 0) + balance)
         }
@@ -122,36 +96,12 @@ export async function GET(
         totalAmount: unitBalancesMap.get(unit.id) || 0,
       }))
 
-      // 表示用の利用者リスト（施設の表示順設定に従ってソート、unitIdが指定されている場合は絞り込み）
-      const residentDisplaySortMode = facility.residentDisplaySortMode ?? null
-      const useUnitOrder = facility.useUnitOrderForPrint ?? true
-      const sortedResidents = sortResidentsForDisplay(
-        facility.residents as unknown as SortableResident[],
-        facility.units as unknown as SortableUnit[],
-        useUnitOrder,
-        residentDisplaySortMode === "aiueo" ? "aiueo" : "manual"
-      )
-      const displayResidents = unitId 
-        ? sortedResidents.filter(r => r.unitId === Number(unitId))
-        : sortedResidents
-
-      // 利用者別残高（DB側で集計した結果を使用）
-      const residentSummaries = displayResidents.map(resident => ({
-        id: resident.id,
-        name: resident.name,
-        displayNamePrefix: resident.displayNamePrefix,
-        namePrefixDisplayOption: resident.namePrefixDisplayOption,
-        balance: residentBalancesMap.get(resident.id) || 0,
-      }))
-
-      // 施設合計（DB側で集計した結果を使用）
       const totalAmount = facilityTotal
 
       const response = NextResponse.json({
         facilityName: facility.name,
         totalAmount,
         units: unitSummaries,
-        residents: residentSummaries,
       })
       
       // キャッシュヘッダーの追加（更新頻度が高いため短いキャッシュ時間）

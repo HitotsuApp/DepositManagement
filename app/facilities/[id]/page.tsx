@@ -46,10 +46,14 @@ export default function FacilityDetailPage() {
   const [units, setUnits] = useState<UnitSummary[]>([])
   const [residents, setResidents] = useState<ResidentSummary[]>([])
   const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isSummaryLoading, setIsSummaryLoading] = useState(true)
+  const [isResidentsLoading, setIsResidentsLoading] = useState(false)
 
   const skipDupAfterStripRef = useRef(false)
   const silentRefetchAtRef = useRef(0)
+  const residentsAbortRef = useRef<AbortController | null>(null)
+  const selectedUnitIdRef = useRef<number | null>(null)
+  selectedUnitIdRef.current = selectedUnitId
   const queryKeyForEffect = searchParams.toString()
 
   const bulkPrefetchGuardRef = useRef<string | null>(null)
@@ -72,37 +76,89 @@ export default function FacilityDetailPage() {
     }
   }, [facilityId, year, month])
 
-  const fetchFacilityData = useCallback(
+  /** ユニット・施設集約のみ取得 */
+  const fetchFacilitySummary = useCallback(
     async (skipCache = false, showLoading = true) => {
-      if (showLoading) setIsLoading(true)
+      if (showLoading) setIsSummaryLoading(true)
       try {
-        const unitParam = selectedUnitId ? `&unitId=${selectedUnitId}` : ''
         const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
 
         const response = await fetch(
-          `/api/facilities/${facilityId}?year=${year}&month=${month}${unitParam}`,
+          `/api/facilities/${facilityId}?year=${year}&month=${month}`,
           fetchOptions
         )
         if (!response.ok) {
-          throw new Error('Failed to fetch facility data')
+          let bodySnippet = ''
+          try {
+            const t = await response.clone().text()
+            bodySnippet = t.slice(0, 400)
+          } catch {
+            /* ignore */
+          }
+          console.error(
+            `Failed to fetch facility summary: HTTP ${response.status}`,
+            bodySnippet
+          )
+          throw new Error(`Failed to fetch facility data (${response.status})`)
         }
         const data = await response.json()
         setFacilityName(data.facilityName || '')
         setTotalAmount(data.totalAmount || 0)
         setUnits(data.units || [])
-        setResidents(data.residents || [])
       } catch (error) {
-        console.error('Failed to fetch facility data:', error)
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Failed to fetch facility data:', error)
+        }
         setFacilityName('')
         setTotalAmount(0)
         setUnits([])
         setResidents([])
       } finally {
-        if (showLoading) setIsLoading(false)
+        if (showLoading) setIsSummaryLoading(false)
       }
     },
-    [facilityId, year, month, selectedUnitId]
+    [facilityId, year, month]
   )
+
+  const fetchResidentsForUnit = useCallback(
+    async (unitId: number, opts: { skipCache?: boolean; signal?: AbortSignal }) => {
+      setIsResidentsLoading(true)
+      const fetchOptions: RequestInit = opts.skipCache ? { cache: 'no-store' } : {}
+      if (opts.signal) fetchOptions.signal = opts.signal
+
+      try {
+        const url = `/api/facilities/${facilityId}/resident-summaries?year=${year}&month=${month}&unitId=${unitId}`
+        const response = await fetch(url, fetchOptions)
+        if (!response.ok) {
+          let bodySnippet = ''
+          try {
+            const t = await response.clone().text()
+            bodySnippet = t.slice(0, 400)
+          } catch {
+            /* ignore */
+          }
+          console.error(
+            `Failed to fetch resident summaries: HTTP ${response.status}`,
+            bodySnippet
+          )
+          throw new Error(`Failed to fetch residents (${response.status})`)
+        }
+        const data = await response.json()
+        setResidents(Array.isArray(data.residents) ? data.residents : [])
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') return
+        console.error('Failed to fetch resident summaries:', error)
+        setResidents([])
+      } finally {
+        setIsResidentsLoading(false)
+      }
+    },
+    [facilityId, year, month]
+  )
+
+  useEffect(() => {
+    setSelectedUnitId(null)
+  }, [facilityId])
 
   useEffect(() => {
     const hasTimestamp = searchParams.has('_t')
@@ -124,24 +180,50 @@ export default function FacilityDetailPage() {
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
     }
 
-    fetchFacilityData(shouldSkipCache, true)
+    void fetchFacilitySummary(shouldSkipCache, true)
   }, [
     facilityId,
     year,
     month,
-    selectedUnitId,
     queryKeyForEffect,
     pathname,
     router,
-    fetchFacilityData,
+    fetchFacilitySummary,
   ])
+
+  useEffect(() => {
+    residentsAbortRef.current?.abort()
+
+    if (selectedUnitId == null) {
+      setResidents([])
+      setIsResidentsLoading(false)
+      return
+    }
+
+    const ac = new AbortController()
+    residentsAbortRef.current = ac
+    void fetchResidentsForUnit(selectedUnitId, {
+      skipCache: false,
+      signal: ac.signal,
+    })
+
+    return () => {
+      ac.abort()
+    }
+  }, [selectedUnitId, fetchResidentsForUnit])
 
   useEffect(() => {
     const runSilent = () => {
       const now = Date.now()
       if (now - silentRefetchAtRef.current < 250) return
       silentRefetchAtRef.current = now
-      fetchFacilityData(true, false)
+      void (async () => {
+        await fetchFacilitySummary(true, false)
+        const uid = selectedUnitIdRef.current
+        if (uid != null) {
+          await fetchResidentsForUnit(uid, { skipCache: true })
+        }
+      })()
     }
     const onPopState = () => runSilent()
     const onPageShow = (e: PageTransitionEvent) => {
@@ -153,7 +235,7 @@ export default function FacilityDetailPage() {
       window.removeEventListener('popstate', onPopState)
       window.removeEventListener('pageshow', onPageShow as EventListener)
     }
-  }, [fetchFacilityData])
+  }, [fetchFacilitySummary, fetchResidentsForUnit])
 
   const handleDateChange = (newYear: number, newMonth: number) => {
     setYear(newYear)
@@ -183,16 +265,15 @@ export default function FacilityDetailPage() {
     router.push(`/facilities/${facilityId}/bulk-row-input?year=${year}&month=${month}`)
   }
 
-  // 選択された施設と異なる施設のページにアクセスした場合の警告
   const isMismatchedFacility = selectedFacilityId !== null && selectedFacilityId !== facilityId
 
   return (
     <MainLayout>
       <div>
         <h1 className="text-3xl font-bold mb-6">
-          施設詳細: {isLoading ? '読み込み中...' : facilityName || '施設が見つかりません'}
+          施設詳細: {isSummaryLoading ? '読み込み中...' : facilityName || '施設が見つかりません'}
         </h1>
-        
+
         {isMismatchedFacility && (
           <div className="mb-4 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
             <p className="text-yellow-800">
@@ -206,7 +287,7 @@ export default function FacilityDetailPage() {
             </p>
           </div>
         )}
-        
+
         <DateSelector year={year} month={month} onDateChange={handleDateChange} />
 
         <div className="mb-8">
@@ -253,11 +334,11 @@ export default function FacilityDetailPage() {
           <div>
             <h2 className="text-xl font-semibold">ユニット別合計</h2>
             <p className="text-sm text-gray-600 mt-1">
-              ユニット名をクリックすると利用者が絞り込まれて表示されます
+              ユニットを選択すると、そのユニットの利用者一覧と残高が表示されます。
             </p>
           </div>
         </div>
-        {isLoading ? (
+        {isSummaryLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             {[1, 2, 3].map(i => (
               <div key={i} className="bg-white rounded-lg shadow-md p-6 animate-pulse">
@@ -313,7 +394,12 @@ export default function FacilityDetailPage() {
             ✏️ 利用者を編集
           </button>
         </div>
-        {isLoading ? (
+
+        {!selectedUnitId ? (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
+            上記のユニット名をクリックすると、選択したユニットの利用者別残高を表示します。
+          </div>
+        ) : isResidentsLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5, 6].map(i => (
               <div key={i} className="bg-white rounded-lg shadow-md p-6 animate-pulse">
@@ -324,7 +410,7 @@ export default function FacilityDetailPage() {
           </div>
         ) : residents.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
-            {selectedUnitId ? 'このユニットに利用者が登録されていません' : '利用者が登録されていません'}
+            このユニットに利用者が登録されていません
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -343,4 +429,3 @@ export default function FacilityDetailPage() {
     </MainLayout>
   )
 }
-
