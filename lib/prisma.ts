@@ -9,12 +9,14 @@ const connectionString = process.env.DATABASE_URL
 if (!connectionString) throw new Error('DATABASE_URL is not set')
 
 /**
- * Isolate（サーバレスワーカー）あたり 1 本の PrismaClient + Pool を再利用する。
+ * - **Vercel Edge 等**: Isolate あたり 1 本の PrismaClient + Pool を `globalThis` に再利用する。
+ * - **Cloudflare Workers / Pages**: 「別リクエストの I/O を共有できない」制限があり、
+ *   シングルトンにすると `Cannot perform I/O on behalf of a different request` で 500 になる。
+ *   そのため `CF_PAGES=1`（Pages 本番が注入）のときは **常にリクエストごとに新規 Client**。
  *
- * `.env`: `PRISMA_NEW_CLIENT_EACH_REQUEST=true` のときのみ、従来どおりリクエストごとに
- * Client を生成する（接続トラブル切り分け・緊急ロールバック用）。
+ * 強制: `PRISMA_NEW_CLIENT_EACH_REQUEST=true`（切り分け・他ホスト向けロールバック）。
  *
- * Neon サーバレスでは DATABASE_URL に **プーラー用ホスト**（`-pooler`）を推奨。README を参照。
+ * Neon では DATABASE_URL に **プーラー用ホスト**（`-pooler`）を推奨。README を参照。
  */
 const globalForPrisma = globalThis as typeof globalThis & {
   __prisma?: PrismaClient
@@ -30,8 +32,12 @@ const newClientEachRequest =
   process.env.PRISMA_NEW_CLIENT_EACH_REQUEST === 'true' ||
   process.env.PRISMA_FORCE_NEW_CLIENT_EACH_REQUEST === 'true'
 
+/** Cloudflare Pages がビルド時・実行時に注入（通常は本番で `1`） */
+const isCloudflarePages =
+  process.env.CF_PAGES === '1' || process.env.CF_PAGES === 'true'
+
 export const getPrisma = (): PrismaClient => {
-  if (newClientEachRequest) {
+  if (newClientEachRequest || isCloudflarePages) {
     return createPrisma()
   }
   if (!globalForPrisma.__prisma) {
