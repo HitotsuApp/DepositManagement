@@ -17,6 +17,9 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: '預り金管理システム',
   },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 }
 
 export default function RootLayout({
