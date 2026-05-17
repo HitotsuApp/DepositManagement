@@ -43,82 +43,70 @@ export async function GET(
         return NextResponse.json({ error: '指定日付が無効です' }, { status: 400 })
       }
 
-      const facility = await prisma.facility.findUnique({
-        where: { id: facilityId },
-        select: {
-          id: true,
-          name: true,
-          units: {
-            where: { 
-              isActive: true,
-              facilityId: facilityId, // 明示的に施設IDでフィルタリング
-            },
-            select: {
-              id: true,
-              name: true,
-              displaySortOrder: true,
-              printSortOrder: true,
-            },
-            orderBy: [{ displaySortOrder: 'asc' }, { id: 'asc' }],
-          },
-        },
-      })
+      // ラウンドトリップ最小化：ユニット別残高は DB で unitId に集約、施設・ユニット名は同一クエリで取得（residentSummaries と同様の CASE）
 
-      if (!facility) {
+      interface FacilitySummaryRow {
+        facilityName: string | null
+        unitId: number | null
+        unitName: string | null
+        balance: unknown
+      }
+
+      const rows = await prisma.$queryRaw<FacilitySummaryRow[]>`
+        WITH unit_balances AS (
+          SELECT
+            r."unitId" AS "unitId",
+            COALESCE(SUM(
+              CASE
+                WHEN t."transactionType" IN ('in', 'past_correct_in') THEN t.amount
+                WHEN t."transactionType" IN ('out', 'past_correct_out') THEN -t.amount
+                ELSE 0
+              END
+            ), 0) AS balance
+          FROM "Resident" r
+          LEFT JOIN "Transaction" t ON t."residentId" = r.id
+          WHERE r."facilityId" = ${facilityId}
+            AND r."isActive" = true
+            AND r."endDate" IS NULL
+            AND (t."transactionDate" IS NULL OR t."transactionDate" <= ${targetDate})
+            AND (t."transactionType" IS NULL OR t."transactionType" NOT IN ('correct_in', 'correct_out'))
+          GROUP BY r."unitId"
+        )
+        SELECT
+          f.name AS "facilityName",
+          u.id AS "unitId",
+          u.name AS "unitName",
+          COALESCE(ub.balance, 0) AS balance
+        FROM "Facility" f
+        LEFT JOIN "Unit" u
+          ON u."facilityId" = f.id
+          AND u."isActive" = true
+        LEFT JOIN unit_balances ub ON ub."unitId" = u.id
+        WHERE f.id = ${facilityId}
+        ORDER BY u."displaySortOrder" ASC NULLS LAST, u.id ASC
+      `
+
+      if (!rows.length || rows[0].facilityName === null || rows[0].facilityName === undefined) {
         return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
       }
 
-      // ユニット別・利用者別・施設別の残高をDB側で一括集計（パフォーマンス最適化）
-      interface BalanceRow {
-        unitId: number | null
-        residentId: number
-        balance: number | string
+      const facilityName = rows[0].facilityName
+
+      let totalAmount = 0
+      const unitSummaries: { id: number; name: string; totalAmount: number }[] = []
+      for (const row of rows) {
+        if (row.unitId == null || row.unitName == null) continue
+        const b = Number(row.balance)
+        totalAmount += b
+        unitSummaries.push({
+          id: row.unitId,
+          name: row.unitName,
+          totalAmount: b,
+        })
       }
 
-      const balancesRaw = await prisma.$queryRaw<BalanceRow[]>`
-        SELECT 
-          r."unitId",
-          r.id as "residentId",
-          COALESCE(SUM(
-            CASE 
-              WHEN t."transactionType" IN ('in', 'past_correct_in') THEN t.amount
-              WHEN t."transactionType" IN ('out', 'past_correct_out') THEN -t.amount
-              ELSE 0
-            END
-          ), 0) as balance
-        FROM "Resident" r
-        LEFT JOIN "Transaction" t ON t."residentId" = r.id
-        WHERE r."facilityId" = ${facilityId}
-          AND r."isActive" = true
-          AND r."endDate" IS NULL
-          AND (t."transactionDate" IS NULL OR t."transactionDate" <= ${targetDate})
-          AND (t."transactionType" IS NULL OR t."transactionType" NOT IN ('correct_in', 'correct_out'))
-        GROUP BY r."unitId", r.id
-      `
-
-      // ユニット別合計と施設合計
-      const unitBalancesMap = new Map<number, number>()
-      let facilityTotal = 0
-
-      balancesRaw.forEach(row => {
-        const balance = Number(row.balance)
-        facilityTotal += balance
-        if (row.unitId) {
-          unitBalancesMap.set(row.unitId, (unitBalancesMap.get(row.unitId) || 0) + balance)
-        }
-      })
-
-      // ユニット別合計
-      const unitSummaries = facility.units.map(unit => ({
-        id: unit.id,
-        name: unit.name,
-        totalAmount: unitBalancesMap.get(unit.id) || 0,
-      }))
-
-      const totalAmount = facilityTotal
-
       const response = NextResponse.json({
-        facilityName: facility.name,
+        facilityName,
         totalAmount,
         units: unitSummaries,
       })
