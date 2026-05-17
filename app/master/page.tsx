@@ -122,6 +122,16 @@ function MasterContent() {
     tabParam && ['facility', 'unit', 'resident'].includes(tabParam) ? tabParam : 'facility'
   )
 
+  const resolvedFacilityCellName = (facilityRowId: number, nestedName?: string | null) => {
+    if (selectedFacilityId != null && selectedFacilityId > 0) {
+      const f = facilities.find((row) => row.id === facilityRowId)
+      if (f?.name) return f.name
+      return `施設ID: ${facilityRowId}`
+    }
+    if (nestedName) return nestedName
+    return `施設ID: ${facilityRowId}`
+  }
+
   useEffect(() => {
     setIsMounted(true)
   }, [])
@@ -962,7 +972,9 @@ function MasterContent() {
                   ) : (
                     units.map(unit => (
                       <tr key={unit.id} className="border-t">
-                        <td className="px-4 py-3">{unit.facility?.name || `施設ID: ${unit.facilityId}`}</td>
+                        <td className="px-4 py-3">
+                          {resolvedFacilityCellName(unit.facilityId, unit.facility?.name)}
+                        </td>
                         <td className="px-4 py-3">{unit.name}</td>
                         <td className="px-4 py-3">{unit.displaySortOrder != null ? unit.displaySortOrder : '—'}</td>
                         <td className="px-4 py-3">{unit.printSortOrder != null ? unit.printSortOrder : '—'}</td>
@@ -1149,7 +1161,9 @@ function MasterContent() {
                       .filter(resident => !resident.endDate) // 終了日が設定されていない利用者のみ表示
                       .map(resident => (
                       <tr key={resident.id} className="border-t">
-                        <td className="px-4 py-3">{resident.facility?.name || `施設ID: ${resident.facilityId}`}</td>
+                        <td className="px-4 py-3">
+                        {resolvedFacilityCellName(resident.facilityId, resident.facility?.name)}
+                      </td>
                         <td className="px-4 py-3">{resident.unit?.name || `ユニットID: ${resident.unitId}`}</td>
                         <td className="px-4 py-3">{resident.displayNamePrefix || '—'}</td>
                         <td className="px-4 py-3">{resident.name}</td>
@@ -1471,7 +1485,9 @@ function MasterContent() {
                         .filter(resident => resident.endDate) // 終了日が設定されている利用者のみ表示
                         .map(resident => (
                         <tr key={resident.id} className="border-t">
-                          <td className="px-4 py-3">{resident.facility?.name || `施設ID: ${resident.facilityId}`}</td>
+                          <td className="px-4 py-3">
+                        {resolvedFacilityCellName(resident.facilityId, resident.facility?.name)}
+                      </td>
                           <td className="px-4 py-3">{resident.unit?.name || `ユニットID: ${resident.unitId}`}</td>
                           <td className="px-4 py-3">{resident.displayNamePrefix || '—'}</td>
                           <td className="px-4 py-3">{resident.name}</td>

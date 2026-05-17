@@ -6,9 +6,7 @@ import { validateMaxLength, validateSortOrder, MAX_LENGTHS, NAME_PREFIX_DISPLAY_
 import { sanitizeFurigana } from '@/lib/furigana'
 
 export async function GET(request: Request) {
-  console.time('prisma-init')
   const prisma = getPrisma()
-  console.timeEnd('prisma-init')
 
   try {
     const { searchParams } = new URL(request.url)
@@ -20,8 +18,6 @@ export async function GET(request: Request) {
       Number.isInteger(facilityId) &&
       facilityId > 0
 
-    console.time('main-query')
-    // 必要なフィールドのみをselectで取得
     const residents = await prisma.resident.findMany({
       where: {
         ...(includeInactive ? {} : { isActive: true }),
@@ -40,12 +36,16 @@ export async function GET(request: Request) {
         isActive: true,
         startDate: true,
         endDate: true,
-        facility: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        ...(facilityScoped
+          ? {}
+          : {
+              facility: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            }),
         unit: {
           select: {
             id: true,
@@ -55,7 +55,6 @@ export async function GET(request: Request) {
       },
       orderBy: [{ displaySortOrder: 'asc' }, { id: 'asc' }],
     })
-    console.timeEnd('main-query')
 
     const response = NextResponse.json(residents)
 

@@ -62,16 +62,17 @@ export default function FacilityDetailPage() {
     const key = `${facilityId}-${year}-${month}`
     if (bulkPrefetchGuardRef.current === key) return
     bulkPrefetchGuardRef.current = key
-    try {
-      Promise.all([
-        fetch(`/api/facilities/${facilityId}`).catch(() => null),
-        fetch(`/api/residents?facilityId=${facilityId}`).catch(() => null),
-        fetch(`/api/units?facilityId=${facilityId}`).catch(() => null),
-        fetch(getFacilityTransactionsChunk1Path(facilityId, year, month)).catch(() => null),
-      ])
-    } catch (error) {
-      console.debug('Prefetch error (ignored):', error)
-    }
+    const noop = (): null => null
+    void (async () => {
+      try {
+        await fetch(`/api/facilities/${facilityId}`).catch(noop)
+        await fetch(`/api/residents?facilityId=${facilityId}`).catch(noop)
+        await fetch(`/api/units?facilityId=${facilityId}`).catch(noop)
+        await fetch(getFacilityTransactionsChunk1Path(facilityId, year, month)).catch(noop)
+      } catch {
+        /* ignore */
+      }
+    })()
   }, [facilityId, year, month])
 
   /** ユニット・施設集約のみ取得 */
