@@ -28,9 +28,10 @@ interface TransactionWithBalanceRow {
   facility_balance: number | string
 }
 
-interface PreviousBalanceRow {
-  residentId: number
-  balance: number | string
+/** 単発クエリでスカラー（opening_total/month_txn_total）とチャンク行を返すときの一行 */
+interface ChunkQueryRow extends TransactionWithBalanceRow {
+  opening_total: unknown
+  month_txn_total: unknown
 }
 
 function parseLimit(raw: string | null): number {
@@ -44,6 +45,67 @@ function cursorIsContinuationFromStart(dateStr: string, idStr: string | null): b
   const id = Number(idStr)
   if (!Number.isFinite(id) || id !== BULK_TRANSACTIONS_CURSOR_SENTINEL_ID) return false
   return dateStr.trim() === BULK_TRANSACTIONS_CURSOR_SENTINEL_DATE.trim()
+}
+
+/** facility_opening.total は旧・独立前月末集約＋利用者リストの単純SUMと同等（facility_open CTEのみで算出） */
+function baseTxnWindowCtes(
+  facilityId: number,
+  previousMonthEndDate: Date,
+  startDate: Date,
+  endDate: Date
+): Prisma.Sql {
+  return Prisma.sql`
+    previous_balances AS (
+      SELECT
+        t_pb."residentId",
+        COALESCE(SUM(
+          CASE
+            WHEN t_pb."transactionType" IN ('in', 'past_correct_in') THEN t_pb.amount
+            WHEN t_pb."transactionType" IN ('out', 'past_correct_out') THEN -t_pb.amount
+            ELSE 0
+          END
+        ), 0) AS balance
+      FROM "Transaction" t_pb
+      INNER JOIN "Resident" r_pb ON r_pb.id = t_pb."residentId"
+        AND r_pb."facilityId" = ${facilityId}
+        AND r_pb."isActive" = true
+      WHERE t_pb."transactionDate" <= ${previousMonthEndDate}
+        AND t_pb."transactionType" NOT IN ('correct_in', 'correct_out')
+      GROUP BY t_pb."residentId"
+    ),
+    facility_opening AS (
+      SELECT COALESCE(SUM(COALESCE(pb.balance, 0)), 0)::numeric AS total
+      FROM "Resident" r
+      LEFT JOIN previous_balances pb ON pb."residentId" = r.id
+      WHERE r."facilityId" = ${facilityId}
+        AND r."isActive" = true
+    ),
+    current_transactions AS (
+      SELECT
+        t.id,
+        t."transactionDate",
+        t."transactionType",
+        t.amount,
+        t.description,
+        t.payee,
+        t.reason,
+        t."residentId",
+        r.name AS "residentName",
+        COALESCE(pb.balance, 0) AS previous_balance,
+        CASE
+          WHEN t."transactionType" IN ('in', 'past_correct_in') THEN t.amount
+          WHEN t."transactionType" IN ('out', 'past_correct_out') THEN -t.amount
+          ELSE 0
+        END AS transaction_amount
+      FROM "Transaction" t
+      INNER JOIN "Resident" r ON t."residentId" = r.id
+        AND r."facilityId" = ${facilityId}
+        AND r."isActive" = true
+      LEFT JOIN previous_balances pb ON t."residentId" = pb."residentId"
+      WHERE t."transactionDate" >= ${startDate}
+        AND t."transactionDate" <= ${endDate}
+    ),
+  `
 }
 
 function mapRowsToPayload(
@@ -65,13 +127,8 @@ function mapRowsToPayload(
   }))
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  console.time('prisma-init')
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   const prisma = getPrisma()
-  console.timeEnd('prisma-init')
 
   try {
     const facilityId = validateId(params.id)
@@ -87,7 +144,6 @@ export async function GET(
     const endDate = new Date(year, month, 0, 23, 59, 59, 999)
     const previousMonthEndDate = new Date(year, month - 1, 0, 23, 59, 59, 999)
 
-    console.time('main-query')
     const facility = await prisma.facility.findUnique({
       where: { id: facilityId },
       select: {
@@ -106,7 +162,6 @@ export async function GET(
         },
       },
     })
-    console.timeEnd('main-query')
 
     if (!facility) {
       return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
@@ -119,9 +174,7 @@ export async function GET(
         getResidentDisplayName(resident as any, 'screen')
       )
     })
-    const residentIds = Array.from(residentDisplayNameMap.keys())
-
-    if (residentIds.length === 0) {
+    if (facility.residents.length === 0) {
       const res = NextResponse.json({
         transactions: [],
         hasMore: false,
@@ -129,58 +182,6 @@ export async function GET(
       res.headers.set('Cache-Control', 'no-store')
       return res
     }
-
-    console.time('previous-balance-aggregate')
-    let previousBalances = new Map<number, number>()
-    try {
-      const previousBalancesRaw = await prisma.$queryRaw<PreviousBalanceRow[]>`
-        SELECT 
-          "residentId",
-          COALESCE(SUM(
-            CASE 
-              WHEN "transactionType" IN ('in', 'past_correct_in') THEN amount
-              WHEN "transactionType" IN ('out', 'past_correct_out') THEN -amount
-              ELSE 0
-            END
-          ), 0) as balance
-        FROM "Transaction"
-        WHERE "transactionDate" <= ${previousMonthEndDate}
-          AND "transactionType" NOT IN ('correct_in', 'correct_out')
-          AND "residentId" IN (
-            SELECT id FROM "Resident"
-            WHERE "facilityId" = ${facilityId}
-              AND "isActive" = true
-          )
-        GROUP BY "residentId"
-      `
-      previousBalancesRaw.forEach((row) => {
-        previousBalances.set(row.residentId, Number(row.balance))
-      })
-    } catch (error) {
-      console.error('Failed to calculate previous balances with aggregate query:', error)
-      throw new Error('前月残高の計算に失敗しました')
-    }
-    console.timeEnd('previous-balance-aggregate')
-
-    let facilityOpeningTotal = 0
-    residentIds.forEach((rid) => {
-      facilityOpeningTotal += previousBalances.get(rid) ?? 0
-    })
-
-    console.time('tx-count-query')
-    const [{ count: monthTxnCount }] = await prisma.$queryRaw<[{ count: bigint }]>`
-      SELECT COUNT(*)::bigint AS count
-      FROM "Transaction" t
-      INNER JOIN "Resident" r ON t."residentId" = r.id
-      WHERE t."transactionDate" >= ${startDate}
-        AND t."transactionDate" <= ${endDate}
-        AND t."residentId" IN (${Prisma.join(residentIds)})
-        AND r."facilityId" = ${facilityId}
-        AND r."isActive" = true
-    `
-    console.timeEnd('tx-count-query')
-
-    const totalTxnInMonth = Number(monthTxnCount)
 
     if (resume) {
       const afterDateRaw = searchParams.get('afterTransactionDate')
@@ -218,59 +219,12 @@ export async function GET(
           OR (b."transactionDate" = ${afterDateParsed} AND b.id > ${afterIdNum})
         )`
 
-      console.time('balance-resume-query')
+      const baseCtes = baseTxnWindowCtes(facilityId, previousMonthEndDate, startDate, endDate)
+
       const resumedRows = await prisma.$queryRaw<TransactionWithBalanceRow[]>`
-        WITH previous_balances AS (
-          SELECT 
-            "residentId",
-            COALESCE(SUM(
-              CASE 
-                WHEN "transactionType" IN ('in', 'past_correct_in') THEN amount
-                WHEN "transactionType" IN ('out', 'past_correct_out') THEN -amount
-                ELSE 0
-              END
-            ), 0) as balance
-          FROM "Transaction"
-          WHERE "transactionDate" <= ${previousMonthEndDate}
-            AND "transactionType" NOT IN ('correct_in', 'correct_out')
-            AND "residentId" IN (${Prisma.join(residentIds)})
-          GROUP BY "residentId"
-        ),
-        facility_opening AS (
-          SELECT COALESCE(SUM(COALESCE(pb.balance, 0)), 0)::numeric AS total
-          FROM "Resident" r
-          LEFT JOIN previous_balances pb ON pb."residentId" = r.id
-          WHERE r."facilityId" = ${facilityId}
-            AND r."isActive" = true
-        ),
-        current_transactions AS (
-          SELECT 
-            t.id,
-            t."transactionDate",
-            t."transactionType",
-            t.amount,
-            t.description,
-            t.payee,
-            t.reason,
-            t."residentId",
-            r.name as "residentName",
-            COALESCE(pb.balance, 0) as previous_balance,
-            CASE 
-              WHEN t."transactionType" IN ('in', 'past_correct_in') THEN t.amount
-              WHEN t."transactionType" IN ('out', 'past_correct_out') THEN -t.amount
-              ELSE 0
-            END as transaction_amount
-          FROM "Transaction" t
-          INNER JOIN "Resident" r ON t."residentId" = r.id
-          LEFT JOIN previous_balances pb ON t."residentId" = pb."residentId"
-          WHERE t."transactionDate" >= ${startDate}
-            AND t."transactionDate" <= ${endDate}
-            AND t."residentId" IN (${Prisma.join(residentIds)})
-            AND r."facilityId" = ${facilityId}
-            AND r."isActive" = true
-        ),
+        WITH ${baseCtes}
         balanced AS (
-          SELECT 
+          SELECT
             ct.id,
             ct."transactionDate",
             ct."transactionType",
@@ -281,18 +235,18 @@ export async function GET(
             ct."residentId",
             ct."residentName",
             (ct.previous_balance + SUM(ct.transaction_amount) OVER (
-              PARTITION BY ct."residentId" 
+              PARTITION BY ct."residentId"
               ORDER BY ct."transactionDate" ASC, ct.id ASC
               ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ))::numeric as balance,
+            ))::numeric AS balance,
             (fo.total + SUM(ct.transaction_amount) OVER (
               ORDER BY ct."transactionDate" ASC, ct.id ASC
               ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ))::numeric as facility_balance
+            ))::numeric AS facility_balance
           FROM current_transactions ct
           CROSS JOIN facility_opening fo
         )
-        SELECT 
+        SELECT
           b.id,
           b."transactionDate",
           b."transactionType",
@@ -308,7 +262,6 @@ export async function GET(
         WHERE ${continuationFilterSql}
         ORDER BY b."transactionDate" ASC, b.id ASC
       `
-      console.timeEnd('balance-resume-query')
 
       const response = NextResponse.json({
         transactions: mapRowsToPayload(resumedRows, residentDisplayNameMap),
@@ -319,62 +272,13 @@ export async function GET(
     }
 
     const limitLogical = parseLimit(searchParams.get('limit'))
-    const carryoverSlots = facilityOpeningTotal !== 0 ? 1 : 0
-    const effectiveTxnLimit = Math.max(0, limitLogical - carryoverSlots)
 
-    console.time('balance-calculation-query')
-    const chunkedRows = await prisma.$queryRaw<TransactionWithBalanceRow[]>`
-      WITH previous_balances AS (
-        SELECT 
-          "residentId",
-          COALESCE(SUM(
-            CASE 
-              WHEN "transactionType" IN ('in', 'past_correct_in') THEN amount
-              WHEN "transactionType" IN ('out', 'past_correct_out') THEN -amount
-              ELSE 0
-            END
-          ), 0) as balance
-        FROM "Transaction"
-        WHERE "transactionDate" <= ${previousMonthEndDate}
-          AND "transactionType" NOT IN ('correct_in', 'correct_out')
-          AND "residentId" IN (${Prisma.join(residentIds)})
-        GROUP BY "residentId"
-      ),
-      facility_opening AS (
-        SELECT COALESCE(SUM(COALESCE(pb.balance, 0)), 0)::numeric AS total
-        FROM "Resident" r
-        LEFT JOIN previous_balances pb ON pb."residentId" = r.id
-        WHERE r."facilityId" = ${facilityId}
-          AND r."isActive" = true
-      ),
-      current_transactions AS (
-        SELECT 
-          t.id,
-          t."transactionDate",
-          t."transactionType",
-          t.amount,
-          t.description,
-          t.payee,
-          t.reason,
-          t."residentId",
-          r.name as "residentName",
-          COALESCE(pb.balance, 0) as previous_balance,
-          CASE 
-            WHEN t."transactionType" IN ('in', 'past_correct_in') THEN t.amount
-            WHEN t."transactionType" IN ('out', 'past_correct_out') THEN -t.amount
-            ELSE 0
-          END as transaction_amount
-        FROM "Transaction" t
-        INNER JOIN "Resident" r ON t."residentId" = r.id
-        LEFT JOIN previous_balances pb ON t."residentId" = pb."residentId"
-        WHERE t."transactionDate" >= ${startDate}
-          AND t."transactionDate" <= ${endDate}
-          AND t."residentId" IN (${Prisma.join(residentIds)})
-          AND r."facilityId" = ${facilityId}
-          AND r."isActive" = true
-      ),
+    const baseCtes = baseTxnWindowCtes(facilityId, previousMonthEndDate, startDate, endDate)
+
+    const joinedRows = await prisma.$queryRaw<ChunkQueryRow[]>`
+      WITH ${baseCtes}
       balanced AS (
-        SELECT 
+        SELECT
           ct.id,
           ct."transactionDate",
           ct."transactionType",
@@ -385,37 +289,60 @@ export async function GET(
           ct."residentId",
           ct."residentName",
           (ct.previous_balance + SUM(ct.transaction_amount) OVER (
-            PARTITION BY ct."residentId" 
+            PARTITION BY ct."residentId"
             ORDER BY ct."transactionDate" ASC, ct.id ASC
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-          ))::numeric as balance,
+          ))::numeric AS balance,
           (fo.total + SUM(ct.transaction_amount) OVER (
             ORDER BY ct."transactionDate" ASC, ct.id ASC
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-          ))::numeric as facility_balance,
-          ROW_NUMBER() OVER (ORDER BY ct."transactionDate" ASC, ct.id ASC) AS rn
+          ))::numeric AS facility_balance,
+          ROW_NUMBER() OVER (ORDER BY ct."transactionDate" ASC, ct.id ASC) AS rn,
+          GREATEST(0, ${limitLogical}::int - CASE WHEN fo.total <> 0::numeric THEN 1 ELSE 0 END)::int AS effective_cap
         FROM current_transactions ct
         CROSS JOIN facility_opening fo
+      ),
+      combined AS (
+        SELECT * FROM balanced b WHERE b.rn <= b.effective_cap
+      ),
+      scalars AS (
+        SELECT
+          fo2.total AS opening_total,
+          (SELECT COUNT(*)::bigint FROM current_transactions)::bigint AS month_txn_total
+        FROM facility_opening fo2
+        LIMIT 1
       )
-      SELECT 
-        id,
-        "transactionDate",
-        "transactionType",
-        amount,
-        description,
-        payee,
-        reason,
-        "residentId",
-        "residentName",
-        balance,
-        facility_balance
-      FROM balanced
-      WHERE rn <= ${effectiveTxnLimit}
-      ORDER BY "transactionDate" ASC, id ASC
+      SELECT
+        sc.opening_total,
+        sc.month_txn_total,
+        c.id,
+        c."transactionDate",
+        c."transactionType",
+        c.amount,
+        c.description,
+        c.payee,
+        c.reason,
+        c."residentId",
+        c."residentName",
+        c.balance,
+        c.facility_balance
+      FROM scalars sc
+      LEFT JOIN combined c ON TRUE
+      ORDER BY c."transactionDate" ASC NULLS LAST, c.id ASC NULLS LAST
     `
-    console.timeEnd('balance-calculation-query')
 
-    let payload = mapRowsToPayload(chunkedRows, residentDisplayNameMap)
+    const sample = joinedRows[0]
+    const facilityOpeningTotal = Number(sample.opening_total)
+    const totalTxnInMonth = Number(sample.month_txn_total)
+    const carryoverSlots = facilityOpeningTotal !== 0 ? 1 : 0
+    const effectiveTxnLimit = Math.max(0, limitLogical - carryoverSlots)
+
+    const txnPayloadRows: TransactionWithBalanceRow[] = joinedRows
+      .filter((r): r is ChunkQueryRow & { id: number } => r.id != null)
+      .map(({ opening_total: _o, month_txn_total: _m, ...row }) => row)
+
+
+    let payload = mapRowsToPayload(txnPayloadRows, residentDisplayNameMap)
 
     if (facilityOpeningTotal !== 0) {
       const previousMonthEnd = new Date(year, month - 1, 0, 23, 59, 59, 999)
