@@ -3,9 +3,12 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
-import { loadResidentsForDepositPrint } from "@/lib/residentPrintEligibility"
+import {
+  loadResidentsForDepositPrint,
+  getCalendarMonthRange,
+} from "@/lib/residentPrintEligibility"
 import { transformToPrintData, transformToResidentPrintData, buildNoticeFromFacilityTemplate, type FacilityWithRelations } from "@/pdf/utils/transform"
-import { sortResidentsForPrint, sortUnitsForPrint, type SortableResident, type SortableUnit } from "@/lib/sortOrder"
+import { sortResidentsForPrint, type SortableResident, type SortableUnit } from "@/lib/sortOrder"
 
 export async function GET(request: Request) {
   const prisma = getPrisma()
@@ -44,11 +47,12 @@ export async function GET(request: Request) {
 
     const residents = await loadResidentsForDepositPrint(prisma, fid, y, m, null)
 
-    // 施設設定に応じてユニット・利用者をソート
-    const useSameOrder = (facility as { useSameOrderForDisplayAndPrint?: boolean }).useSameOrderForDisplayAndPrint ?? true
-    const useUnitOrder = (facility as { useUnitOrderForPrint?: boolean }).useUnitOrderForPrint ?? true
+    const { monthEnd } = getCalendarMonthRange(y, m)
+
     const residentPrintSortMode = (facility as { residentPrintSortMode?: string | null }).residentPrintSortMode ?? null
-    const sortedUnits = sortUnitsForPrint(facility.units as unknown as SortableUnit[], useSameOrder)
+    const useSameOrder =
+      (facility as { useSameOrderForDisplayAndPrint?: boolean }).useSameOrderForDisplayAndPrint ?? true
+    const useUnitOrder = (facility as { useUnitOrderForPrint?: boolean }).useUnitOrderForPrint ?? true
     const sortedResidents = sortResidentsForPrint(
       residents as unknown as SortableResident[],
       facility.units as unknown as SortableUnit[],
@@ -56,16 +60,10 @@ export async function GET(request: Request) {
       useUnitOrder,
       residentPrintSortMode === "aiueo" ? "aiueo" : "manual"
     )
-    const sortedFacility = {
-      ...facility,
-      units: sortedUnits,
-      residents: sortedResidents,
-    }
 
-    // 施設の預り金合計データを取得（unitIdはnullで全利用者対象）
     const facilitySummary = transformToPrintData(
-      sortedFacility as unknown as FacilityWithRelations,
-      null, // unitIdはnullで全利用者対象
+      { ...facility, residents } as unknown as FacilityWithRelations,
+      null,
       y,
       m
     )
@@ -80,6 +78,7 @@ export async function GET(request: Request) {
           where: { id: resident.id },
           include: {
             transactions: {
+              where: { transactionDate: { lte: monthEnd } },
               orderBy: { transactionDate: "asc" },
             },
             facility: true,

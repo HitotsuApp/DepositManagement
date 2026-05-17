@@ -77,8 +77,15 @@ export async function loadResidentsForDepositPrint(
     unitId
   )
 
+  const { monthEnd } = getCalendarMonthRange(year, month)
+
   const include = {
-    transactions: { orderBy: { transactionDate: "asc" as const } },
+    transactions: {
+      where: {
+        transactionDate: { lte: monthEnd },
+      },
+      orderBy: { transactionDate: "asc" as const },
+    },
     unit: true,
   }
 

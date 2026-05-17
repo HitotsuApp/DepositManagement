@@ -5,7 +5,6 @@ import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
 import { loadResidentsForDepositPrint } from "@/lib/residentPrintEligibility"
 import { transformToPrintData, type FacilityWithRelations } from "@/pdf/utils/transform"
-import { sortResidentsForPrint, sortUnitsForPrint, type SortableResident, type SortableUnit } from "@/lib/sortOrder"
 
 export async function GET(request: Request) {
   const prisma = getPrisma()
@@ -46,26 +45,8 @@ export async function GET(request: Request) {
 
     const residents = await loadResidentsForDepositPrint(prisma, fid, y, m, uid)
 
-    // 施設設定に応じてユニット・利用者をソート
-    const useSameOrder = (facility as { useSameOrderForDisplayAndPrint?: boolean }).useSameOrderForDisplayAndPrint ?? true
-    const useUnitOrder = (facility as { useUnitOrderForPrint?: boolean }).useUnitOrderForPrint ?? true
-    const residentPrintSortMode = (facility as { residentPrintSortMode?: string | null }).residentPrintSortMode ?? null
-    const sortedUnits = sortUnitsForPrint(facility.units as unknown as SortableUnit[], useSameOrder)
-    const sortedResidents = sortResidentsForPrint(
-      residents as unknown as SortableResident[],
-      facility.units as unknown as SortableUnit[],
-      useSameOrder,
-      useUnitOrder,
-      residentPrintSortMode === "aiueo" ? "aiueo" : "manual"
-    )
-    const sortedFacility = {
-      ...facility,
-      units: sortedUnits,
-      residents: sortedResidents,
-    }
-
     const printData = transformToPrintData(
-      sortedFacility as unknown as FacilityWithRelations,
+      { ...facility, residents } as unknown as FacilityWithRelations,
       uid,
       y,
       m
