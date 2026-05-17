@@ -1,6 +1,8 @@
 /** まとめて入力・まとめて行入力用：取引 API をチャンク取得して論理一覧に結合 */
 
-export const BULK_TRANSACTIONS_CHUNK_LIMIT = 20
+import { readJsonFromApi } from '@/lib/readJsonApiResponse'
+
+export const BULK_TRANSACTIONS_CHUNK_LIMIT = 10
 
 /** 継続取得の開始位置が「先頭の取引」（繰越のみの第1チャンクの直後）を表すカーソル */
 export const BULK_TRANSACTIONS_CURSOR_SENTINEL_DATE = new Date(
@@ -70,8 +72,7 @@ export async function fetchMergedFacilityTransactions(
   const firstUrl = getFacilityTransactionsChunk1Path(facilityId, year, month)
 
   const r1 = await fetch(firstUrl, fetchOptions)
-  if (!r1.ok) throw new Error(`transactions chunk1 HTTP ${r1.status}`)
-  const d1 = (await r1.json()) as TransactionsChunkResponse
+  const d1 = await readJsonFromApi<TransactionsChunkResponse>(r1, '取引一覧(1/2)')
   let merged = [...(d1.transactions ?? [])]
 
   if (!d1.hasMore) {
@@ -98,8 +99,7 @@ export async function fetchMergedFacilityTransactions(
   })
 
   const r2 = await fetch(secondUrl, fetchOptions)
-  if (!r2.ok) throw new Error(`transactions chunk2 HTTP ${r2.status}`)
-  const d2 = (await r2.json()) as TransactionsChunkResponse
+  const d2 = await readJsonFromApi<TransactionsChunkResponse>(r2, '取引一覧(2/2)')
 
   merged = merged.concat(d2.transactions ?? [])
   return merged

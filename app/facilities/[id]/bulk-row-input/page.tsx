@@ -30,6 +30,7 @@ import {
   fetchMergedFacilityTransactions,
   type FacilityTransactionPayload,
 } from '@/lib/bulkFacilityTransactionsFetch'
+import { readJsonFromApi } from '@/lib/readJsonApiResponse'
 import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
 
 type Resident = {
@@ -164,14 +165,26 @@ export default function BulkRowInputPage() {
           `/api/facilities/${facilityId}`,
           reqInit
         )
-        const facilityData = await facilityResponse.json()
+        const facilityData = await readJsonFromApi<{ name?: string }>(
+          facilityResponse,
+          '施設情報'
+        )
         setFacilityName(facilityData.name || '')
 
         const residentsResponse = await fetch(
           `/api/residents?facilityId=${facilityId}`,
           reqInit
         )
-        const residentsData = await residentsResponse.json()
+        const residentsData = await readJsonFromApi<
+          Array<{
+            id: number
+            name: string
+            displayNamePrefix?: string | null
+            namePrefixDisplayOption?: string | null
+            unitId: number | null
+            unit: { id: number; name: string } | null
+          }>
+        >(residentsResponse, '利用者一覧')
         setResidents(
           residentsData.map(
             (r: {
@@ -196,7 +209,10 @@ export default function BulkRowInputPage() {
           `/api/units?facilityId=${facilityId}`,
           reqInit
         )
-        const unitsData = await unitsResponse.json()
+        const unitsData = await readJsonFromApi<Array<{ id: number; name: string }>>(
+          unitsResponse,
+          'ユニット一覧'
+        )
         setUnits(
           unitsData
             .map((u: { id: number; name: string }) => ({ id: u.id, name: u.name }))

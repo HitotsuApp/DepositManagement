@@ -31,6 +31,7 @@ import {
   fetchMergedFacilityTransactions,
   type FacilityTransactionPayload,
 } from '@/lib/bulkFacilityTransactionsFetch'
+import { readJsonFromApi } from '@/lib/readJsonApiResponse'
 
 interface TransactionFormData {
   residentId: string
@@ -170,7 +171,10 @@ export default function BulkInputPage() {
       console.log('🏢 [パフォーマンス計測] 施設情報取得を開始')
       console.time('🏢 施設情報取得')
       const facilityResponse = await fetch(`/api/facilities/${facilityId}`, reqInit)
-      const facilityData = await facilityResponse.json()
+      const facilityData = await readJsonFromApi<{ name?: string }>(
+        facilityResponse,
+        '施設情報'
+      )
       console.timeEnd('🏢 施設情報取得')
       setFacilityName(facilityData.name || '')
 
@@ -178,7 +182,16 @@ export default function BulkInputPage() {
       console.log('👥 [パフォーマンス計測] 利用者一覧取得を開始')
       console.time('👥 利用者一覧取得')
       const residentsResponse = await fetch(`/api/residents?facilityId=${facilityId}`, reqInit)
-      const residentsData = await residentsResponse.json()
+      const residentsData = await readJsonFromApi<
+        Array<{
+          id: number
+          name: string
+          displayNamePrefix?: string | null
+          namePrefixDisplayOption?: string | null
+          unitId: number | null
+          unit: { id: number; name: string } | null
+        }>
+      >(residentsResponse, '利用者一覧')
       console.timeEnd('👥 利用者一覧取得')
       setResidents(residentsData.map((r: {
         id: number
@@ -200,7 +213,10 @@ export default function BulkInputPage() {
       console.log('🏠 [パフォーマンス計測] ユニット一覧取得を開始')
       console.time('🏠 ユニット一覧取得')
       const unitsResponse = await fetch(`/api/units?facilityId=${facilityId}`, reqInit)
-      const unitsData = await unitsResponse.json()
+      const unitsData = await readJsonFromApi<Array<{ id: number; name: string }>>(
+        unitsResponse,
+        'ユニット一覧'
+      )
       console.timeEnd('🏠 ユニット一覧取得')
       setUnits(unitsData.map((u: { id: number; name: string }) => ({
         id: u.id,

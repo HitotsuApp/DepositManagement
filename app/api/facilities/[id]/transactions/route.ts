@@ -24,6 +24,8 @@ interface TransactionWithBalanceRow {
   reason: string | null
   residentId: number
   residentName: string
+  res_dsp_prefix: string | null
+  res_dsp_opt: string | null
   balance: number | string
   facility_balance: number | string
 }
@@ -91,6 +93,8 @@ function baseTxnWindowCtes(
         t.reason,
         t."residentId",
         r.name AS "residentName",
+        r."displayNamePrefix" AS res_dsp_prefix,
+        r."namePrefixDisplayOption" AS res_dsp_opt,
         COALESCE(pb.balance, 0) AS previous_balance,
         CASE
           WHEN t."transactionType" IN ('in', 'past_correct_in') THEN t.amount
@@ -108,10 +112,7 @@ function baseTxnWindowCtes(
   `
 }
 
-function mapRowsToPayload(
-  rows: TransactionWithBalanceRow[],
-  residentDisplayNameMap: Map<number, string>
-): FacilityTransactionPayload[] {
+function mapRowsToPayload(rows: TransactionWithBalanceRow[]): FacilityTransactionPayload[] {
   return rows.map((t) => ({
     id: t.id,
     transactionDate: t.transactionDate.toISOString(),
@@ -123,7 +124,14 @@ function mapRowsToPayload(
     balance: Number(t.balance),
     facilityBalance: Number(t.facility_balance),
     residentId: t.residentId,
-    residentName: residentDisplayNameMap.get(t.residentId) ?? t.residentName,
+    residentName: getResidentDisplayName(
+      {
+        name: t.residentName,
+        displayNamePrefix: t.res_dsp_prefix ?? null,
+        namePrefixDisplayOption: t.res_dsp_opt ?? null,
+      },
+      'screen'
+    ),
   }))
 }
 
@@ -144,43 +152,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const endDate = new Date(year, month, 0, 23, 59, 59, 999)
     const previousMonthEndDate = new Date(year, month - 1, 0, 23, 59, 59, 999)
 
-    const facility = await prisma.facility.findUnique({
+    const facilityProbe = await prisma.facility.findUnique({
       where: { id: facilityId },
-      select: {
-        id: true,
-        residents: {
-          where: {
-            isActive: true,
-          },
-          select: {
-            id: true,
-            name: true,
-            displayNamePrefix: true,
-            namePrefixDisplayOption: true,
-          },
-          orderBy: { name: 'asc' },
-        },
-      },
+      select: { id: true },
     })
 
-    if (!facility) {
+    if (!facilityProbe) {
       return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
-    }
-
-    const residentDisplayNameMap = new Map<number, string>()
-    facility.residents.forEach((resident) => {
-      residentDisplayNameMap.set(
-        resident.id,
-        getResidentDisplayName(resident as any, 'screen')
-      )
-    })
-    if (facility.residents.length === 0) {
-      const res = NextResponse.json({
-        transactions: [],
-        hasMore: false,
-      })
-      res.headers.set('Cache-Control', 'no-store')
-      return res
     }
 
     if (resume) {
@@ -234,6 +212,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
             ct.reason,
             ct."residentId",
             ct."residentName",
+            ct.res_dsp_prefix,
+            ct.res_dsp_opt,
             (ct.previous_balance + SUM(ct.transaction_amount) OVER (
               PARTITION BY ct."residentId"
               ORDER BY ct."transactionDate" ASC, ct.id ASC
@@ -256,6 +236,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
           b.reason,
           b."residentId",
           b."residentName",
+          b.res_dsp_prefix,
+          b.res_dsp_opt,
           b.balance,
           b.facility_balance
         FROM balanced b
@@ -264,7 +246,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       `
 
       const response = NextResponse.json({
-        transactions: mapRowsToPayload(resumedRows, residentDisplayNameMap),
+        transactions: mapRowsToPayload(resumedRows),
         hasMore: false,
       })
       response.headers.set('Cache-Control', 'no-store')
@@ -288,6 +270,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
           ct.reason,
           ct."residentId",
           ct."residentName",
+          ct.res_dsp_prefix,
+          ct.res_dsp_opt,
           (ct.previous_balance + SUM(ct.transaction_amount) OVER (
             PARTITION BY ct."residentId"
             ORDER BY ct."transactionDate" ASC, ct.id ASC
@@ -324,6 +308,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
         c.reason,
         c."residentId",
         c."residentName",
+        c.res_dsp_prefix,
+        c.res_dsp_opt,
         c.balance,
         c.facility_balance
       FROM scalars sc
@@ -342,7 +328,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .map(({ opening_total: _o, month_txn_total: _m, ...row }) => row)
 
 
-    let payload = mapRowsToPayload(txnPayloadRows, residentDisplayNameMap)
+    let payload = mapRowsToPayload(txnPayloadRows)
 
     if (facilityOpeningTotal !== 0) {
       const previousMonthEnd = new Date(year, month - 1, 0, 23, 59, 59, 999)
