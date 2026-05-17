@@ -107,22 +107,32 @@ export async function GET(request: Request) {
     const facilityNoticeTemplate =
       (facility as { noticeTemplateNormal?: string | null }).noticeTemplateNormal ?? null
 
-    const residentStatements: ResidentPrintData[] = await Promise.all(
-      filteredResidents.map(async (resident) => {
-        const residentWithRelations = await prisma.resident.findUnique({
-          where: { id: resident.id },
-          include: {
-            transactions: {
-              where: {
-                transactionDate: { lte: endDate },
-              },
-              orderBy: { transactionDate: "asc" },
-            },
-            facility: true,
-            unit: true,
-          },
-        })
+    const filteredIds = filteredResidents.map((r) => r.id)
 
+    let residentStatements: ResidentPrintData[] = []
+
+    if (filteredIds.length > 0) {
+      const residentRows = await prisma.resident.findMany({
+        where: {
+          id: { in: filteredIds },
+          facilityId: facility.id,
+        },
+        include: {
+          transactions: {
+            where: {
+              transactionDate: { lte: endDate },
+            },
+            orderBy: { transactionDate: 'asc' },
+          },
+          facility: true,
+          unit: true,
+        },
+      })
+
+      const byId = new Map(residentRows.map((r) => [r.id, r]))
+
+      residentStatements = filteredResidents.map((resident) => {
+        const residentWithRelations = byId.get(resident.id)
         if (!residentWithRelations) {
           throw new Error(`Resident ${resident.id} not found`)
         }
@@ -133,12 +143,12 @@ export async function GET(request: Request) {
           endDate
         )
 
-        const notice = buildNoticeFromFacilityTemplate(facilityNoticeTemplate, "normal")
+        const notice = buildNoticeFromFacilityTemplate(facilityNoticeTemplate, 'normal')
         if (notice) printData.notice = notice
 
         return printData
       })
-    )
+    }
 
     return NextResponse.json({ residentStatements })
   } catch (error) {

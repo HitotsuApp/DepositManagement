@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
+import { getCalendarMonthRange } from "@/lib/residentPrintEligibility"
 import { transformToResidentPrintData, buildNoticeFromFacilityTemplate } from "@/pdf/utils/transform"
 
 export async function GET(request: Request) {
@@ -21,10 +22,15 @@ export async function GET(request: Request) {
       )
     }
 
+    const y = Number(year)
+    const m = Number(month)
+    const { monthEnd } = getCalendarMonthRange(y, m)
+
     const resident = await prisma.resident.findUnique({
       where: { id: Number(residentId) },
       include: {
         transactions: {
+          where: { transactionDate: { lte: monthEnd } },
           orderBy: { transactionDate: "asc" },
         },
         facility: true,
@@ -41,8 +47,8 @@ export async function GET(request: Request) {
 
     const printData = transformToResidentPrintData(
       resident,
-      Number(year),
-      Number(month),
+      y,
+      m,
       noticeType === "moveout" ? "japaneseEraYearMonth" : "monthOnly"
     )
 

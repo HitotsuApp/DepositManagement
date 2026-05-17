@@ -7,7 +7,7 @@ import {
   loadResidentsForDepositPrint,
   getCalendarMonthRange,
 } from "@/lib/residentPrintEligibility"
-import { transformToPrintData, transformToResidentPrintData, buildNoticeFromFacilityTemplate, type FacilityWithRelations } from "@/pdf/utils/transform"
+import { transformToPrintData, transformToResidentPrintData, buildNoticeFromFacilityTemplate, type FacilityWithRelations, type ResidentPrintData } from "@/pdf/utils/transform"
 import { sortResidentsForPrint, type SortableResident, type SortableUnit } from "@/lib/sortOrder"
 
 export async function GET(request: Request) {
@@ -70,36 +70,40 @@ export async function GET(request: Request) {
 
     const facilityNoticeTemplate = (facility as { noticeTemplateNormal?: string | null }).noticeTemplateNormal ?? null
 
-    // 各利用者の明細書データを取得（ソート順で）
-    const residentStatements = await Promise.all(
-      sortedResidents.map(async (resident) => {
-        // 利用者データを再取得（transformToResidentPrintDataに必要な形式で）
-        const residentWithRelations = await prisma.resident.findUnique({
-          where: { id: resident.id },
-          include: {
-            transactions: {
-              where: { transactionDate: { lte: monthEnd } },
-              orderBy: { transactionDate: "asc" },
-            },
-            facility: true,
-            unit: true,
-          },
-        })
+    const sortedIds = sortedResidents.map((r) => r.id)
 
+    let residentStatements: ResidentPrintData[] = []
+
+    if (sortedIds.length > 0) {
+      const residentRows = await prisma.resident.findMany({
+        where: {
+          id: { in: sortedIds },
+          facilityId: fid,
+        },
+        include: {
+          transactions: {
+            where: { transactionDate: { lte: monthEnd } },
+            orderBy: { transactionDate: 'asc' },
+          },
+          facility: true,
+          unit: true,
+        },
+      })
+
+      const byId = new Map(residentRows.map((r) => [r.id, r]))
+
+      residentStatements = sortedResidents.map((resident) => {
+        const residentWithRelations = byId.get(resident.id)
         if (!residentWithRelations) {
           throw new Error(`Resident ${resident.id} not found`)
         }
 
-        const printData = transformToResidentPrintData(
-          residentWithRelations,
-          y,
-          m
-        )
+        const printData = transformToResidentPrintData(residentWithRelations, y, m)
         const notice = buildNoticeFromFacilityTemplate(facilityNoticeTemplate, 'normal')
         if (notice) printData.notice = notice
         return printData
       })
-    )
+    }
 
     return NextResponse.json({
       facilitySummary,
