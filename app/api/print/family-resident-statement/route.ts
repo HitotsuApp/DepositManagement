@@ -4,6 +4,11 @@ export const dynamic = "force-dynamic"
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
 import {
+  fetchOpeningBalancesByResidentChunks,
+  fetchTransactionsInRangeByResidentChunks,
+  getLedgerSqlForPrint,
+} from "@/lib/printLedgerFetch"
+import {
   transformToResidentPrintDataForRange,
   buildNoticeFromFacilityTemplate,
   type ResidentPrintData,
@@ -112,18 +117,25 @@ export async function GET(request: Request) {
     let residentStatements: ResidentPrintData[] = []
 
     if (filteredIds.length > 0) {
+      const previousPeriodEnd = new Date(startDate.getTime() - 1)
+      const sql = getLedgerSqlForPrint()
+      const [openingMap, txMap] = await Promise.all([
+        fetchOpeningBalancesByResidentChunks(sql, facility.id, filteredIds, previousPeriodEnd),
+        fetchTransactionsInRangeByResidentChunks(
+          sql,
+          facility.id,
+          filteredIds,
+          startDate,
+          endDate
+        ),
+      ])
+
       const residentRows = await prisma.resident.findMany({
         where: {
           id: { in: filteredIds },
           facilityId: facility.id,
         },
         include: {
-          transactions: {
-            where: {
-              transactionDate: { lte: endDate },
-            },
-            orderBy: { transactionDate: 'asc' },
-          },
           facility: true,
           unit: true,
         },
@@ -132,15 +144,21 @@ export async function GET(request: Request) {
       const byId = new Map(residentRows.map((r) => [r.id, r]))
 
       residentStatements = filteredResidents.map((resident) => {
-        const residentWithRelations = byId.get(resident.id)
-        if (!residentWithRelations) {
+        const residentWithThinTx = byId.get(resident.id)
+        if (!residentWithThinTx) {
           throw new Error(`Resident ${resident.id} not found`)
         }
 
         const printData = transformToResidentPrintDataForRange(
-          residentWithRelations as any,
+          {
+            ...residentWithThinTx,
+            transactions: txMap.get(resident.id) ?? [],
+          } as any,
           startDate,
-          endDate
+          endDate,
+          {
+            openingBalanceThruInstantBeforeStart: openingMap.get(resident.id) ?? 0,
+          }
         )
 
         const notice = buildNoticeFromFacilityTemplate(facilityNoticeTemplate, 'normal')

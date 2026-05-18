@@ -43,13 +43,20 @@ export async function GET(request: Request) {
       )
     }
 
-    const residents = await loadResidentsForDepositPrint(prisma, fid, y, m, uid)
+    const { residents, openingBalancesThruPreviousMonthEnd } = await loadResidentsForDepositPrint(
+      prisma,
+      fid,
+      y,
+      m,
+      uid
+    )
 
     const printData = transformToPrintData(
       { ...facility, residents } as unknown as FacilityWithRelations,
       uid,
       y,
-      m
+      m,
+      { residentOpeningBalances: openingBalancesThruPreviousMonthEnd }
     )
 
     return NextResponse.json(printData)

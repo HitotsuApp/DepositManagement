@@ -1,5 +1,6 @@
 import { Facility, Unit, Resident, Transaction } from "@prisma/client"
 import { filterTransactionsByMonth } from "@/lib/balance"
+import { sumLedgerThruCutoffInclusive } from "@/lib/balanceLedgerContribution"
 import { formatDate, formatJapaneseEraYmd, formatJapaneseEraYearMonth, formatYen } from "./format"
 import { getResidentDisplayName } from "@/lib/displayName"
 import { sortResidentsForPrint, sortUnitsForPrint } from "@/lib/sortOrder"
@@ -60,6 +61,11 @@ export interface FacilityWithRelations extends Facility {
   })[]
 }
 
+export type TransformToPrintDataOptions = {
+  /** Neon/SQL で計算済みの前月末までの開き。指定時は `resident.transactions` の全履歴には依存しない。 */
+  residentOpeningBalances?: Map<number, number>
+}
+
 /**
  * Prismaで取得したデータを印刷用JSONに整形する
  */
@@ -67,7 +73,8 @@ export function transformToPrintData(
   facility: FacilityWithRelations,
   unitId: number | null,
   year: number,
-  month: number
+  month: number,
+  options?: TransformToPrintDataOptions
 ): PrintData {
   // ユニットを取得（unitIdが指定されている場合）
   const unit = unitId ? facility.units.find((u) => u.id === unitId) : null
@@ -103,34 +110,11 @@ export function transformToPrintData(
       year,
       month
     )
-    
-    // 前月末までの残高を計算（繰越行用）
-    // 訂正区分は計算から除外
-    // 取引を日付順にソートしてから計算（同じ日付の場合はID順）
-    const previousTransactions = resident.transactions
-      .filter((t) => new Date(t.transactionDate) <= previousMonthEnd)
-      .sort((a, b) => {
-        const dateA = new Date(a.transactionDate).getTime()
-        const dateB = new Date(b.transactionDate).getTime()
-        if (dateA !== dateB) return dateA - dateB
-        return a.id - b.id
-      })
-    
-    const previousBalance = previousTransactions.reduce((balance, t) => {
-      if (t.transactionType === "in") {
-        return balance + t.amount
-      } else if (t.transactionType === "out") {
-        return balance - t.amount
-      } else if (t.transactionType === "past_correct_in") {
-        // 過去訂正入金は計算に含める
-        return balance + t.amount
-      } else if (t.transactionType === "past_correct_out") {
-        // 過去訂正出金は計算に含める
-        return balance - t.amount
-      }
-      // correct_in と correct_out は計算しない（打ち消し処理）
-      return balance
-    }, 0)
+
+    const useOpeningMap = options?.residentOpeningBalances !== undefined
+    const previousBalance = useOpeningMap
+      ? (options!.residentOpeningBalances!.get(resident.id) ?? 0)
+      : sumLedgerThruCutoffInclusive(resident.transactions, previousMonthEnd)
 
     // 繰越行を追加（前月末残高が0でない場合は必ず追加）
     // 利用がなかった月でも、繰越残高があれば明細書を印刷する必要があるため
@@ -468,12 +452,18 @@ interface ResidentWithRelations extends Resident {
 
 export type ResidentStatementMonthHeader = "monthOnly" | "japaneseEraYearMonth"
 
+export type ResidentPrintLedgerOptions = {
+  /** 指定すると前月末までの開きのみ SQL 済み値を使う（当月分のみ `transactions` を渡すときに必須） */
+  openingBalanceThruPreviousMonthEnd?: number
+}
+
 /** Prismaで取得した利用者データを印刷用JSONに整形する */
 export function transformToResidentPrintData(
   resident: ResidentWithRelations,
   year: number,
   month: number,
-  statementMonthHeader: ResidentStatementMonthHeader = "monthOnly"
+  statementMonthHeader: ResidentStatementMonthHeader = "monthOnly",
+  ledgerOptions?: ResidentPrintLedgerOptions
 ): ResidentPrintData {
   // 前月末日を計算（繰越行用）
   const previousMonthEnd = new Date(year, month - 1, 0, 23, 59, 59, 999)
@@ -485,33 +475,10 @@ export function transformToResidentPrintData(
     month
   )
 
-  // 前月末までの残高を計算（繰越行用）
-  // 訂正区分は計算から除外
-  // 取引を日付順にソートしてから計算（同じ日付の場合はID順）
-  const previousTransactions = resident.transactions
-    .filter((t) => new Date(t.transactionDate) <= previousMonthEnd)
-    .sort((a, b) => {
-      const dateA = new Date(a.transactionDate).getTime()
-      const dateB = new Date(b.transactionDate).getTime()
-      if (dateA !== dateB) return dateA - dateB
-      return a.id - b.id
-    })
-  
-  const previousBalance = previousTransactions.reduce((balance, t) => {
-    if (t.transactionType === "in") {
-      return balance + t.amount
-    } else if (t.transactionType === "out") {
-      return balance - t.amount
-    } else if (t.transactionType === "past_correct_in") {
-      // 過去訂正入金は計算に含める
-      return balance + t.amount
-    } else if (t.transactionType === "past_correct_out") {
-      // 過去訂正出金は計算に含める
-      return balance - t.amount
-    }
-    // correct_in と correct_out は計算しない（打ち消し処理）
-    return balance
-  }, 0)
+  const previousBalance =
+    ledgerOptions?.openingBalanceThruPreviousMonthEnd !== undefined
+      ? ledgerOptions.openingBalanceThruPreviousMonthEnd
+      : sumLedgerThruCutoffInclusive(resident.transactions, previousMonthEnd)
 
   // 取引リストを作成（繰越行 + 当月取引）
   const allTransactions: Array<Transaction & { _isCarryOver?: boolean; _previousBalance?: number }> = []
@@ -650,10 +617,15 @@ export function transformToResidentPrintData(
   }
 }
 
+export type ResidentPrintRangeLedgerOptions = {
+  openingBalanceThruInstantBeforeStart?: number
+}
+
 export function transformToResidentPrintDataForRange(
   resident: ResidentWithRelations,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  ledgerOptions?: ResidentPrintRangeLedgerOptions
 ): ResidentPrintData {
   // 開始日の直前（前期間の残高を作る境界）
   const startBoundary = new Date(startDate)
@@ -669,31 +641,10 @@ export function transformToResidentPrintDataForRange(
     return d >= startMs && d <= endMs
   })
 
-  // 前期間までの残高計算（正しい繰越のために日付順 + ID順）
-  const previousTransactions = resident.transactions
-    .filter((t) => new Date(t.transactionDate) <= previousPeriodEnd)
-    .sort((a, b) => {
-      const dateA = new Date(a.transactionDate).getTime()
-      const dateB = new Date(b.transactionDate).getTime()
-      if (dateA !== dateB) return dateA - dateB
-      return a.id - b.id
-    })
-
-  const previousBalance = previousTransactions.reduce((balance, t) => {
-    if (t.transactionType === "in") {
-      return balance + t.amount
-    } else if (t.transactionType === "out") {
-      return balance - t.amount
-    } else if (t.transactionType === "past_correct_in") {
-      // 過去訂正入金は計算に含める
-      return balance + t.amount
-    } else if (t.transactionType === "past_correct_out") {
-      // 過去訂正出金は計算に含める
-      return balance - t.amount
-    }
-    // correct_in と correct_out は計算しない（打ち消し処理）
-    return balance
-  }, 0)
+  const previousBalance =
+    ledgerOptions?.openingBalanceThruInstantBeforeStart !== undefined
+      ? ledgerOptions.openingBalanceThruInstantBeforeStart
+      : sumLedgerThruCutoffInclusive(resident.transactions, previousPeriodEnd)
 
   // 取引リストを作成（繰越行 + 期間内取引）
   const allTransactions: Array<Transaction & { _isCarryOver?: boolean; _previousBalance?: number }> = []

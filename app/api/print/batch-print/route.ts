@@ -5,7 +5,6 @@ import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
 import {
   loadResidentsForDepositPrint,
-  getCalendarMonthRange,
 } from "@/lib/residentPrintEligibility"
 import { transformToPrintData, transformToResidentPrintData, buildNoticeFromFacilityTemplate, type FacilityWithRelations, type ResidentPrintData } from "@/pdf/utils/transform"
 import { sortResidentsForPrint, type SortableResident, type SortableUnit } from "@/lib/sortOrder"
@@ -45,9 +44,13 @@ export async function GET(request: Request) {
       )
     }
 
-    const residents = await loadResidentsForDepositPrint(prisma, fid, y, m, null)
-
-    const { monthEnd } = getCalendarMonthRange(y, m)
+    const { residents, openingBalancesThruPreviousMonthEnd } = await loadResidentsForDepositPrint(
+      prisma,
+      fid,
+      y,
+      m,
+      null
+    )
 
     const residentPrintSortMode = (facility as { residentPrintSortMode?: string | null }).residentPrintSortMode ?? null
     const useSameOrder =
@@ -65,41 +68,37 @@ export async function GET(request: Request) {
       { ...facility, residents } as unknown as FacilityWithRelations,
       null,
       y,
-      m
+      m,
+      { residentOpeningBalances: openingBalancesThruPreviousMonthEnd }
     )
 
     const facilityNoticeTemplate = (facility as { noticeTemplateNormal?: string | null }).noticeTemplateNormal ?? null
 
-    const sortedIds = sortedResidents.map((r) => r.id)
-
     let residentStatements: ResidentPrintData[] = []
 
-    if (sortedIds.length > 0) {
-      const residentRows = await prisma.resident.findMany({
-        where: {
-          id: { in: sortedIds },
-          facilityId: fid,
-        },
-        include: {
-          transactions: {
-            where: { transactionDate: { lte: monthEnd } },
-            orderBy: { transactionDate: 'asc' },
-          },
-          facility: true,
-          unit: true,
-        },
-      })
-
-      const byId = new Map(residentRows.map((r) => [r.id, r]))
-
+    if (sortedResidents.length > 0) {
       residentStatements = sortedResidents.map((resident) => {
-        const residentWithRelations = byId.get(resident.id)
-        if (!residentWithRelations) {
+        const base = residents.find((r) => r.id === resident.id)
+        if (!base) {
           throw new Error(`Resident ${resident.id} not found`)
         }
-
-        const printData = transformToResidentPrintData(residentWithRelations, y, m)
-        const notice = buildNoticeFromFacilityTemplate(facilityNoticeTemplate, 'normal')
+        const residentWithRelations = {
+          ...base,
+          facility,
+          transactions: base.transactions,
+          unit: base.unit,
+        }
+        const printData = transformToResidentPrintData(
+          residentWithRelations,
+          y,
+          m,
+          "monthOnly",
+          {
+            openingBalanceThruPreviousMonthEnd:
+              openingBalancesThruPreviousMonthEnd.get(resident.id) ?? 0,
+          }
+        )
+        const notice = buildNoticeFromFacilityTemplate(facilityNoticeTemplate, "normal")
         if (notice) printData.notice = notice
         return printData
       })

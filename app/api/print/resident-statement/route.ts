@@ -3,6 +3,11 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
+import {
+  fetchOpeningBalancesByResidentChunks,
+  fetchTransactionsInRangeByResidentChunks,
+  getLedgerSqlForPrint,
+} from "@/lib/printLedgerFetch"
 import { getCalendarMonthRange } from "@/lib/residentPrintEligibility"
 import { transformToResidentPrintData, buildNoticeFromFacilityTemplate } from "@/pdf/utils/transform"
 
@@ -24,15 +29,12 @@ export async function GET(request: Request) {
 
     const y = Number(year)
     const m = Number(month)
-    const { monthEnd } = getCalendarMonthRange(y, m)
+    const { monthEnd, monthStart } = getCalendarMonthRange(y, m)
+    const previousMonthEnd = new Date(y, m - 1, 0, 23, 59, 59, 999)
 
     const resident = await prisma.resident.findUnique({
       where: { id: Number(residentId) },
       include: {
-        transactions: {
-          where: { transactionDate: { lte: monthEnd } },
-          orderBy: { transactionDate: "asc" },
-        },
         facility: true,
         unit: true,
       },
@@ -45,11 +47,38 @@ export async function GET(request: Request) {
       )
     }
 
+    const sql = getLedgerSqlForPrint()
+    const facilityIdOfResident = resident.facilityId
+    const [openingMap, txMap] = await Promise.all([
+      fetchOpeningBalancesByResidentChunks(
+        sql,
+        facilityIdOfResident,
+        [resident.id],
+        previousMonthEnd
+      ),
+      fetchTransactionsInRangeByResidentChunks(
+        sql,
+        facilityIdOfResident,
+        [resident.id],
+        monthStart,
+        monthEnd
+      ),
+    ])
+
+    const residentForPrint = {
+      ...resident,
+      transactions: txMap.get(resident.id) ?? [],
+    }
+
     const printData = transformToResidentPrintData(
-      resident,
+      residentForPrint,
       y,
       m,
-      noticeType === "moveout" ? "japaneseEraYearMonth" : "monthOnly"
+      noticeType === "moveout" ? "japaneseEraYearMonth" : "monthOnly",
+      {
+        openingBalanceThruPreviousMonthEnd:
+          openingMap.get(resident.id) ?? 0,
+      }
     )
 
     const facility = resident.facility as { noticeTemplateNormal?: string | null; noticeTemplateMoveOut?: string | null }
