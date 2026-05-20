@@ -1,59 +1,28 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useFacility } from '@/contexts/FacilityContext'
 
-interface Facility {
-  id: number
-  name: string
-  isActive: boolean
-}
-
 export default function FacilitySelectPage() {
   const router = useRouter()
-  const { selectedFacilityId, setSelectedFacilityId, clearSelection } = useFacility()
-  const [facilities, setFacilities] = useState<Facility[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const {
+    selectedFacilityId,
+    setSelectedFacilityId,
+    clearSelection,
+    facilities,
+    facilitiesLoading,
+    facilitiesError,
+    refreshFacilities,
+  } = useFacility()
 
-  useEffect(() => {
-    fetchFacilities()
-  }, [])
-
-  const fetchFacilities = async () => {
-    try {
-      const response = await fetch('/api/facilities')
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      // エラーオブジェクトの場合は空配列を設定
-      if (data.error || !Array.isArray(data)) {
-        console.error('Failed to fetch facilities:', data.error || 'Invalid response format')
-        setFacilities([])
-        return
-      }
-      // 配列であることを確認してからfilterを呼び出す
-      const facilitiesArray = Array.isArray(data) ? data : []
-      setFacilities(facilitiesArray.filter((f: Facility) => f.isActive))
-    } catch (error) {
-      console.error('Failed to fetch facilities:', error)
-      setFacilities([])
-      alert('施設データの取得に失敗しました')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const activeFacilities = facilities.filter((f) => f.isActive)
 
   const handleSelectFacility = (facilityId: number) => {
     setSelectedFacilityId(facilityId)
     const currentDate = new Date()
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth() + 1
-    router.push(
-      `/facilities/${facilityId}?year=${year}&month=${month}&_t=${Date.now()}`
-    )
+    router.push(`/facilities/${facilityId}?year=${year}&month=${month}&_t=${Date.now()}`)
   }
 
   const handleSelectAll = () => {
@@ -61,12 +30,29 @@ export default function FacilitySelectPage() {
     router.push('/')
   }
 
-  if (isLoading) {
+  if (facilitiesLoading && facilities.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p className="text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (facilitiesError && facilities.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-md text-center space-y-4">
+          <p className="text-red-600">{facilitiesError}</p>
+          <button
+            type="button"
+            onClick={() => void refreshFacilities()}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            再試行
+          </button>
         </div>
       </div>
     )
@@ -81,7 +67,11 @@ export default function FacilitySelectPage() {
           {selectedFacilityId !== null && (
             <div className="mt-4 inline-block px-4 py-2 bg-blue-100 border-2 border-blue-300 rounded-lg">
               <p className="text-sm text-blue-800">
-                現在選択中: <span className="font-semibold">{facilities.find(f => f.id === selectedFacilityId)?.name || '読み込み中...'}</span>
+                現在選択中:{' '}
+                <span className="font-semibold">
+                  {facilities.find((f) => f.id === selectedFacilityId)?.name ||
+                    '読み込み中...'}
+                </span>
               </p>
             </div>
           )}
@@ -114,11 +104,11 @@ export default function FacilitySelectPage() {
           </button>
         </div>
 
-        {facilities.length > 0 ? (
+        {activeFacilities.length > 0 ? (
           <>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">施設一覧</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {facilities.map(facility => {
+              {activeFacilities.map((facility) => {
                 const isSelected = facility.id === selectedFacilityId
                 return (
                   <button

@@ -7,7 +7,6 @@ import { PDFViewer } from "@react-pdf/renderer"
 import { PdfRenderer } from "@/pdf/renderer/PdfRenderer"
 import { BatchPdfRenderer } from "@/pdf/renderer/BatchPdfRenderer"
 import { ResidentsOnlyPdfRenderer } from "@/pdf/renderer/ResidentsOnlyPdfRenderer"
-import MainLayout from "@/components/MainLayout"
 import DateSelector from "@/components/DateSelector"
 import depositStatementTemplate from "@/pdf/templates/deposit-statement.json"
 import residentStatementTemplate from "@/pdf/templates/resident-statement.json"
@@ -269,13 +268,11 @@ function PrintPreviewContent() {
 
   if (!isMounted || isLoading) {
     return (
-      <MainLayout>
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
             <div className="text-xl mb-4">読み込み中...</div>
           </div>
         </div>
-      </MainLayout>
     )
   }
 
@@ -288,7 +285,6 @@ function PrintPreviewContent() {
 
   if (error || isDataMissing) {
     return (
-      <MainLayout>
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
             <div className="text-xl text-red-600 mb-4">
@@ -302,12 +298,10 @@ function PrintPreviewContent() {
             </button>
           </div>
         </div>
-      </MainLayout>
     )
   }
 
   return (
-    <MainLayout>
       <div className="h-screen flex flex-col">
         {/* ヘッダー */}
         <div className="bg-white border-b p-4 flex items-start justify-between">
@@ -413,7 +407,6 @@ function PrintPreviewContent() {
           )}
         </div>
       </div>
-    </MainLayout>
   )
 }
 

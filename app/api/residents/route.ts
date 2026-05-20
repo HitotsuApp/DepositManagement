@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { fetchResidentsByFacilityId } from '@/lib/residentsFacilityListSql'
 import { validateMaxLength, validateSortOrder, MAX_LENGTHS, NAME_PREFIX_DISPLAY_OPTIONS } from '@/lib/validation'
 import { sanitizeFurigana } from '@/lib/furigana'
 
@@ -18,10 +19,19 @@ export async function GET(request: Request) {
       Number.isInteger(facilityId) &&
       facilityId > 0
 
+    if (facilityScoped) {
+      const residents = await fetchResidentsByFacilityId(facilityId, includeInactive)
+      const response = NextResponse.json(residents)
+      response.headers.set(
+        'Cache-Control',
+        'public, s-maxage=90, stale-while-revalidate=180'
+      )
+      return response
+    }
+
     const residents = await prisma.resident.findMany({
       where: {
         ...(includeInactive ? {} : { isActive: true }),
-        ...(facilityScoped ? { facilityId } : {}),
       },
       select: {
         id: true,
@@ -36,16 +46,12 @@ export async function GET(request: Request) {
         isActive: true,
         startDate: true,
         endDate: true,
-        ...(facilityScoped
-          ? {}
-          : {
-              facility: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            }),
+        facility: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         unit: {
           select: {
             id: true,
@@ -60,9 +66,7 @@ export async function GET(request: Request) {
 
     response.headers.set(
       'Cache-Control',
-      facilityScoped
-        ? 'public, s-maxage=90, stale-while-revalidate=180'
-        : 'public, s-maxage=60, stale-while-revalidate=120'
+      'public, s-maxage=60, stale-while-revalidate=120'
     )
     
     return response

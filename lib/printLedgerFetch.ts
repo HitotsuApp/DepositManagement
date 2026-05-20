@@ -1,5 +1,6 @@
 import type { Transaction } from '@prisma/client'
 import { neonHttpSql } from '@/lib/neonHttpSql'
+import { withTransientDbRetries } from '@/lib/withTransientDbRetries'
 
 type SqlLedger = ReturnType<typeof neonHttpSql>
 
@@ -33,8 +34,11 @@ export async function fetchOpeningBalancesByResidentChunks(
   const map = new Map<number, number>()
   const unique = [...new Set(residentIds)]
   for (const chunk of chunkIds(unique)) {
-    const rows = (await sql(
-      `SELECT t."residentId"::int AS "residentId",
+    const rows = (await withTransientDbRetries(
+      `printLedger.openingBalances(${facilityId},${chunk.length}ids)`,
+      () =>
+        sql(
+          `SELECT t."residentId"::int AS "residentId",
           ${OPENING_SUM_BODY}
        FROM "Transaction" t
        INNER JOIN "Resident" r ON r.id = t."residentId" AND r."facilityId" = $2
@@ -42,7 +46,8 @@ export async function fetchOpeningBalancesByResidentChunks(
          AND t."transactionDate" <= $3
          AND t."transactionType" NOT IN ('correct_in','correct_out')
        GROUP BY t."residentId"`,
-      [chunk, facilityId, cutoffInclusive]
+          [chunk, facilityId, cutoffInclusive]
+        )
     )) as { residentId: number; opening: number | string }[]
     for (const r of rows) {
       map.set(r.residentId, Number(r.opening))
@@ -76,8 +81,11 @@ export async function fetchTransactionsInRangeByResidentChunks(
   const unique = [...new Set(residentIds)]
 
   for (const chunk of chunkIds(unique)) {
-    const rows = (await sql(
-      `SELECT
+    const rows = (await withTransientDbRetries(
+      `printLedger.txRange(${facilityId},${chunk.length}ids)`,
+      () =>
+        sql(
+          `SELECT
          t.id,
          t."residentId",
          t."transactionDate",
@@ -93,7 +101,8 @@ export async function fetchTransactionsInRangeByResidentChunks(
          AND t."transactionDate" >= $3
          AND t."transactionDate" <= $4
        ORDER BY t."residentId" ASC, t."transactionDate" ASC, t.id ASC`,
-      [chunk, facilityId, rangeStartInclusive, rangeEndInclusive]
+          [chunk, facilityId, rangeStartInclusive, rangeEndInclusive]
+        )
     )) as Row[]
 
     for (const row of rows) {

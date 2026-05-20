@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import MainLayout from '@/components/MainLayout'
 import Modal from '@/components/Modal'
 import { useFacility } from '@/contexts/FacilityContext'
 
@@ -403,8 +402,7 @@ export default function MaintenancePage() {
   // パスワード認証画面
   if (!isAuthenticated) {
     return (
-      <MainLayout>
-        <div className="max-w-md mx-auto mt-8">
+      <div className="max-w-md mx-auto mt-8">
           <div className="bg-white rounded-lg shadow-md p-6">
             <h1 className="text-2xl font-bold mb-4">メンテナンス画面</h1>
             <p className="mb-4 text-gray-600">パスワードを入力してください</p>
@@ -426,14 +424,12 @@ export default function MaintenancePage() {
             </form>
           </div>
         </div>
-      </MainLayout>
     )
   }
 
   // メンテナンス画面
   return (
-    <MainLayout>
-      <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto">
         <h1 className="text-2xl font-bold mb-6">メンテナンス</h1>
         
         <div className="mb-4 flex gap-4">
@@ -545,6 +541,5 @@ export default function MaintenancePage() {
           </Modal>
         )}
       </div>
-    </MainLayout>
   )
 }

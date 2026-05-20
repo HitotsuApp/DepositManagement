@@ -1,12 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import MainLayout from '@/components/MainLayout'
 import { useFacility } from '@/contexts/FacilityContext'
 import { invalidateTransactionCacheForResidents } from '@/lib/cache'
-
-type FacilityOption = { id: number; name: string }
 
 type PreviewCommitItem = {
   residentId: number
@@ -42,8 +39,15 @@ type PreviewResponse = {
 
 export default function ImportPage() {
   const router = useRouter()
-  const { selectedFacilityId } = useFacility()
-  const [facilities, setFacilities] = useState<FacilityOption[]>([])
+  const { selectedFacilityId, facilities } = useFacility()
+  const facilityOptions = useMemo(
+    () =>
+      facilities
+        .filter((f) => f.isActive)
+        .map(({ id, name }) => ({ id, name }))
+        .sort((a, b) => a.id - b.id),
+    [facilities]
+  )
   const [facilityId, setFacilityId] = useState<number | ''>('')
   const [baseYear, setBaseYear] = useState(() => new Date().getFullYear())
   const [sheetMonth, setSheetMonth] = useState(() => new Date().getMonth() + 1)
@@ -53,17 +57,6 @@ export default function ImportPage() {
   const [preview, setPreview] = useState<PreviewResponse | null>(null)
   const [importMode, setImportMode] = useState<'append' | 'replace_month'>('replace_month')
   const [message, setMessage] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('/api/facilities')
-      .then((r) => r.json())
-      .then((data: FacilityOption[]) => {
-        if (Array.isArray(data)) {
-          setFacilities(data)
-        }
-      })
-      .catch(() => setFacilities([]))
-  }, [])
 
   useEffect(() => {
     if (selectedFacilityId && facilityId === '') {
@@ -173,8 +166,7 @@ export default function ImportPage() {
   }
 
   return (
-    <MainLayout>
-      <div className="max-w-5xl">
+    <div className="max-w-5xl">
         <h1 className="text-3xl font-bold mb-2">データインポート（出納帳Excel）</h1>
         <p className="text-gray-600 mb-6 text-sm">
           施設の預り金出納帳Excel（固定レイアウト・「N月分」シート）から入出金を取り込みます。
@@ -196,7 +188,7 @@ export default function ImportPage() {
                 className="w-full border rounded px-3 py-2"
               >
                 <option value="">選択してください</option>
-                {facilities.map((f) => (
+                {facilityOptions.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
                   </option>
@@ -371,6 +363,5 @@ export default function ImportPage() {
           </ul>
         </div>
       </div>
-    </MainLayout>
   )
 }

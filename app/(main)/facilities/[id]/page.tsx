@@ -4,7 +4,6 @@ export const runtime = 'edge';
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
-import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
 import { useFacility } from '@/contexts/FacilityContext'
@@ -261,8 +260,7 @@ export default function FacilityDetailPage() {
   const isMismatchedFacility = selectedFacilityId !== null && selectedFacilityId !== facilityId
 
   return (
-    <MainLayout>
-      <div>
+    <div>
         <h1 className="text-3xl font-bold mb-6">
           施設詳細: {isSummaryLoading ? '読み込み中...' : facilityName || '施設が見つかりません'}
         </h1>
@@ -419,6 +417,5 @@ export default function FacilityDetailPage() {
           </div>
         )}
       </div>
-    </MainLayout>
   )
 }

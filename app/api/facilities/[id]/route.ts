@@ -1,6 +1,7 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
+import { fetchFacilityMonthUnitBalances } from '@/lib/facilityUnitBalancesSql'
 import { getPrisma } from '@/lib/prisma'
 import { validateId, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
@@ -43,48 +44,7 @@ export async function GET(
         return NextResponse.json({ error: '指定日付が無効です' }, { status: 400 })
       }
 
-      // ラウンドトリップ最小化：ユニット別残高は DB で unitId に集約、施設・ユニット名は同一クエリで取得（residentSummaries と同様の CASE）
-
-      interface FacilitySummaryRow {
-        facilityName: string | null
-        unitId: number | null
-        unitName: string | null
-        balance: unknown
-      }
-
-      const rows = await prisma.$queryRaw<FacilitySummaryRow[]>`
-        WITH unit_balances AS (
-          SELECT
-            r."unitId" AS "unitId",
-            COALESCE(SUM(
-              CASE
-                WHEN t."transactionType" IN ('in', 'past_correct_in') THEN t.amount
-                WHEN t."transactionType" IN ('out', 'past_correct_out') THEN -t.amount
-                ELSE 0
-              END
-            ), 0) AS balance
-          FROM "Resident" r
-          LEFT JOIN "Transaction" t ON t."residentId" = r.id
-          WHERE r."facilityId" = ${facilityId}
-            AND r."isActive" = true
-            AND r."endDate" IS NULL
-            AND (t."transactionDate" IS NULL OR t."transactionDate" <= ${targetDate})
-            AND (t."transactionType" IS NULL OR t."transactionType" NOT IN ('correct_in', 'correct_out'))
-          GROUP BY r."unitId"
-        )
-        SELECT
-          f.name AS "facilityName",
-          u.id AS "unitId",
-          u.name AS "unitName",
-          COALESCE(ub.balance, 0) AS balance
-        FROM "Facility" f
-        LEFT JOIN "Unit" u
-          ON u."facilityId" = f.id
-          AND u."isActive" = true
-        LEFT JOIN unit_balances ub ON ub."unitId" = u.id
-        WHERE f.id = ${facilityId}
-        ORDER BY u."displaySortOrder" ASC NULLS LAST, u.id ASC
-      `
+      const rows = await fetchFacilityMonthUnitBalances(facilityId, targetDate)
 
       if (!rows.length || rows[0].facilityName === null || rows[0].facilityName === undefined) {
         return NextResponse.json({ error: 'Facility not found' }, { status: 404 })

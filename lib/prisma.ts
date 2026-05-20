@@ -23,7 +23,12 @@ const globalForPrisma = globalThis as typeof globalThis & {
 }
 
 function createPrisma(): PrismaClient {
-  const pool = new Pool({ connectionString })
+  /** Neon スリープ直後や回線が不安定なとき、既定の短い接続タイムアウトで WebSocket が落ちやすい */
+  const pool = new Pool({
+    connectionString,
+    connectionTimeoutMillis: 60_000,
+    idleTimeoutMillis: 60_000,
+  })
   const adapter = new PrismaNeon(pool)
   return new PrismaClient({ adapter })
 }

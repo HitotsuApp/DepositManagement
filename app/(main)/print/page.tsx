@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import { useFacility } from '@/contexts/FacilityContext'
 
@@ -67,8 +66,7 @@ export default function PrintPage() {
   }
 
   return (
-    <MainLayout>
-      <div>
+    <div>
         <h1 className="text-3xl font-bold mb-6">まとめて印刷</h1>
         
         {selectedFacilityId === null && (
@@ -184,8 +182,7 @@ export default function PrintPage() {
             </div>
           </div>
         </div>
-      </div>
-    </MainLayout>
+    </div>
   )
 }
 

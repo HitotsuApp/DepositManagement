@@ -3,6 +3,7 @@ export const runtime = 'edge'
 import { NextResponse } from 'next/server'
 import { validateId } from '@/lib/validation'
 import { neonHttpSql } from '@/lib/neonHttpSql'
+import { withTransientDbRetries } from '@/lib/withTransientDbRetries'
 import { getResidentDisplayName } from '@/lib/displayName'
 import {
   BULK_TRANSACTIONS_CHUNK_LIMIT,
@@ -100,10 +101,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     const sql = neonHttpSql()
 
-    const probe =
-      (await sql`SELECT id FROM "Facility" WHERE id = ${facilityId} LIMIT 1`) as {
-        id: number
-      }[]
+    const probe = await withTransientDbRetries(
+      `facilityTransactions.probe(${facilityId})`,
+      async () =>
+        (await sql`SELECT id FROM "Facility" WHERE id = ${facilityId} LIMIT 1`) as {
+          id: number
+        }[]
+    )
 
     if (probe.length === 0) {
       return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
@@ -138,8 +142,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
         }
       }
 
-      const resumedRows = (continuationFromBeginning
-        ? await sql`
+      const resumedRows = (await withTransientDbRetries(
+        `facilityTransactions.resume(${facilityId})`,
+        async () =>
+          continuationFromBeginning
+            ? await sql`
         WITH previous_balances AS (
           SELECT
             t_pb."residentId",
@@ -234,7 +241,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         FROM balanced b
         WHERE TRUE
         ORDER BY b."transactionDate" ASC, b.id ASC`
-        : await sql`
+            : await sql`
         WITH previous_balances AS (
           SELECT
             t_pb."residentId",
@@ -331,7 +338,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
           b."transactionDate" > ${afterDateParsed}
           OR (b."transactionDate" = ${afterDateParsed} AND b.id > ${afterIdNum})
         )
-        ORDER BY b."transactionDate" ASC, b.id ASC`) as TransactionWithBalanceRow[]
+        ORDER BY b."transactionDate" ASC, b.id ASC`
+      )) as TransactionWithBalanceRow[]
 
       const response = NextResponse.json({
         transactions: mapRowsToPayload(resumedRows),
@@ -343,7 +351,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     const limitLogical = parseLimit(searchParams.get('limit'))
 
-    const joinedRows = (await sql`
+    const joinedRows = (await withTransientDbRetries(
+      `facilityTransactions.chunk(${facilityId})`,
+      async () =>
+        await sql`
       WITH previous_balances AS (
         SELECT
           t_pb."residentId",
@@ -451,7 +462,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
         c.facility_balance
       FROM scalars sc
       LEFT JOIN combined c ON TRUE
-      ORDER BY c."transactionDate" ASC NULLS LAST, c.id ASC NULLS LAST`) as ChunkQueryRow[]
+      ORDER BY c."transactionDate" ASC NULLS LAST, c.id ASC NULLS LAST`
+    )) as ChunkQueryRow[]
 
     const sample = joinedRows[0]
     const facilityOpeningTotal = Number(sample.opening_total)

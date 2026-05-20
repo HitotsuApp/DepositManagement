@@ -3,7 +3,6 @@
 import { Suspense } from "react";
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import MainLayout from '@/components/MainLayout'
 import Modal from '@/components/Modal'
 import { useFacility } from '@/contexts/FacilityContext'
 import { invalidateMasterCache } from '@/lib/cache'
@@ -67,7 +66,7 @@ interface Resident {
 function MasterContent() {
   const searchParams = useSearchParams();
   const router = useRouter()
-  const { selectedFacilityId } = useFacility()
+  const { selectedFacilityId, refreshFacilities } = useFacility()
   
   // すべてのuseStateを条件分岐の前に配置
   const [isMounted, setIsMounted] = useState(false)
@@ -341,6 +340,7 @@ function MasterContent() {
       
       // マスタデータのキャッシュを無効化
       await invalidateMasterCache(editingFacility?.id || undefined)
+      await refreshFacilities()
       
       // Next.jsのサーバーコンポーネントのキャッシュも無効化
       router.refresh()
@@ -369,6 +369,7 @@ function MasterContent() {
       
       // マスタデータのキャッシュを無効化
       await invalidateMasterCache(facilityId)
+      await refreshFacilities()
       
       // Next.jsのサーバーコンポーネントのキャッシュも無効化
       router.refresh()
@@ -447,6 +448,7 @@ function MasterContent() {
       
       // マスタデータのキャッシュを無効化
       await invalidateMasterCache(unitForm.facilityId)
+      await refreshFacilities()
       
       // Next.jsのサーバーコンポーネントのキャッシュも無効化
       router.refresh()
@@ -553,6 +555,7 @@ function MasterContent() {
       
       // マスタデータのキャッシュを無効化
       await invalidateMasterCache(residentForm.facilityId)
+      await refreshFacilities()
       
       // Next.jsのサーバーコンポーネントのキャッシュも無効化
       router.refresh()
@@ -590,6 +593,7 @@ function MasterContent() {
       // マスタデータのキャッシュを無効化
       const endedResident = residents.find(r => r.id === residentId)
       await invalidateMasterCache(endedResident?.facilityId)
+      await refreshFacilities()
       
       // Next.jsのサーバーコンポーネントのキャッシュも無効化
       router.refresh()
@@ -603,19 +607,16 @@ function MasterContent() {
 
   if (!isMounted) {
     return (
-      <MainLayout>
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
             <div className="text-xl mb-4">読み込み中...</div>
           </div>
         </div>
-      </MainLayout>
     )
   }
 
   return (
-    <MainLayout>
-      <div>
+    <div>
         <h1 className="text-3xl font-bold mb-6">マスタ管理</h1>
 
         <div className="mb-6">
@@ -1519,7 +1520,6 @@ function MasterContent() {
           </div>
         )}
       </div>
-    </MainLayout>
   )
 }
 

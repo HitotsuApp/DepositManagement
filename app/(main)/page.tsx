@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
 import { useFacility } from '@/contexts/FacilityContext'
@@ -142,8 +141,7 @@ export default function DashboardPage() {
   const selectedFacilityName = facilities.find(f => f.id === selectedFacilityId)?.name
 
   return (
-    <MainLayout>
-      <div>
+    <div>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">法人ダッシュボード</h1>
           {selectedFacilityId !== null && selectedFacilityName && (
@@ -243,7 +241,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-    </MainLayout>
   )
 }
 

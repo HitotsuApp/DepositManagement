@@ -4,7 +4,6 @@ export const runtime = 'edge';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import MainLayout from '@/components/MainLayout'
 import Modal from '@/components/Modal'
 import ConfirmModal from '@/components/ConfirmModal'
 import Toast from '@/components/Toast'
@@ -727,8 +726,7 @@ export default function BulkInputPage() {
   const isMismatchedFacility = selectedFacilityId !== null && selectedFacilityId !== facilityId
 
   return (
-    <MainLayout>
-      <div>
+    <div>
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={() => {
@@ -1549,6 +1547,5 @@ export default function BulkInputPage() {
           </form>
         </Modal>
       </div>
-    </MainLayout>
   )
 }

@@ -4,7 +4,6 @@ export const runtime = 'edge'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import MainLayout from '@/components/MainLayout'
 import Toast from '@/components/Toast'
 import ConfirmModal from '@/components/ConfirmModal'
 import { BulkInputTransactionFiltersToolbar } from '@/components/BulkInputTransactionFilters'
@@ -486,8 +485,7 @@ export default function BulkRowInputPage() {
   }, [draftRows, validateDraftRow, facilityId, year, month, fetchBulkData, router])
 
   return (
-    <MainLayout>
-      <div>
+    <div>
         <div className="flex items-center gap-4 mb-6">
           <button
             type="button"
@@ -992,6 +990,5 @@ export default function BulkRowInputPage() {
           </div>
         )}
       </div>
-    </MainLayout>
   )
 }

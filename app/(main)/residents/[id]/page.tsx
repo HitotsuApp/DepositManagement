@@ -4,7 +4,6 @@ export const runtime = 'edge';
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import MainLayout from '@/components/MainLayout'
 import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
@@ -576,8 +575,7 @@ export default function ResidentDetailPage() {
   }
 
   return (
-    <MainLayout>
-      <div>
+    <div>
         <div className="flex items-center gap-4 mb-6">
           <button
             type="button"
@@ -1322,7 +1320,6 @@ export default function ResidentDetailPage() {
           </div>
         )}
       </div>
-    </MainLayout>
   )
 }
 

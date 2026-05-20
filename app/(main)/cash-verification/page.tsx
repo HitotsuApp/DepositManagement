@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useCallback } from 'react'
-import MainLayout from '@/components/MainLayout'
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
 import DateSelector from '@/components/DateSelector'
 import { useFacility } from '@/contexts/FacilityContext'
 import {
@@ -17,11 +16,6 @@ interface CashDenomination {
   amount: number
 }
 
-interface Facility {
-  id: number
-  name: string
-  isActive: boolean
-}
 
 const BILL_DENOMINATIONS: CashDenomination[] = [
   { value: 10000, label: '10,000円', count: 0, amount: 0 },
@@ -46,9 +40,14 @@ const COIN_DENOMINATIONS: CashDenomination[] = [
 ]
 
 export default function CashVerificationPage() {
-  const { selectedFacilityId: globalSelectedFacilityId } = useFacility()
+  const { selectedFacilityId: globalSelectedFacilityId, facilities: contextFacilities } =
+    useFacility()
   const [localSelectedFacilityId, setLocalSelectedFacilityId] = useState<number | null>(null)
-  const [facilities, setFacilities] = useState<Facility[]>([])
+
+  const facilities = useMemo(
+    () => contextFacilities.filter((f) => f.isActive),
+    [contextFacilities]
+  )
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [facilityBalance, setFacilityBalance] = useState(0)
@@ -59,33 +58,6 @@ export default function CashVerificationPage() {
 
   // グローバルに選択されている施設がある場合はそれを使用、なければローカル選択を使用
   const selectedFacilityId = globalSelectedFacilityId || localSelectedFacilityId
-
-  // 施設一覧を取得
-  useEffect(() => {
-    const fetchFacilities = async () => {
-      try {
-        const response = await fetch('/api/facilities')
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-          throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
-        }
-        const data = await response.json()
-        // エラーオブジェクトの場合は空配列を設定
-        if (data.error || !Array.isArray(data)) {
-          console.error('Failed to fetch facilities:', data.error || 'Invalid response format')
-          setFacilities([])
-          return
-        }
-        // 配列であることを確認してからfilterを呼び出す
-        const facilitiesArray = Array.isArray(data) ? data : []
-        setFacilities(facilitiesArray.filter((f: Facility) => f.isActive))
-      } catch (error) {
-        console.error('Failed to fetch facilities:', error)
-        setFacilities([])
-      }
-    }
-    fetchFacilities()
-  }, [])
 
   const fetchFacilityInfo = useCallback(async () => {
     if (!selectedFacilityId) return
@@ -222,8 +194,7 @@ export default function CashVerificationPage() {
   }
 
   return (
-    <MainLayout>
-      <div>
+    <div>
         <style jsx global>{`
           @media print {
             /* ヘッダー（預り金管理システム・ユーザー名・ログアウト）を非表示 */
@@ -591,6 +562,5 @@ export default function CashVerificationPage() {
           </div>
         )}
       </div>
-    </MainLayout>
   )
 }

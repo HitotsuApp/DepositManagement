@@ -2,23 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFacility } from '@/contexts/FacilityContext'
-
-interface Facility {
-  id: number
-  name: string
-  isActive: boolean
-}
 
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { selectedFacilityId } = useFacility()
-  const [facilities, setFacilities] = useState<Facility[]>([])
+  const { selectedFacilityId, facilities: contextFacilities } = useFacility()
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1)
-  
+
   // 現在のURLパラメータからyear, monthを取得（クライアントサイドのみ）
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -30,26 +23,13 @@ export default function Sidebar() {
     }
   }, [pathname])
 
-  useEffect(() => {
-    fetch('/api/facilities', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (!Array.isArray(data)) {
-          console.error('Sidebar: /api/facilities did not return an array', data)
-          setFacilities([])
-          return
-        }
-        const activeFacilities = data.filter((f: Facility) => f.isActive)
-        // 施設が選択されている場合、その施設のみを表示
-        if (selectedFacilityId !== null) {
-          const filtered = activeFacilities.filter((f: Facility) => f.id === selectedFacilityId)
-          setFacilities(filtered)
-        } else {
-          setFacilities(activeFacilities)
-        }
-      })
-      .catch(err => console.error('Failed to fetch facilities:', err))
-  }, [selectedFacilityId])
+  const facilities = useMemo(() => {
+    const active = contextFacilities.filter((f) => f.isActive)
+    if (selectedFacilityId !== null) {
+      return active.filter((f) => f.id === selectedFacilityId)
+    }
+    return active
+  }, [contextFacilities, selectedFacilityId])
 
   const cashPrefetchGuardRef = useRef<string | null>(null)
 
@@ -64,7 +44,10 @@ export default function Sidebar() {
     if (cashPrefetchGuardRef.current === key) return
     cashPrefetchGuardRef.current = key
 
-    const promises: Promise<unknown>[] = [fetch('/api/facilities').catch(() => null)]
+    const promises: Promise<unknown>[] = []
+    if (contextFacilities.length === 0) {
+      promises.push(fetch('/api/facilities', { cache: 'default' }).catch(() => null))
+    }
     if (selectedFacilityId !== null) {
       promises.push(
         fetch(`/api/facilities/${selectedFacilityId}`).catch(() => null),
@@ -72,16 +55,16 @@ export default function Sidebar() {
       )
     }
     Promise.all(promises).catch(() => {})
-  }, [selectedFacilityId])
+  }, [selectedFacilityId, contextFacilities.length])
 
   const isActive = (path: string) => pathname === path
 
-  const selectedFacility = facilities.find(f => f.id === selectedFacilityId)
+  const selectedFacility = facilities.find((f) => f.id === selectedFacilityId)
 
   return (
     <div className="text-white min-h-screen p-4" style={{ backgroundColor: 'rgba(62, 77, 101, 1)' }}>
       <h1 className="text-xl font-bold mb-6">預り金管理</h1>
-      
+
       {/* 選択中の施設表示 */}
       {selectedFacilityId !== null && selectedFacility ? (
         <div className="mb-4 p-3 bg-blue-600 rounded-lg border-2 border-blue-400">
@@ -94,7 +77,7 @@ export default function Sidebar() {
           <p className="text-sm font-semibold text-gray-300">法人全体</p>
         </div>
       )}
-      
+
       <nav className="space-y-2">
         {/* 法人ダッシュボード・所属一覧ボード: 法人全体表示時のみ表示 */}
         {selectedFacilityId === null && (
@@ -117,7 +100,7 @@ export default function Sidebar() {
             </Link>
           </>
         )}
-        
+
         <div className="pt-4 border-t border-gray-700">
           <div className="flex items-center justify-between px-4 py-2">
             <h2 className="text-sm font-semibold text-gray-400">施設一覧</h2>
@@ -132,7 +115,7 @@ export default function Sidebar() {
             )}
           </div>
           {facilities.length > 0 ? (
-            facilities.map(facility => (
+            facilities.map((facility) => (
               <button
                 key={facility.id}
                 type="button"
@@ -143,9 +126,7 @@ export default function Sidebar() {
                 }
                 className={`block w-full text-left px-4 py-2 rounded hover:bg-gray-700 ${
                   isActive(`/facilities/${facility.id}`) ? 'bg-gray-700' : ''
-                } ${
-                  facility.id === selectedFacilityId ? 'bg-blue-600 hover:bg-blue-700' : ''
-                }`}
+                } ${facility.id === selectedFacilityId ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
               >
                 {facility.name}
               </button>
@@ -235,4 +216,3 @@ export default function Sidebar() {
     </div>
   )
 }
-

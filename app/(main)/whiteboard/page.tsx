@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useFacility } from '@/contexts/FacilityContext'
 import { getResidentDisplayName } from '@/lib/displayName'
-import MainLayout from '@/components/MainLayout'
 
 interface Resident {
   id: number
@@ -111,7 +110,7 @@ export default function WhiteboardPage() {
   }
 
   return (
-    <MainLayout>
+    <>
       {/* 画面表示コンテンツ */}
       <div className="whiteboard-screen-content">
         <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
@@ -199,7 +198,7 @@ export default function WhiteboardPage() {
       <div className="whiteboard-print-content">
         {printFacility && <PrintLayout facility={printFacility} />}
       </div>
-    </MainLayout>
+    </>
   )
 }
 
