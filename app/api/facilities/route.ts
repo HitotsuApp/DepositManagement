@@ -3,23 +3,34 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
+import { neonHttpSql } from '@/lib/neonHttpSql'
+import { fetchFacilitiesList, mapFacilityRowToApiShape } from '@/lib/facilitiesListSql'
 
 export async function GET(request: Request) {
-  const prisma = getPrisma()
   try {
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
     const facilityIdParam = searchParams.get('facilityId')
-    const facilityId = facilityIdParam ? Number(facilityIdParam) : null
+    const facilityIdParsed =
+      facilityIdParam != null && facilityIdParam !== ''
+        ? Number(facilityIdParam)
+        : null
+    const facilityIdFilter =
+      facilityIdParsed !== null &&
+      Number.isFinite(facilityIdParsed) &&
+      Number.isInteger(facilityIdParsed) &&
+      facilityIdParsed > 0
+        ? facilityIdParsed
+        : null
 
-    const facilities = await prisma.facility.findMany({
-      where: {
-        ...(includeInactive ? {} : { isActive: true }),
-        ...(facilityId && Number.isInteger(facilityId) && facilityId > 0 ? { id: facilityId } : {}),
-      },
-      orderBy: { sortOrder: 'asc' },
+    const sql = neonHttpSql()
+    const rows = await fetchFacilitiesList(sql, {
+      includeInactive,
+      facilityId: facilityIdFilter,
     })
-    
+
+    const facilities = rows.map((r) => mapFacilityRowToApiShape(r))
+
     const response = NextResponse.json(facilities)
 
     // 全ユーザー共通 URL。共有キャッシュの最大遅れを抑えるため s-maxage は短め。
@@ -27,7 +38,7 @@ export async function GET(request: Request) {
       'Cache-Control',
       'public, s-maxage=60, stale-while-revalidate=120'
     )
-    
+
     return response
   } catch (error) {
     console.error('Failed to fetch facilities:', error)

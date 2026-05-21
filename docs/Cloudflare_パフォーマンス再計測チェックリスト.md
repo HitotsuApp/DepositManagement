@@ -39,6 +39,7 @@
 | **まとめて入力 Phase1** | **`GET …/transactions?resume=1`** に `LIMIT` と `hasMore` を付け、レスポンス行数をチャンク1と同規模に。クライアントでは **`appendRemainingFacilityTransactions`** でループ。**既定 `limit=40`**（`BULK_TRANSACTIONS_CHUNK_LIMIT`）。 |
 | **まとめて入力 Phase2・3** | **`GET …/bulk-input-bootstrap`**: Neon で施設名・利用者（`fetchResidentsByFacilityId`）・ユニット（`lib/unitsFacilityListSql.ts`）・取引チャンク1を並列。**まとめて入力初回は Prisma 不要**。残トランザクションは従来の **`/transactions`** resume を複数回。 |
 | **登録 wallTime** | **まとめて入力／行入力では登録後の `invalidateCache` 連打を廃止**（`fetchBulkData` + `router.refresh` のみ）。**`POST /api/transactions`**・**`POST /api/transactions/batch`**・**`PATCH /api/transactions/[id]`** を **Neon HTTP**（`lib/transactionWriteSql.ts`）に変更し、Prisma WebSocket 接続待ちを避ける。 |
+| **Prisma 残存 3 GET** | **`GET …/resident-summaries`**（`lib/residentSummariesSql.ts`）・**`GET /api/dashboard`**（`lib/dashboardFacilityBalancesSql.ts`）・**`GET /api/facilities`**（`lib/facilitiesListSql.ts`／Facility 全列）を **Neon HTTP** に統一。施設詳細のユニット切替・トップ／マスタでの Prisma GET wallTime を抑える。 |
 
 ### まとめて入力で注目するログ URL
 
@@ -58,6 +59,18 @@
 | まとめて行入力・一括 | `POST /api/transactions/batch` |
 | 訂正マーク | `PATCH /api/transactions/{id}` |
 
+### Prisma 残存 3 API（resident-summaries / dashboard / facilities GET）
+
+**デプロイ前後**：同一施設・同一 `year`/`month` で **施設合計・ユニット合計・各ユニットの利用者並び／残高**・**ダッシュボード合計**・**施設一覧並び**のハードコピーを比較（計画書 T1–T9）。**Neon が冷え直後**も1回ログに残すと解釈しやすい。
+
+| 用途 | URL 例 |
+|------|--------|
+| 施設詳細・ユニット利用者一覧 | `/api/facilities/{id}/resident-summaries?year=&month=&unitId=` |
+| トップ／選択後ダッシュボード | `/api/dashboard?year=&month=` および `facilityId=` あり |
+| 施設一覧（Sidebar／マスタ） | `/api/facilities`、必要なら `?includeInactive=true` |
+
+**手動回帰（概要）**：T1 施設詳細サマリ一致 / T2 ユニット A→B→A で並び・残高一致 / T3 空ユニット / T4 不正 unitId 404 / T5 ダッシュボード合計 / T6 施設一覧並び / T7 マスタ施設タブ / T8 利用者詳細から登録後 dashboard 更新 / T9 Cloudflare wallTime が冷え以外で ~30s から改善。
+
 ### 記録テンプレート（行を複製して日付単位で追記）
 
 | 記録日時 (JST など) | 操作手順概要 | URL / 名前 | outcome (200 / 503 等) | cpuTime メモ | exceededCpu メモ |
@@ -68,5 +81,8 @@
 | （例） | まとめて入力で単件登録 | `POST /api/transactions` | | | |
 | （例） | まとめて入力で一括登録 | `POST /api/transactions/batch` | | | |
 | （例） | まとめて入力で訂正マーク | `PATCH /api/transactions/{id}` | | | |
+| （例） | 施設詳細でユニット切替 1回 | `/api/facilities/{id}/resident-summaries` | | | |
+| （例） | トップでダッシュボード読み込み | `GET /api/dashboard` | | | |
+| （例） | Sidebar 初期の施設一覧 | `GET /api/facilities` | | | |
 
 **備考**: 同一 Isolate で Sidebar などと重なると **cpu が合算**されやすいため、ログ上では「単体 API」のcpuより **操作単位での再現**が重要です。
