@@ -11,7 +11,6 @@ import FormattedAmountInput from '@/components/FormattedAmountInput'
 import { useFacility } from '@/contexts/FacilityContext'
 import { isValidDate } from '@/lib/validation'
 import { validateTransactionCreateBody } from '@/lib/transactionCreateValidation'
-import { invalidateTransactionCache, invalidateTransactionCacheForResidents } from '@/lib/cache'
 import { getResidentDisplayName } from '@/lib/displayName'
 import { halfWidthToFullWidthFormText } from '@/lib/japaneseWidth'
 import {
@@ -304,7 +303,6 @@ export default function BulkRowInputPage() {
       })
       const data = await response.json()
       if (response.ok) {
-        await invalidateTransactionCache(facilityId, undefined, year, month)
         await fetchBulkData(true)
         router.refresh()
         setToast({
@@ -430,12 +428,6 @@ export default function BulkRowInputPage() {
           isVisible: true,
         })
         setDraftRows([])
-        await invalidateTransactionCacheForResidents(
-          facilityId,
-          items.map((t) => t.residentId),
-          year,
-          month
-        )
         await fetchBulkData(true)
         router.refresh()
       } else {
@@ -460,7 +452,7 @@ export default function BulkRowInputPage() {
     } finally {
       setIsSubmitting(false)
     }
-  }, [draftRows, validateDraftRow, facilityId, year, month, fetchBulkData, router])
+  }, [draftRows, validateDraftRow, fetchBulkData, router])
 
   return (
     <div>

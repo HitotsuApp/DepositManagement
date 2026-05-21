@@ -1,17 +1,17 @@
-export const runtime = 'edge';
+export const runtime = 'edge'
 
 import { NextResponse } from 'next/server'
-import { getPrisma } from '@/lib/prisma'
 import {
   validateTransactionCreateBody,
   type TransactionCreatePayload,
 } from '@/lib/transactionCreateValidation'
+import { neonHttpSql } from '@/lib/neonHttpSql'
+import { createTransactionsBatchNeon } from '@/lib/transactionWriteSql'
 
 /** ストック一括登録の上限（1 リクエストあたり） */
 const MAX_BATCH_ITEMS = 100
 
 export async function POST(request: Request) {
-  const prisma = getPrisma()
   try {
     const body = await request.json()
     const itemsRaw = body?.items
@@ -54,24 +54,8 @@ export async function POST(request: Request) {
       payloads.push(v.data)
     }
 
-    const created = await prisma.$transaction(async (tx) => {
-      const out: Awaited<ReturnType<typeof tx.transaction.create>>[] = []
-      for (const d of payloads) {
-        const row = await tx.transaction.create({
-          data: {
-            residentId: d.residentId,
-            transactionDate: d.transactionDate,
-            transactionType: d.transactionType,
-            amount: d.amount,
-            description: d.description,
-            payee: d.payee,
-            reason: d.reason,
-          },
-        })
-        out.push(row)
-      }
-      return out
-    })
+    const sql = neonHttpSql()
+    const created = await createTransactionsBatchNeon(sql, payloads)
 
     return NextResponse.json({ transactions: created })
   } catch (error) {

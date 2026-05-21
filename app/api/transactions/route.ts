@@ -1,11 +1,11 @@
-export const runtime = 'edge';
+export const runtime = 'edge'
 
 import { NextResponse } from 'next/server'
-import { getPrisma } from '@/lib/prisma'
 import { validateTransactionCreateBody } from '@/lib/transactionCreateValidation'
+import { neonHttpSql } from '@/lib/neonHttpSql'
+import { createTransactionNeon } from '@/lib/transactionWriteSql'
 
 export async function POST(request: Request) {
-  const prisma = getPrisma()
   try {
     const body = await request.json()
     const validated = validateTransactionCreateBody(body as Record<string, unknown>)
@@ -14,17 +14,8 @@ export async function POST(request: Request) {
     }
     const d = validated.data
 
-    const transaction = await prisma.transaction.create({
-      data: {
-        residentId: d.residentId,
-        transactionDate: d.transactionDate,
-        transactionType: d.transactionType,
-        amount: d.amount,
-        description: d.description,
-        payee: d.payee,
-        reason: d.reason,
-      },
-    })
+    const sql = neonHttpSql()
+    const transaction = await createTransactionNeon(sql, d)
 
     return NextResponse.json(transaction)
   } catch (error) {

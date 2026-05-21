@@ -13,7 +13,6 @@ import FormattedAmountInput, {
 } from '@/components/FormattedAmountInput'
 import { useFacility } from '@/contexts/FacilityContext'
 import { isValidDate } from '@/lib/validation'
-import { invalidateTransactionCache, invalidateTransactionCacheForResidents } from '@/lib/cache'
 import { getResidentDisplayName } from '@/lib/displayName'
 import { halfWidthToFullWidthFormText } from '@/lib/japaneseWidth'
 import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
@@ -424,7 +423,6 @@ export default function BulkInputPage() {
             reason: '',
           })
           
-          await invalidateTransactionCache(facilityId, undefined, year, month)
           await fetchBulkData(true)
           router.refresh()
           
@@ -517,12 +515,6 @@ export default function BulkInputPage() {
           reason: '',
         })
         
-        await invalidateTransactionCacheForResidents(
-          facilityId,
-          transactionsToSubmit.map(t => t.residentId),
-          year,
-          month
-        )
         await fetchBulkData(true)
         router.refresh()
       } else {
@@ -652,7 +644,6 @@ export default function BulkInputPage() {
       const data = await response.json()
 
       if (response.ok) {
-        await invalidateTransactionCache(facilityId, undefined, year, month)
         await fetchBulkData(true)
         router.refresh()
         setToast({
