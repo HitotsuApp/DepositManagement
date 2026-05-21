@@ -35,12 +35,24 @@
 |---------|------|
 | フェーズ 1・2 | 印刷ホットパス（`/api/print/deposit-statement`・`/api/print/batch-print`）を **Prisma 非依存・raw JSON 応答**。`transformToPrintData` / まとめて印刷は **ブラウザ（プレビュー）側**で実行。 |
 | フェーズ 3 | **`fetchOpeningBalancesAndTransactionsInRangeByResidentChunks`**: 利用者 ID チャンクあたり **Neon 往復を 2→1（UNION で繰越集計 + 当月取引）**。`resident-statement` / `family-resident-statement` / `loadResidentsForDepositPrint` もこの経路で取得。 |
-| フェーズ 4 | **Sidebar**: `/print` 配下では先読み抑制・`requestIdleCallback` で待機。現金確認先読みは `GET /api/facilities/[id]?year=…&month=…` に集約。**施設詳細**: まとめて入力のホバー先読みは idle 後に実行し、`Promise.all` で API 並列数を抑制。 |
+| フェーズ 4 | **Sidebar**: `/print` 配下では先読み抑制・`requestIdleCallback` で待機。現金確認先読みは `GET /api/facilities/[id]?year=…&month=…` に集約。**施設詳細**: まとめて入力のホバー先読みは idle 後に **`GET …/bulk-input-bootstrap` を1本**に集約。 |
+| **まとめて入力 Phase1** | **`GET …/transactions?resume=1`** に `LIMIT` と `hasMore` を付け、レスポンス行数をチャンク1と同規模に。クライアントでは **`appendRemainingFacilityTransactions`** でループ。**既定 `limit=40`**（`BULK_TRANSACTIONS_CHUNK_LIMIT`）。 |
+| **まとめて入力 Phase2・3** | **`GET …/bulk-input-bootstrap`**: Neon で施設名・利用者（`fetchResidentsByFacilityId`）・ユニット（`lib/unitsFacilityListSql.ts`）・取引チャンク1を並列。**まとめて入力初回は Prisma 不要**。残トランザクションは従来の **`/transactions`** resume を複数回。 |
+
+### まとめて入力で注目するログ URL
+
+| 用途 | URL 例 |
+|------|--------|
+| 初回統合応答（Isolate 削減） | `/api/facilities/[id]/bulk-input-bootstrap?year=&month=` |
+| チャンク1 | `/api/facilities/[id]/transactions?year=&month=&limit=40` |
+| resume（小ピーク複数） | `/api/facilities/[id]/transactions?resume=1&limit=40&afterTransactionDate=&afterTransactionId=` |
 
 ### 記録テンプレート（行を複製して日付単位で追記）
 
 | 記録日時 (JST など) | 操作手順概要 | URL / 名前 | outcome (200 / 503 等) | cpuTime メモ | exceededCpu メモ |
 |---------------------|----------------|-------------|-------------------------|----------------|------------------|
 | （例） | 同一施設・同一月・プレビュー | `/api/print/deposit-statement` | | | |
+| （例） | フォームでまとめて入力へ遷移 | `/api/facilities/{id}/bulk-input-bootstrap` | | | |
+| （例） | 取引が多い月の resume 1 回 | `/api/facilities/{id}/transactions?resume=1` | | | |
 
 **備考**: 同一 Isolate で Sidebar などと重なると **cpu が合算**されやすいため、ログ上では「単体 API」のcpuより **操作単位での再現**が重要です。

@@ -2,7 +2,11 @@
 
 import { readJsonFromApi } from '@/lib/readJsonApiResponse'
 
-export const BULK_TRANSACTIONS_CHUNK_LIMIT = 10
+/** チャンク1の既定サイズ（resume は同じ論理 limit でページング） */
+export const BULK_TRANSACTIONS_CHUNK_LIMIT = 40
+
+/** resume ページング無限ループ防止 */
+export const BULK_RESUME_MAX_PAGES = 500
 
 /** 継続取得の開始位置が「先頭の取引」（繰越のみの第1チャンクの直後）を表すカーソル */
 export const BULK_TRANSACTIONS_CURSOR_SENTINEL_DATE = new Date(
@@ -30,16 +34,18 @@ type TransactionsChunkResponse = {
   hasMore?: boolean
 }
 
+export type AppendRemainingTransactionOptions = RequestInit & {
+  /** フェーズ4: resume チャンクごとの部分マージ結果（チャンク1先表示用） */
+  onMergedUpdate?: (merged: FacilityTransactionPayload[]) => void
+}
+
 export function buildTransactionsUrl(
   facilityId: number,
   year: number,
   month: number,
   parts: Record<string, string | number | undefined>
 ): string {
-  const u = new URL(
-    `/api/facilities/${facilityId}/transactions`,
-    'http://local.invalid'
-  )
+  const u = new URL(`/api/facilities/${facilityId}/transactions`, 'http://local.invalid')
   u.searchParams.set('year', String(year))
   u.searchParams.set('month', String(month))
   for (const [k, v] of Object.entries(parts)) {
@@ -49,7 +55,20 @@ export function buildTransactionsUrl(
   return `${u.pathname}${u.search}`
 }
 
-/** まとめて入力の prefetch 用など：チャンク1の相対パス */
+/** GET /api/facilities/[id]/bulk-input-bootstrap（Phase2）の相対パス */
+export function getBulkInputBootstrapPath(
+  facilityId: number,
+  year: number,
+  month: number
+): string {
+  const q = new URLSearchParams({
+    year: String(year),
+    month: String(month),
+  })
+  return `/api/facilities/${facilityId}/bulk-input-bootstrap?${q}`
+}
+
+/** まとめて入力の prefetch 用：チャンク1の相対パス（bootstrap 不使用時フォールバック） */
 export function getFacilityTransactionsChunk1Path(
   facilityId: number,
   year: number,
@@ -60,47 +79,84 @@ export function getFacilityTransactionsChunk1Path(
   })
 }
 
+/** チャンク1済み状態から resume をループ結合する */
+export async function appendRemainingFacilityTransactions(
+  mergedInitial: FacilityTransactionPayload[],
+  initialHasMore: boolean,
+  facilityId: number,
+  year: number,
+  month: number,
+  options?: AppendRemainingTransactionOptions
+): Promise<FacilityTransactionPayload[]> {
+  const limit = BULK_TRANSACTIONS_CHUNK_LIMIT
+  let merged = [...mergedInitial]
+  let hasMore = initialHasMore
+  let page = 0
+
+  while (hasMore && page < BULK_RESUME_MAX_PAGES) {
+    page++
+    const realTxns = merged.filter((t) => !(t as { isCarryOver?: boolean }).isCarryOver)
+    let afterDateStr: string
+    let afterId: number
+
+    const lastReal = realTxns[realTxns.length - 1]
+    if (lastReal) {
+      afterDateStr = lastReal.transactionDate
+      afterId = lastReal.id
+    } else {
+      afterDateStr = BULK_TRANSACTIONS_CURSOR_SENTINEL_DATE
+      afterId = BULK_TRANSACTIONS_CURSOR_SENTINEL_ID
+    }
+
+    const url = buildTransactionsUrl(facilityId, year, month, {
+      resume: 1,
+      limit,
+      afterTransactionDate: afterDateStr,
+      afterTransactionId: afterId,
+    })
+
+    const { onMergedUpdate: _, ...fetchRest } = (options ??
+      {}) as AppendRemainingTransactionOptions
+    void _
+
+    const r = await fetch(url, fetchRest)
+    const label = `取引一覧(resume/${page})`
+    const d = await readJsonFromApi<TransactionsChunkResponse>(r, label)
+    merged = merged.concat(d.transactions ?? [])
+    options?.onMergedUpdate?.(merged)
+    hasMore = !!d.hasMore
+  }
+
+  if (hasMore) {
+    console.error(
+      `appendRemainingFacilityTransactions: exceeded BULK_RESUME_MAX_PAGES (${BULK_RESUME_MAX_PAGES}) facilityId=${facilityId} ${year}-${month}`
+    )
+  }
+
+  return merged
+}
+
 /**
- * `/api/facilities/:id/transactions` をチャンク1→hasMore 時のみチャンク2 で取得してマージした配列を返す。
+ * `/api/facilities/:id/transactions` をチャンク1→resume をループで結合して返す。
  */
 export async function fetchMergedFacilityTransactions(
   facilityId: number,
   year: number,
   month: number,
-  fetchOptions?: RequestInit
+  fetchOptions?: AppendRemainingTransactionOptions
 ): Promise<FacilityTransactionPayload[]> {
   const firstUrl = getFacilityTransactionsChunk1Path(facilityId, year, month)
 
   const r1 = await fetch(firstUrl, fetchOptions)
-  const d1 = await readJsonFromApi<TransactionsChunkResponse>(r1, '取引一覧(1/2)')
+  const d1 = await readJsonFromApi<TransactionsChunkResponse>(r1, '取引一覧(1)')
   let merged = [...(d1.transactions ?? [])]
 
-  if (!d1.hasMore) {
-    return merged
-  }
-
-  const realTxns = merged.filter((t) => !(t as { isCarryOver?: boolean }).isCarryOver)
-  let afterDateStr: string
-  let afterId: number
-
-  const lastReal = realTxns[realTxns.length - 1]
-  if (lastReal) {
-    afterDateStr = lastReal.transactionDate
-    afterId = lastReal.id
-  } else {
-    afterDateStr = BULK_TRANSACTIONS_CURSOR_SENTINEL_DATE
-    afterId = BULK_TRANSACTIONS_CURSOR_SENTINEL_ID
-  }
-
-  const secondUrl = buildTransactionsUrl(facilityId, year, month, {
-    resume: 1,
-    afterTransactionDate: afterDateStr,
-    afterTransactionId: afterId,
-  })
-
-  const r2 = await fetch(secondUrl, fetchOptions)
-  const d2 = await readJsonFromApi<TransactionsChunkResponse>(r2, '取引一覧(2/2)')
-
-  merged = merged.concat(d2.transactions ?? [])
-  return merged
+  return appendRemainingFacilityTransactions(
+    merged,
+    !!d1.hasMore,
+    facilityId,
+    year,
+    month,
+    fetchOptions
+  )
 }

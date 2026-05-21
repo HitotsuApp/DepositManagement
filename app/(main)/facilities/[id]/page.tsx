@@ -7,7 +7,7 @@ import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigat
 import DateSelector from '@/components/DateSelector'
 import Card from '@/components/Card'
 import { useFacility } from '@/contexts/FacilityContext'
-import { getFacilityTransactionsChunk1Path } from '@/lib/bulkFacilityTransactionsFetch'
+import { getBulkInputBootstrapPath } from '@/lib/bulkFacilityTransactionsFetch'
 import { getResidentDisplayName } from '@/lib/displayName'
 
 interface UnitSummary {
@@ -64,14 +64,7 @@ export default function FacilityDetailPage() {
     bulkPrefetchGuardRef.current = key
     const noop = (): null => null
     const run = () => {
-      void Promise.all([
-        fetch(`/api/facilities/${facilityId}`).catch(noop),
-        fetch(`/api/residents?facilityId=${facilityId}`).catch(noop),
-        fetch(`/api/units?facilityId=${facilityId}`).catch(noop),
-        fetch(getFacilityTransactionsChunk1Path(facilityId, year, month)).catch(noop),
-      ]).catch(() => {
-        /* ignore */
-      })
+      void fetch(getBulkInputBootstrapPath(facilityId, year, month)).catch(noop)
     }
     const scheduleIdle = (fn: () => void) => {
       if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {

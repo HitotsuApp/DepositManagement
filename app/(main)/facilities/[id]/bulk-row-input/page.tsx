@@ -26,9 +26,11 @@ import {
   getFrequentDescriptions,
 } from '@/lib/bulkInputTransactionFilters'
 import {
-  fetchMergedFacilityTransactions,
+  appendRemainingFacilityTransactions,
+  getBulkInputBootstrapPath,
   type FacilityTransactionPayload,
 } from '@/lib/bulkFacilityTransactionsFetch'
+import type { BulkInputBootstrapJson } from '@/lib/bulkInputBootstrapWire'
 import { readJsonFromApi } from '@/lib/readJsonApiResponse'
 import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
 
@@ -160,73 +162,49 @@ export default function BulkRowInputPage() {
       const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
       const reqInit: RequestInit = signal ? { ...fetchOptions, signal } : fetchOptions
       try {
-        const facilityResponse = await fetch(
-          `/api/facilities/${facilityId}`,
+        const bootstrapRes = await fetch(
+          getBulkInputBootstrapPath(facilityId, year, month),
           reqInit
         )
-        const facilityData = await readJsonFromApi<{ name?: string }>(
-          facilityResponse,
-          '施設情報'
+        const boot = await readJsonFromApi<BulkInputBootstrapJson>(
+          bootstrapRes,
+          '行入力bootstrap'
         )
-        setFacilityName(facilityData.name || '')
 
-        const residentsResponse = await fetch(
-          `/api/residents?facilityId=${facilityId}`,
-          reqInit
-        )
-        const residentsData = await readJsonFromApi<
-          Array<{
-            id: number
-            name: string
-            displayNamePrefix?: string | null
-            namePrefixDisplayOption?: string | null
-            unitId: number | null
-            unit: { id: number; name: string } | null
-          }>
-        >(residentsResponse, '利用者一覧')
+        setFacilityName(boot.facilityName || '')
         setResidents(
-          residentsData.map(
-            (r: {
-              id: number
-              name: string
-              displayNamePrefix?: string | null
-              namePrefixDisplayOption?: string | null
-              unitId: number | null
-              unit: { id: number; name: string } | null
-            }) => ({
-              id: r.id,
-              name: r.name,
-              displayNamePrefix: r.displayNamePrefix,
-              namePrefixDisplayOption: r.namePrefixDisplayOption,
-              unitId: r.unitId,
-              unit: r.unit,
-            })
+          boot.residents.map((r) => ({
+            id: r.id,
+            name: r.name,
+            displayNamePrefix: r.displayNamePrefix,
+            namePrefixDisplayOption: r.namePrefixDisplayOption,
+            unitId: r.unitId,
+            unit: r.unit,
+          }))
+        )
+        setUnits([...boot.units])
+
+        let mergedFinal = [...boot.transactions]
+        setTransactions(mergedFinal)
+
+        if (boot.transactionsHasMore) {
+          mergedFinal = await appendRemainingFacilityTransactions(
+            mergedFinal,
+            true,
+            facilityId,
+            year,
+            month,
+            {
+              ...reqInit,
+              onMergedUpdate: (next) => {
+                if (!signal?.aborted) setTransactions(next)
+              },
+            }
           )
-        )
-
-        const unitsResponse = await fetch(
-          `/api/units?facilityId=${facilityId}`,
-          reqInit
-        )
-        const unitsData = await readJsonFromApi<Array<{ id: number; name: string }>>(
-          unitsResponse,
-          'ユニット一覧'
-        )
-        setUnits(
-          unitsData
-            .map((u: { id: number; name: string }) => ({ id: u.id, name: u.name }))
-            .sort((a: { name: string }, b: { name: string }) =>
-              a.name.localeCompare(b.name)
-            )
-        )
-
-        const merged = await fetchMergedFacilityTransactions(
-          facilityId,
-          year,
-          month,
-          reqInit
-        )
-        setTransactions(merged)
+          if (!signal?.aborted) {
+            setTransactions(mergedFinal)
+          }
+        }
       } catch (e) {
         if (
           typeof e === 'object' &&

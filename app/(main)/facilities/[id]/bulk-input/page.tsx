@@ -27,9 +27,11 @@ import {
   getFrequentDescriptions,
 } from '@/lib/bulkInputTransactionFilters'
 import {
-  fetchMergedFacilityTransactions,
+  appendRemainingFacilityTransactions,
+  getBulkInputBootstrapPath,
   type FacilityTransactionPayload,
 } from '@/lib/bulkFacilityTransactionsFetch'
+import type { BulkInputBootstrapJson } from '@/lib/bulkInputBootstrapWire'
 import { readJsonFromApi } from '@/lib/readJsonApiResponse'
 
 interface TransactionFormData {
@@ -166,68 +168,55 @@ export default function BulkInputPage() {
       const fetchOptions: RequestInit = skipCache ? { cache: 'no-store' } : {}
       const reqInit: RequestInit = signal ? { ...fetchOptions, signal } : fetchOptions
 
-      // 施設情報を取得
-      console.log('🏢 [パフォーマンス計測] 施設情報取得を開始')
-      console.time('🏢 施設情報取得')
-      const facilityResponse = await fetch(`/api/facilities/${facilityId}`, reqInit)
-      const facilityData = await readJsonFromApi<{ name?: string }>(
-        facilityResponse,
-        '施設情報'
+      console.log('📦 [パフォーマンス計測] bootstrap（施設・利用者・ユニット・取引チャンク1）')
+      console.time('📦 bootstrap 一括取得')
+      const bootstrapRes = await fetch(
+        getBulkInputBootstrapPath(facilityId, year, month),
+        reqInit
       )
-      console.timeEnd('🏢 施設情報取得')
-      setFacilityName(facilityData.name || '')
-
-      // 施設内の全利用者を取得
-      console.log('👥 [パフォーマンス計測] 利用者一覧取得を開始')
-      console.time('👥 利用者一覧取得')
-      const residentsResponse = await fetch(`/api/residents?facilityId=${facilityId}`, reqInit)
-      const residentsData = await readJsonFromApi<
-        Array<{
-          id: number
-          name: string
-          displayNamePrefix?: string | null
-          namePrefixDisplayOption?: string | null
-          unitId: number | null
-          unit: { id: number; name: string } | null
-        }>
-      >(residentsResponse, '利用者一覧')
-      console.timeEnd('👥 利用者一覧取得')
-      setResidents(residentsData.map((r: {
-        id: number
-        name: string
-        displayNamePrefix?: string | null
-        namePrefixDisplayOption?: string | null
-        unitId: number | null
-        unit: { id: number; name: string } | null
-      }) => ({
-        id: r.id,
-        name: r.name,
-        displayNamePrefix: r.displayNamePrefix,
-        namePrefixDisplayOption: r.namePrefixDisplayOption,
-        unitId: r.unitId,
-        unit: r.unit,
-      })))
-
-      // 施設内の全ユニットを取得
-      console.log('🏠 [パフォーマンス計測] ユニット一覧取得を開始')
-      console.time('🏠 ユニット一覧取得')
-      const unitsResponse = await fetch(`/api/units?facilityId=${facilityId}`, reqInit)
-      const unitsData = await readJsonFromApi<Array<{ id: number; name: string }>>(
-        unitsResponse,
-        'ユニット一覧'
+      const boot = await readJsonFromApi<BulkInputBootstrapJson>(
+        bootstrapRes,
+        'まとめて入力bootstrap'
       )
-      console.timeEnd('🏠 ユニット一覧取得')
-      setUnits(unitsData.map((u: { id: number; name: string }) => ({
-        id: u.id,
-        name: u.name,
-      })).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)))
+      console.timeEnd('📦 bootstrap 一括取得')
 
-      // 施設内の全利用者の取引を取得（チャンク1→hasMore 時のみ継続取得）
-      console.log('💰 [パフォーマンス計測] 取引一覧取得を開始（最重要）')
-      console.time('💰 取引一覧取得（最重要）')
-      const merged = await fetchMergedFacilityTransactions(facilityId, year, month, reqInit)
-      console.timeEnd('💰 取引一覧取得（最重要）')
-      setTransactions(merged)
+      setFacilityName(boot.facilityName || '')
+      setResidents(
+        boot.residents.map((r) => ({
+          id: r.id,
+          name: r.name,
+          displayNamePrefix: r.displayNamePrefix,
+          namePrefixDisplayOption: r.namePrefixDisplayOption,
+          unitId: r.unitId,
+          unit: r.unit,
+        }))
+      )
+      setUnits([...boot.units])
+
+      console.log('💰 [パフォーマンス計測] 取引 resume 継続（hasMore のときのみ）')
+      console.time('💰 取引 resume 経路')
+      let mergedFinal = [...boot.transactions]
+      setTransactions(mergedFinal)
+
+      if (boot.transactionsHasMore) {
+        mergedFinal = await appendRemainingFacilityTransactions(
+          mergedFinal,
+          true,
+          facilityId,
+          year,
+          month,
+          {
+            ...reqInit,
+            onMergedUpdate: (next) => {
+              if (!signal?.aborted) setTransactions(next)
+            },
+          }
+        )
+        if (!signal?.aborted) {
+          setTransactions(mergedFinal)
+        }
+      }
+      console.timeEnd('💰 取引 resume 経路')
       
       console.log('✅ [パフォーマンス計測] すべてのデータ取得が完了')
     } catch (error) {
