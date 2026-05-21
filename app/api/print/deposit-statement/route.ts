@@ -2,12 +2,11 @@ export const runtime = 'edge';
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from "next/server"
-import { getPrisma } from "@/lib/prisma"
+import { fetchFacilityWithActiveUnitsForPrint } from "@/lib/printFacilitySql"
 import { loadResidentsForDepositPrint } from "@/lib/residentPrintEligibility"
-import { transformToPrintData, type FacilityWithRelations } from "@/pdf/utils/transform"
+import { buildDepositPrintRawWire } from "@/lib/toDepositPrintRawWire"
 
 export async function GET(request: Request) {
-  const prisma = getPrisma()
   try {
     const { searchParams } = new URL(request.url)
     const facilityId = searchParams.get("facilityId")
@@ -27,14 +26,7 @@ export async function GET(request: Request) {
     const m = Number(month)
     const uid = unitId ? Number(unitId) : null
 
-    const facility = await prisma.facility.findUnique({
-      where: { id: fid },
-      include: {
-        units: {
-          where: { isActive: true },
-        },
-      },
-    })
+    const facility = await fetchFacilityWithActiveUnitsForPrint(fid)
 
     if (!facility) {
       return NextResponse.json(
@@ -43,23 +35,15 @@ export async function GET(request: Request) {
       )
     }
 
-    const { residents, openingBalancesThruPreviousMonthEnd } = await loadResidentsForDepositPrint(
-      prisma,
-      fid,
-      y,
-      m,
-      uid
-    )
+    const { residents, openingBalancesThruPreviousMonthEnd } =
+      await loadResidentsForDepositPrint(fid, y, m, uid)
 
-    const printData = transformToPrintData(
-      { ...facility, residents } as unknown as FacilityWithRelations,
-      uid,
-      y,
-      m,
-      { residentOpeningBalances: openingBalancesThruPreviousMonthEnd }
+    const body = buildDepositPrintRawWire(
+      facility,
+      residents,
+      openingBalancesThruPreviousMonthEnd
     )
-
-    return NextResponse.json(printData)
+    return NextResponse.json(body)
   } catch (error) {
     console.error("Failed to generate print data:", error)
     return NextResponse.json(

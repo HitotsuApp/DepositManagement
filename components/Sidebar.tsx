@@ -34,6 +34,8 @@ export default function Sidebar() {
   const cashPrefetchGuardRef = useRef<string | null>(null)
 
   const prefetchCashVerificationOnHover = useCallback(() => {
+    if (pathname?.startsWith('/print')) return
+
     const d = new Date()
     const y = d.getFullYear()
     const m = d.getMonth() + 1
@@ -44,18 +46,30 @@ export default function Sidebar() {
     if (cashPrefetchGuardRef.current === key) return
     cashPrefetchGuardRef.current = key
 
-    const promises: Promise<unknown>[] = []
-    if (contextFacilities.length === 0) {
-      promises.push(fetch('/api/facilities', { cache: 'default' }).catch(() => null))
+    const run = () => {
+      const promises: Promise<unknown>[] = []
+      if (contextFacilities.length === 0) {
+        promises.push(fetch('/api/facilities', { cache: 'default' }).catch(() => null))
+      }
+      if (selectedFacilityId !== null) {
+        promises.push(
+          fetch(`/api/facilities/${selectedFacilityId}?year=${y}&month=${m}`).catch(() => null)
+        )
+      }
+      Promise.all(promises).catch(() => {})
     }
-    if (selectedFacilityId !== null) {
-      promises.push(
-        fetch(`/api/facilities/${selectedFacilityId}`).catch(() => null),
-        fetch(`/api/facilities/${selectedFacilityId}?year=${y}&month=${m}`).catch(() => null)
-      )
+
+    const scheduleIdle = (fn: () => void) => {
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        ;(window as Window & typeof globalThis).requestIdleCallback(fn, {
+          timeout: 4000,
+        })
+      } else {
+        setTimeout(fn, 600)
+      }
     }
-    Promise.all(promises).catch(() => {})
-  }, [selectedFacilityId, contextFacilities.length])
+    scheduleIdle(run)
+  }, [selectedFacilityId, contextFacilities.length, pathname])
 
   const isActive = (path: string) => pathname === path
 

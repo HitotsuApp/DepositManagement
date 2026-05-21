@@ -22,3 +22,25 @@
 ## 完了の記録
 
 再計測日時と、上記の代表 URL の **wallTime / cpuTime / outcome** をメモしておく。
+
+---
+
+## cpuTime / exceededCpu 記録用（CPU 削減施策デプロイ後）
+
+以下は **実装済み変更** を前提にデプロイ前後で同じ操作手順（例: 施設選択 → まとめて印刷または本部報告の印刷 → `/print/preview` でプレビュー）から Cloudflare Workers ログへ記載するための項目です。**本番環境ログ** で各リクエストの `cpuMs`／`ExceededCpu`/`503` を確認してください（ダッシュボードの表記はプランにより異なる場合があります）。
+
+### フェーズごとの論理変更メモ（比較の文脈用）
+
+| フェーズ | 内容 |
+|---------|------|
+| フェーズ 1・2 | 印刷ホットパス（`/api/print/deposit-statement`・`/api/print/batch-print`）を **Prisma 非依存・raw JSON 応答**。`transformToPrintData` / まとめて印刷は **ブラウザ（プレビュー）側**で実行。 |
+| フェーズ 3 | **`fetchOpeningBalancesAndTransactionsInRangeByResidentChunks`**: 利用者 ID チャンクあたり **Neon 往復を 2→1（UNION で繰越集計 + 当月取引）**。`resident-statement` / `family-resident-statement` / `loadResidentsForDepositPrint` もこの経路で取得。 |
+| フェーズ 4 | **Sidebar**: `/print` 配下では先読み抑制・`requestIdleCallback` で待機。現金確認先読みは `GET /api/facilities/[id]?year=…&month=…` に集約。**施設詳細**: まとめて入力のホバー先読みは idle 後に実行し、`Promise.all` で API 並列数を抑制。 |
+
+### 記録テンプレート（行を複製して日付単位で追記）
+
+| 記録日時 (JST など) | 操作手順概要 | URL / 名前 | outcome (200 / 503 等) | cpuTime メモ | exceededCpu メモ |
+|---------------------|----------------|-------------|-------------------------|----------------|------------------|
+| （例） | 同一施設・同一月・プレビュー | `/api/print/deposit-statement` | | | |
+
+**備考**: 同一 Isolate で Sidebar などと重なると **cpu が合算**されやすいため、ログ上では「単体 API」のcpuより **操作単位での再現**が重要です。

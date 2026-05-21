@@ -1,4 +1,13 @@
-import { Facility, Unit, Resident, Transaction } from "@prisma/client"
+import type {
+  TransformFacility,
+  TransformResident,
+  TransformTransaction,
+  TransformUnit,
+} from "./printModelTypes"
+import type { FacilityWithRelations } from "./transformTypes"
+
+export type { FacilityWithRelations } from "./transformTypes"
+
 import { filterTransactionsByMonth } from "@/lib/balance"
 import { sumLedgerThruCutoffInclusive } from "@/lib/balanceLedgerContribution"
 import { formatDate, formatJapaneseEraYmd, formatJapaneseEraYearMonth, formatYen } from "./format"
@@ -53,14 +62,6 @@ export interface PrintData {
   }
 }
 
-export interface FacilityWithRelations extends Facility {
-  units: Unit[]
-  residents: (Resident & {
-    transactions: Transaction[]
-    unit: Unit
-  })[]
-}
-
 export type TransformToPrintDataOptions = {
   /** Neon/SQL で計算済みの前月末までの開き。指定時は `resident.transactions` の全履歴には依存しない。 */
   residentOpeningBalances?: Map<number, number>
@@ -102,7 +103,11 @@ export function transformToPrintData(
   const previousMonthEnd = new Date(year, month - 1, 0, 23, 59, 59, 999)
 
   // 指定年月の取引を取得
-  const allTransactions: Array<Transaction & { resident: Resident & { unit: Unit } }> = []
+  const allTransactions: Array<
+    TransformTransaction & {
+      resident: TransformResident & { unit: TransformUnit }
+    }
+  > = []
   
   targetResidents.forEach((resident) => {
     const monthTransactions = filterTransactionsByMonth(
@@ -444,10 +449,10 @@ export function buildNoticeFromFacilityTemplate(
   return { title: '【お知らせ】', lines: [UNSET_NOTICE_MESSAGE] }
 }
 
-interface ResidentWithRelations extends Resident {
-  transactions: Transaction[]
-  facility: Facility
-  unit: Unit
+interface ResidentWithRelations extends TransformResident {
+  transactions: TransformTransaction[]
+  facility: TransformFacility
+  unit: TransformUnit
 }
 
 export type ResidentStatementMonthHeader = "monthOnly" | "japaneseEraYearMonth"
@@ -481,7 +486,9 @@ export function transformToResidentPrintData(
       : sumLedgerThruCutoffInclusive(resident.transactions, previousMonthEnd)
 
   // 取引リストを作成（繰越行 + 当月取引）
-  const allTransactions: Array<Transaction & { _isCarryOver?: boolean; _previousBalance?: number }> = []
+  const allTransactions: Array<
+    TransformTransaction & { _isCarryOver?: boolean; _previousBalance?: number }
+  > = []
 
   // 繰越行を追加（前月末残高が0でない場合は必ず追加）
   // 利用がなかった月でも、繰越残高があれば明細書を印刷する必要があるため
@@ -647,7 +654,9 @@ export function transformToResidentPrintDataForRange(
       : sumLedgerThruCutoffInclusive(resident.transactions, previousPeriodEnd)
 
   // 取引リストを作成（繰越行 + 期間内取引）
-  const allTransactions: Array<Transaction & { _isCarryOver?: boolean; _previousBalance?: number }> = []
+  const allTransactions: Array<
+    TransformTransaction & { _isCarryOver?: boolean; _previousBalance?: number }
+  > = []
 
   if (previousBalance !== 0) {
     allTransactions.push({

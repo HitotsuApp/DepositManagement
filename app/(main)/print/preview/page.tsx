@@ -13,7 +13,13 @@ import residentStatementTemplate from "@/pdf/templates/resident-statement.json"
 import familyResidentStatementTemplate from "@/pdf/templates/family-resident-statement.json"
 import familyResidentStatementA5LandscapeTemplate from "@/pdf/templates/family-resident-statement-a5-landscape.json"
 import { formatJapaneseEraYmd } from "@/pdf/utils/format"
-import { PrintData, ResidentPrintData } from "@/pdf/utils/transform"
+import {
+  hydrateDepositPrintWire,
+  openingBalancesWireToMap,
+} from "@/pdf/utils/depositPrintHydrate"
+import type { DepositPrintRawWire } from "@/pdf/utils/printRawWire"
+import { buildBatchPrintClientData } from "@/pdf/utils/buildBatchPrintClientData"
+import { PrintData, ResidentPrintData, transformToPrintData } from "@/pdf/utils/transform"
 
 interface BatchPrintData {
   facilitySummary: PrintData
@@ -111,8 +117,15 @@ function PrintPreviewContent() {
       if (!response.ok) {
         throw new Error("印刷データの取得に失敗しました")
       }
-      const data = await response.json()
-      setPrintData(data)
+      const wire = (await response.json()) as DepositPrintRawWire
+      const opening = openingBalancesWireToMap(wire.openingBalances)
+      const hydrated = hydrateDepositPrintWire(wire)
+      const uid = unitId ? Number(unitId) : null
+      setPrintData(
+        transformToPrintData(hydrated, uid, year, month, {
+          residentOpeningBalances: opening,
+        })
+      )
     } catch (err) {
       console.error("Failed to fetch print data:", err)
       setError(err instanceof Error ? err.message : "エラーが発生しました")
@@ -131,8 +144,10 @@ function PrintPreviewContent() {
       if (!response.ok) {
         throw new Error("印刷データの取得に失敗しました")
       }
-      const data = await response.json()
-      setBatchPrintData(data)
+      const wire = (await response.json()) as DepositPrintRawWire
+      const opening = openingBalancesWireToMap(wire.openingBalances)
+      const hydrated = hydrateDepositPrintWire(wire)
+      setBatchPrintData(buildBatchPrintClientData(hydrated, year, month, opening))
     } catch (err) {
       console.error("Failed to fetch batch print data:", err)
       setError(err instanceof Error ? err.message : "エラーが発生しました")

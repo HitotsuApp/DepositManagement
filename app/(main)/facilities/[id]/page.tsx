@@ -58,21 +58,32 @@ export default function FacilityDetailPage() {
   const bulkPrefetchGuardRef = useRef<string | null>(null)
 
   const prefetchBulkInputOnHover = useCallback(() => {
+    if (pathname?.startsWith('/print')) return
     const key = `${facilityId}-${year}-${month}`
     if (bulkPrefetchGuardRef.current === key) return
     bulkPrefetchGuardRef.current = key
     const noop = (): null => null
-    void (async () => {
-      try {
-        await fetch(`/api/facilities/${facilityId}`).catch(noop)
-        await fetch(`/api/residents?facilityId=${facilityId}`).catch(noop)
-        await fetch(`/api/units?facilityId=${facilityId}`).catch(noop)
-        await fetch(getFacilityTransactionsChunk1Path(facilityId, year, month)).catch(noop)
-      } catch {
+    const run = () => {
+      void Promise.all([
+        fetch(`/api/facilities/${facilityId}`).catch(noop),
+        fetch(`/api/residents?facilityId=${facilityId}`).catch(noop),
+        fetch(`/api/units?facilityId=${facilityId}`).catch(noop),
+        fetch(getFacilityTransactionsChunk1Path(facilityId, year, month)).catch(noop),
+      ]).catch(() => {
         /* ignore */
+      })
+    }
+    const scheduleIdle = (fn: () => void) => {
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        ;(window as Window & typeof globalThis).requestIdleCallback(fn, {
+          timeout: 4500,
+        })
+      } else {
+        setTimeout(fn, 800)
       }
-    })()
-  }, [facilityId, year, month])
+    }
+    scheduleIdle(run)
+  }, [facilityId, year, month, pathname])
 
   /** ユニット・施設集約のみ取得 */
   const fetchFacilitySummary = useCallback(

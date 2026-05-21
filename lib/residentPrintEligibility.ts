@@ -1,9 +1,14 @@
-import type { Prisma, PrismaClient, Resident, Transaction, Unit } from "@prisma/client"
+import type { Prisma, Resident, Unit } from "@prisma/client"
+import type { TransformTransaction } from "@/pdf/utils/printModelTypes"
 import {
-  fetchOpeningBalancesByResidentChunks,
-  fetchTransactionsInRangeByResidentChunks,
+  fetchOpeningBalancesAndTransactionsInRangeByResidentChunks,
   getLedgerSqlForPrint,
 } from "@/lib/printLedgerFetch"
+import {
+  fetchResidentIdsWithTransactionsInMonthSql,
+  fetchResidentsByIdsFacilityScopedSql,
+  fetchResidentsOverlapCalendarMonthSql,
+} from "@/lib/printResidentsDepositSql"
 
 /** 年月のカレンダー範囲（施設TOP・取引月次と同様にローカル日付で解釈） */
 export function getCalendarMonthRange(
@@ -37,41 +42,16 @@ export function prismaWhereResidentOverlapsCalendarMonth(
   }
 }
 
-export async function fetchResidentIdsWithTransactionsInMonth(
-  prisma: PrismaClient,
-  facilityId: number,
-  year: number,
-  month: number,
-  unitId: number | null
-): Promise<number[]> {
-  const { monthStart, monthEnd } = getCalendarMonthRange(year, month)
-  const rows = await prisma.transaction.findMany({
-    where: {
-      transactionDate: { gte: monthStart, lte: monthEnd },
-      resident: {
-        facilityId,
-        ...(unitId != null ? { unitId } : {}),
-      },
-    },
-    select: { residentId: true },
-    distinct: ["residentId"],
-  })
-  return rows.map((r) => r.residentId)
-}
-
 export type ResidentForDepositPrint = Resident & {
-  transactions: Transaction[]
+  transactions: TransformTransaction[]
   unit: Unit
 }
 
 /**
  * 本部報告（出納帳）用: （対象月と在籍が重なる）∪（その月に取引が1件以上ある）利用者。
- * 精算が退所月の翌月になるケースで、終了済み利用者も当月取引があれば含める。
- *
- * `transactions`: 当月分のみをロードする（過去すべては込めない）。繰越高は caller が `openingBalancesThruPreviousMonthEnd` を transform に渡す。
+ * Cloudflare Edge 向け Neon HTTP（Prisma なし）
  */
 export async function loadResidentsForDepositPrint(
-  prisma: PrismaClient,
   facilityId: number,
   year: number,
   month: number,
@@ -80,42 +60,35 @@ export async function loadResidentsForDepositPrint(
   residents: ResidentForDepositPrint[]
   openingBalancesThruPreviousMonthEnd: Map<number, number>
 }> {
-  const overlapWhere = prismaWhereResidentOverlapsCalendarMonth(
-    facilityId,
-    year,
-    month,
-    unitId
-  )
-
   const { monthStart, monthEnd } = getCalendarMonthRange(year, month)
   const previousMonthEnd = new Date(year, month - 1, 0, 23, 59, 59, 999)
 
-  const includeMeta = {
-    unit: true,
-  } as const
-
   const [overlapList, txIds] = await Promise.all([
-    prisma.resident.findMany({
-      where: overlapWhere,
-      include: includeMeta,
-    }),
-    fetchResidentIdsWithTransactionsInMonth(prisma, facilityId, year, month, unitId),
+    fetchResidentsOverlapCalendarMonthSql(
+      facilityId,
+      monthStart,
+      monthEnd,
+      unitId
+    ),
+    fetchResidentIdsWithTransactionsInMonthSql(
+      facilityId,
+      monthStart,
+      monthEnd,
+      unitId
+    ),
   ])
 
   const overlapIds = new Set(overlapList.map((r) => r.id))
   const missingIds = txIds.filter((id) => !overlapIds.has(id))
 
-  let extras: Array<Resident & { unit: Unit }> = []
-  if (missingIds.length > 0) {
-    extras = await prisma.resident.findMany({
-      where: {
-        id: { in: missingIds },
-        facilityId,
-        ...(unitId != null ? { unitId } : {}),
-      },
-      include: includeMeta,
-    })
-  }
+  const extras =
+    missingIds.length > 0
+      ? await fetchResidentsByIdsFacilityScopedSql(
+          facilityId,
+          missingIds,
+          unitId
+        )
+      : []
 
   const byId = new Map<number, Resident & { unit: Unit }>()
   for (const r of overlapList) {
@@ -127,14 +100,19 @@ export async function loadResidentsForDepositPrint(
 
   const allIds = Array.from(byId.keys())
   const sql = getLedgerSqlForPrint()
-  const [openingBalancesThruPreviousMonthEnd, txByResident] = await Promise.all([
-    fetchOpeningBalancesByResidentChunks(sql, facilityId, allIds, previousMonthEnd),
-    fetchTransactionsInRangeByResidentChunks(sql, facilityId, allIds, monthStart, monthEnd),
-  ])
+  const { openingBalances: openingBalancesThruPreviousMonthEnd, transactionsByResident } =
+    await fetchOpeningBalancesAndTransactionsInRangeByResidentChunks(
+      sql,
+      facilityId,
+      allIds,
+      previousMonthEnd,
+      monthStart,
+      monthEnd
+    )
 
   const residents: ResidentForDepositPrint[] = Array.from(byId.values()).map((r) => ({
     ...r,
-    transactions: txByResident.get(r.id) ?? [],
+    transactions: transactionsByResident.get(r.id) ?? [],
   }))
 
   return { residents, openingBalancesThruPreviousMonthEnd }

@@ -4,8 +4,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
 import {
-  fetchOpeningBalancesByResidentChunks,
-  fetchTransactionsInRangeByResidentChunks,
+  fetchOpeningBalancesAndTransactionsInRangeByResidentChunks,
   getLedgerSqlForPrint,
 } from "@/lib/printLedgerFetch"
 import { getCalendarMonthRange } from "@/lib/residentPrintEligibility"
@@ -49,21 +48,15 @@ export async function GET(request: Request) {
 
     const sql = getLedgerSqlForPrint()
     const facilityIdOfResident = resident.facilityId
-    const [openingMap, txMap] = await Promise.all([
-      fetchOpeningBalancesByResidentChunks(
+    const { openingBalances: openingMap, transactionsByResident: txMap } =
+      await fetchOpeningBalancesAndTransactionsInRangeByResidentChunks(
         sql,
         facilityIdOfResident,
         [resident.id],
-        previousMonthEnd
-      ),
-      fetchTransactionsInRangeByResidentChunks(
-        sql,
-        facilityIdOfResident,
-        [resident.id],
+        previousMonthEnd,
         monthStart,
         monthEnd
-      ),
-    ])
+      )
 
     const residentForPrint = {
       ...resident,

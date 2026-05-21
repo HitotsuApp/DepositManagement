@@ -4,8 +4,7 @@ export const dynamic = "force-dynamic"
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
 import {
-  fetchOpeningBalancesByResidentChunks,
-  fetchTransactionsInRangeByResidentChunks,
+  fetchOpeningBalancesAndTransactionsInRangeByResidentChunks,
   getLedgerSqlForPrint,
 } from "@/lib/printLedgerFetch"
 import {
@@ -119,16 +118,15 @@ export async function GET(request: Request) {
     if (filteredIds.length > 0) {
       const previousPeriodEnd = new Date(startDate.getTime() - 1)
       const sql = getLedgerSqlForPrint()
-      const [openingMap, txMap] = await Promise.all([
-        fetchOpeningBalancesByResidentChunks(sql, facility.id, filteredIds, previousPeriodEnd),
-        fetchTransactionsInRangeByResidentChunks(
+      const { openingBalances: openingMap, transactionsByResident: txMap } =
+        await fetchOpeningBalancesAndTransactionsInRangeByResidentChunks(
           sql,
           facility.id,
           filteredIds,
+          previousPeriodEnd,
           startDate,
           endDate
-        ),
-      ])
+        )
 
       const residentRows = await prisma.resident.findMany({
         where: {
