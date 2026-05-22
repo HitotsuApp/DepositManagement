@@ -2,14 +2,15 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { fetchFacilityMonthUnitBalances } from '@/lib/facilityUnitBalancesSql'
+import { fetchFacilityByIdForApi } from '@/lib/facilityByIdSql'
 import { getPrisma } from '@/lib/prisma'
+import { neonHttpSql } from '@/lib/neonHttpSql'
 import { validateId, validateMaxLength, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const prisma = getPrisma()
   try {
     const facilityId = validateId(params.id)
     if (!facilityId) {
@@ -78,9 +79,8 @@ export async function GET(
     }
 
     // 通常の施設取得（マスタ管理用など）
-    const facility = await prisma.facility.findUnique({
-      where: { id: facilityId },
-    })
+    const sql = neonHttpSql()
+    const facility = await fetchFacilityByIdForApi(sql, facilityId)
 
     if (!facility) {
       return NextResponse.json({ error: 'Facility not found' }, { status: 404 })

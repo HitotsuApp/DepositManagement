@@ -2,13 +2,13 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { neonHttpSql } from '@/lib/neonHttpSql'
+import { fetchResidentsMasterListAll } from '@/lib/residentsAllListSql'
 import { fetchResidentsByFacilityId } from '@/lib/residentsFacilityListSql'
 import { validateMaxLength, validateSortOrder, MAX_LENGTHS, NAME_PREFIX_DISPLAY_OPTIONS } from '@/lib/validation'
 import { sanitizeFurigana } from '@/lib/furigana'
 
 export async function GET(request: Request) {
-  const prisma = getPrisma()
-
   try {
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
@@ -29,38 +29,8 @@ export async function GET(request: Request) {
       return response
     }
 
-    const residents = await prisma.resident.findMany({
-      where: {
-        ...(includeInactive ? {} : { isActive: true }),
-      },
-      select: {
-        id: true,
-        name: true,
-        nameFurigana: true,
-        facilityId: true,
-        unitId: true,
-        displaySortOrder: true,
-        printSortOrder: true,
-        displayNamePrefix: true,
-        namePrefixDisplayOption: true,
-        isActive: true,
-        startDate: true,
-        endDate: true,
-        facility: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        unit: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: [{ displaySortOrder: 'asc' }, { id: 'asc' }],
-    })
+    const sql = neonHttpSql()
+    const residents = await fetchResidentsMasterListAll(sql, includeInactive)
 
     const response = NextResponse.json(residents)
 

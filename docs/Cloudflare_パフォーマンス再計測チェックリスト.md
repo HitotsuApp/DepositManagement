@@ -40,6 +40,7 @@
 | **まとめて入力 Phase2・3** | **`GET …/bulk-input-bootstrap`**: Neon で施設名・利用者（`fetchResidentsByFacilityId`）・ユニット（`lib/unitsFacilityListSql.ts`）・取引チャンク1を並列。**まとめて入力初回は Prisma 不要**。残トランザクションは従来の **`/transactions`** resume を複数回。 |
 | **登録 wallTime** | **まとめて入力／行入力では登録後の `invalidateCache` 連打を廃止**（`fetchBulkData` + `router.refresh` のみ）。**`POST /api/transactions`**・**`POST /api/transactions/batch`**・**`PATCH /api/transactions/[id]`** を **Neon HTTP**（`lib/transactionWriteSql.ts`）に変更し、Prisma WebSocket 接続待ちを避ける。 |
 | **Prisma 残存 3 GET** | **`GET …/resident-summaries`**（`lib/residentSummariesSql.ts`）・**`GET /api/dashboard`**（`lib/dashboardFacilityBalancesSql.ts`）・**`GET /api/facilities`**（`lib/facilitiesListSql.ts`／Facility 全列）を **Neon HTTP** に統一。施設詳細のユニット切替・トップ／マスタでの Prisma GET wallTime を抑える。 |
+| **Neon GET 追加（wallTime 第2波）** | **`GET /api/residents/[id]`**（`lib/residentDetailSql.ts`）・**`GET /api/units`**（`lib/unitsListSql.ts`）・**`GET /api/residents`（facilityId なし、`lib/residentsAllListSql.ts`）**・**`GET /api/facilities/[id]` マスタ単体**（`lib/facilityByIdSql.ts`）・**`GET /api/print/resident-statement` のメタ**（`lib/residentStatementMetaSql.ts`）。 |
 
 ### まとめて入力で注目するログ URL
 
@@ -71,6 +72,18 @@
 
 **手動回帰（概要）**：T1 施設詳細サマリ一致 / T2 ユニット A→B→A で並び・残高一致 / T3 空ユニット / T4 不正 unitId 404 / T5 ダッシュボード合計 / T6 施設一覧並び / T7 マスタ施設タブ / T8 利用者詳細から登録後 dashboard 更新 / T9 Cloudflare wallTime が冷え以外で ~30s から改善。
 
+### 利用者詳細ほか Neon GET（第2波）のログと手動回帰
+
+手順の細目（R1–R6・PR2/PR3）は [wallTime_Neon_GET_検証チェックリスト.md](./wallTime_Neon_GET_検証チェックリスト.md) を参照。
+
+| 用途 | URL 例 |
+|------|--------|
+| 利用者詳細・印刷プレビュー先読み | `/api/residents/{id}?year=&month=` |
+| ユニット一覧（施設単位／全体） | `/api/units?facilityId=` または `/api/units` |
+| 全利用者マスタ一覧 | `/api/residents`、`?includeInactive=true` は必要時のみ |
+| 施設マスタ単体（year/month なし） | `/api/facilities/{id}` |
+| 預り金明細（印刷データ） | `/api/print/resident-statement?residentId=&year=&month=` |
+
 ### 記録テンプレート（行を複製して日付単位で追記）
 
 | 記録日時 (JST など) | 操作手順概要 | URL / 名前 | outcome (200 / 503 等) | cpuTime メモ | exceededCpu メモ |
@@ -84,5 +97,9 @@
 | （例） | 施設詳細でユニット切替 1回 | `/api/facilities/{id}/resident-summaries` | | | |
 | （例） | トップでダッシュボード読み込み | `GET /api/dashboard` | | | |
 | （例） | Sidebar 初期の施設一覧 | `GET /api/facilities` | | | |
+| （例） | 利用者詳細を開く | `/api/residents/{id}?year=&month=` | | | |
+| （例） | マスタでユニット一覧 | `/api/units`、`/api/units?facilityId=` | | | |
+| （例） | マスタで全利用者 | `GET /api/residents` | | | |
+| （例） | 預り金明細データ取得 | `/api/print/resident-statement` | | | |
 
 **備考**: 同一 Isolate で Sidebar などと重なると **cpu が合算**されやすいため、ログ上では「単体 API」のcpuより **操作単位での再現**が重要です。

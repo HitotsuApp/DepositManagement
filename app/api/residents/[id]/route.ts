@@ -2,6 +2,11 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { neonHttpSql } from '@/lib/neonHttpSql'
+import {
+  fetchResidentDetailHeader,
+  fetchTransactionsUpToMonthEnd,
+} from '@/lib/residentDetailSql'
 import { computeResidentMonthViewFromSortedTransactions } from '@/lib/balance'
 import { validateId, validateMaxLength, validateSortOrder, MAX_LENGTHS, NAME_PREFIX_DISPLAY_OPTIONS } from '@/lib/validation'
 import { sanitizeFurigana } from '@/lib/furigana'
@@ -10,7 +15,6 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const prisma = getPrisma()
   try {
     const residentId = validateId(params.id)
     if (!residentId) {
@@ -25,42 +29,18 @@ export async function GET(
 
     const endOfSelectedMonth = new Date(year, month, 0, 23, 59, 59, 999)
 
-    // select を使用して必要なフィールドのみを取得（対象月末までに絞って転送量・CPU を削減）
-    const resident = await prisma.resident.findUnique({
-      where: { id: residentId },
-      select: {
-        id: true,
-        name: true,
-        nameFurigana: true,
-        facilityId: true,
-        displayNamePrefix: true,
-        namePrefixDisplayOption: true,
-        transactions: {
-          where: {
-            transactionDate: { lte: endOfSelectedMonth },
-          },
-          select: {
-            id: true,
-            transactionDate: true,
-            transactionType: true,
-            amount: true,
-            description: true,
-            payee: true,
-            reason: true,
-            createdAt: true,
-            residentId: true,
-          },
-          orderBy: [{ transactionDate: 'asc' }, { id: 'asc' }],
-        },
-      },
-    })
+    const sql = neonHttpSql()
+    const [header, transactionRows] = await Promise.all([
+      fetchResidentDetailHeader(sql, residentId),
+      fetchTransactionsUpToMonthEnd(sql, residentId, endOfSelectedMonth),
+    ])
 
-    if (!resident) {
+    if (!header) {
       return NextResponse.json({ error: 'Resident not found' }, { status: 404 })
     }
 
     const { balance, previousMonthBalance, monthTransactionsWithBalance } =
-      computeResidentMonthViewFromSortedTransactions(resident.transactions as any, year, month)
+      computeResidentMonthViewFromSortedTransactions(transactionRows as any, year, month)
 
     let transactionsWithBalance = monthTransactionsWithBalance
     if (previousMonthBalance !== 0) {
@@ -84,11 +64,11 @@ export async function GET(
     }
 
     const response = NextResponse.json({
-      residentName: resident.name,
-      nameFurigana: resident.nameFurigana,
-      displayNamePrefix: resident.displayNamePrefix,
-      namePrefixDisplayOption: resident.namePrefixDisplayOption,
-      facilityId: resident.facilityId,
+      residentName: header.name,
+      nameFurigana: header.nameFurigana,
+      displayNamePrefix: header.displayNamePrefix,
+      namePrefixDisplayOption: header.namePrefixDisplayOption,
+      facilityId: header.facilityId,
       balance,
       transactions: transactionsWithBalance,
     })

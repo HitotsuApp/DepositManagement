@@ -2,11 +2,11 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { neonHttpSql } from '@/lib/neonHttpSql'
+import { fetchUnitsListForApi } from '@/lib/unitsListSql'
 import { validateMaxLength, validateSortOrder, MAX_LENGTHS } from '@/lib/validation'
 
 export async function GET(request: Request) {
-  const prisma = getPrisma()
-
   try {
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
@@ -17,31 +17,12 @@ export async function GET(request: Request) {
       Number.isInteger(facilityId) &&
       facilityId > 0
 
-    const units = await prisma.unit.findMany({
-      where: {
-        ...(includeInactive ? {} : { isActive: true }),
-        ...(facilityScoped ? { facilityId } : {}),
-      },
-      select: {
-        id: true,
-        name: true,
-        facilityId: true,
-        capacity: true,
-        displaySortOrder: true,
-        printSortOrder: true,
-        isActive: true,
-        ...(facilityScoped
-          ? {}
-          : {
-              facility: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            }),
-      },
-      orderBy: [{ displaySortOrder: 'asc' }, { id: 'asc' }],
+    const sql = neonHttpSql()
+    const units = await fetchUnitsListForApi({
+      sql,
+      facilityId: facilityScoped ? facilityId! : null,
+      facilityScoped,
+      includeInactive,
     })
 
     const response = NextResponse.json(units)

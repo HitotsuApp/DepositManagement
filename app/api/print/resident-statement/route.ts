@@ -2,7 +2,8 @@ export const runtime = 'edge';
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from "next/server"
-import { getPrisma } from "@/lib/prisma"
+import { neonHttpSql } from "@/lib/neonHttpSql"
+import { fetchResidentWithFacilityUnitForStatement } from "@/lib/residentStatementMetaSql"
 import {
   fetchOpeningBalancesAndTransactionsInRangeByResidentChunks,
   getLedgerSqlForPrint,
@@ -11,7 +12,6 @@ import { getCalendarMonthRange } from "@/lib/residentPrintEligibility"
 import { transformToResidentPrintData, buildNoticeFromFacilityTemplate } from "@/pdf/utils/transform"
 
 export async function GET(request: Request) {
-  const prisma = getPrisma()
   try {
     const { searchParams } = new URL(request.url)
     const residentId = searchParams.get("residentId")
@@ -26,18 +26,23 @@ export async function GET(request: Request) {
       )
     }
 
+    const residentIdNum = Number(residentId)
+    if (!Number.isInteger(residentIdNum) || residentIdNum <= 0) {
+      return NextResponse.json(
+        { error: "Invalid resident id" },
+        { status: 400 }
+      )
+    }
     const y = Number(year)
     const m = Number(month)
     const { monthEnd, monthStart } = getCalendarMonthRange(y, m)
     const previousMonthEnd = new Date(y, m - 1, 0, 23, 59, 59, 999)
 
-    const resident = await prisma.resident.findUnique({
-      where: { id: Number(residentId) },
-      include: {
-        facility: true,
-        unit: true,
-      },
-    })
+    const sqlMeta = neonHttpSql()
+    const resident = await fetchResidentWithFacilityUnitForStatement(
+      sqlMeta,
+      residentIdNum
+    )
 
     if (!resident) {
       return NextResponse.json(
