@@ -2,6 +2,8 @@ import { View, Text, StyleSheet } from "@react-pdf/renderer"
 import { formatYen } from "../../utils/format"
 
 interface UnitSummaryBlockProps {
+  month?: string
+  facilityName?: string
   unitSummaries: Array<{
     unitId: number
     unitName: string
@@ -30,7 +32,7 @@ const chunkResidents = <T,>(array: T[], chunkSize: number): T[][] => {
 // 1行に表示する最大セル数（A4用紙の幅を考慮）
 const MAX_CELLS_PER_ROW = 5
 
-const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
+const UnitSummaryBlock = ({ month, facilityName, unitSummaries }: UnitSummaryBlockProps) => {
   if (!unitSummaries || unitSummaries.length === 0) {
     return null
   }
@@ -39,6 +41,20 @@ const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
 
   return (
     <View style={styles.container}>
+      {(month || facilityName) && (
+        <View style={styles.header}>
+          {month && (
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.headerTitle}>{month}分　預り金状況報告書</Text>
+            </View>
+          )}
+          {facilityName && (
+            <View style={styles.headerFacilityRow}>
+              <Text style={styles.headerFacility}>{facilityName}</Text>
+            </View>
+          )}
+        </View>
+      )}
       {unitSummaries.map((unit) => {
         // 利用者をグループ化
         const residentChunks = chunkResidents(unit.residents, MAX_CELLS_PER_ROW)
@@ -146,7 +162,27 @@ const UnitSummaryBlock = ({ unitSummaries }: UnitSummaryBlockProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 15,
+    marginTop: 0,
+  },
+  header: {
+    marginBottom: 8,
+  },
+  headerTitleRow: {
+    marginBottom: 3,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    fontFamily: "NotoSansJP",
+    textAlign: "center",
+  },
+  headerFacilityRow: {
+    marginBottom: 0,
+  },
+  headerFacility: {
+    fontSize: 12,
+    fontFamily: "NotoSansJP",
+    textAlign: "right",
   },
   unitBox: {
     border: "0.75pt solid #000",

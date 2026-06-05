@@ -143,7 +143,11 @@ export const PdfRenderer = ({ template, data }: PdfRendererProps) => {
           orientation={template.document.orientation}
           style={[styles.page, pagePadding]}
         >
-          <UnitSummaryBlock unitSummaries={data.unitSummaries} />
+          <UnitSummaryBlock
+            month={data.statement?.month}
+            facilityName={data.facility?.name}
+            unitSummaries={data.unitSummaries}
+          />
         </Page>
       )}
       {pages.map((pageRows, pageIndex) => (
