@@ -20,13 +20,13 @@
 
 変更ファイル: `middleware.ts`
 
-### 2. レート制限（150 リクエスト/分/IP）
+### 2. レート制限（業務 API: 150 リクエスト/分/IP）
 
 | 項目 | 値 |
 |------|-----|
-| 上限 | **150 本/分/IP**（`lib/apiRateLimit.ts` の `API_RATE_LIMIT_PER_MINUTE`） |
+| 上限 | **150 本/分/IP**（`API_RATE_LIMIT_PER_MINUTE`） |
 | 対象 | `/api/*`（**`/api/auth/*` は除外**） |
-| 超過時 | **429** `{ error: "Too Many Requests" }` + `Retry-After: 60` |
+| 超過時 | **429** + `Retry-After: 60` |
 | 実装 | Cloudflare Edge の `caches.default`（固定 60 秒窓） |
 | ローカル `npm run dev` | caches 非対応時は **fail-open**（制限なし） |
 
@@ -36,6 +36,17 @@
 - 当月＋前月 ≒ **2倍** → **~30 本/分** 想定
 - 他 API **~60 本/分**
 - 余裕を見て **150 本/分**
+
+### 3. signin 専用レート制限（2 リクエスト/分/IP）
+
+| 項目 | 値 |
+|------|-----|
+| 上限 | **2 本/分/IP**（`SIGNIN_RATE_LIMIT_PER_MINUTE`） |
+| 対象 | `/api/auth/signin` および `/api/auth/signin/*`（例: `signin/google`） |
+| **除外** | `/api/auth/callback/*`（OAuth コールバック） |
+| その他 `/api/auth/*` | 制限なし（`session` 等） |
+
+Bot ダッシュボードで `/api/auth/signin` への連打が多かったため、業務 API とは **別カウンタ（bucket: `signin`）** で厳しめに制限。
 
 ---
 
@@ -52,6 +63,7 @@
 
 ```
 lib/apiRateLimit.ts  → API_RATE_LIMIT_PER_MINUTE = 150
+lib/apiRateLimit.ts  → SIGNIN_RATE_LIMIT_PER_MINUTE = 2
 ```
 
 ---

@@ -1,7 +1,11 @@
 import NextAuth from "next-auth"
 import { NextResponse } from "next/server"
 import { authConfig } from "@/auth.config"
-import { checkApiRateLimit } from "@/lib/apiRateLimit"
+import {
+  checkApiRateLimit,
+  checkSignInRateLimit,
+  isSignInRateLimitPath,
+} from "@/lib/apiRateLimit"
 
 const { auth } = NextAuth(authConfig)
 
@@ -14,6 +18,24 @@ export default auth(async (req) => {
   const isApiRoute = pathname.startsWith("/api")
 
   if (isApiRoute) {
+    if (isSignInRateLimitPath(pathname)) {
+      const signInRate = await checkSignInRateLimit(req)
+      if (!signInRate.allowed) {
+        return NextResponse.json(
+          { error: "Too Many Requests" },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": "60",
+              "X-RateLimit-Limit": String(signInRate.limit),
+              "X-RateLimit-Count": String(signInRate.count),
+            },
+          }
+        )
+      }
+      return NextResponse.next()
+    }
+
     if (!isAuthApi) {
       const rate = await checkApiRateLimit(req)
       if (!rate.allowed) {

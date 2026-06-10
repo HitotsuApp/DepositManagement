@@ -8,7 +8,21 @@ import type { NextRequest } from 'next/server'
 /** 1 IP あたり・1分あたりの /api 上限（/api/auth 除外は middleware 側） */
 export const API_RATE_LIMIT_PER_MINUTE = 150
 
+/** 1 IP あたり・1分あたりの /api/auth/signin 上限（callback 除外は middleware 側） */
+export const SIGNIN_RATE_LIMIT_PER_MINUTE = 2
+
 const RATE_LIMIT_WINDOW_SECONDS = 60
+
+/** OAuth コールバック（Google ログイン後の復帰）。レート制限対象外。 */
+export function isOAuthCallbackPath(pathname: string): boolean {
+  return pathname.startsWith('/api/auth/callback')
+}
+
+/** signin 系のみ厳しめ制限（signin 画面・signin/google 等。callback は含めない） */
+export function isSignInRateLimitPath(pathname: string): boolean {
+  if (isOAuthCallbackPath(pathname)) return false
+  return pathname === '/api/auth/signin' || pathname.startsWith('/api/auth/signin/')
+}
 
 /** Cloudflare Workers の caches.default（Node/標準 DOM 型には無い） */
 function getEdgeDefaultCache(): Cache | null {
@@ -17,10 +31,11 @@ function getEdgeDefaultCache(): Cache | null {
   return storage.default ?? null
 }
 
-function rateLimitCacheKey(ip: string): Request {
-  return new Request(`https://deposit-management.rate-limit/${encodeURIComponent(ip)}`, {
-    method: 'GET',
-  })
+function rateLimitCacheKey(ip: string, bucket: string): Request {
+  return new Request(
+    `https://deposit-management.rate-limit/${bucket}/${encodeURIComponent(ip)}`,
+    { method: 'GET' }
+  )
 }
 
 export function getClientIp(request: NextRequest): string {
@@ -42,7 +57,8 @@ export type ApiRateLimitResult = {
 
 export async function checkApiRateLimit(
   request: NextRequest,
-  limit: number = API_RATE_LIMIT_PER_MINUTE
+  limit: number = API_RATE_LIMIT_PER_MINUTE,
+  bucket: string = 'api'
 ): Promise<ApiRateLimitResult> {
   const ip = getClientIp(request)
 
@@ -52,7 +68,7 @@ export async function checkApiRateLimit(
       return { allowed: true, count: 0, limit }
     }
 
-    const cacheKey = rateLimitCacheKey(ip)
+    const cacheKey = rateLimitCacheKey(ip, bucket)
     const existing = await cache.match(cacheKey)
 
     let count = 0
@@ -82,4 +98,10 @@ export async function checkApiRateLimit(
   } catch {
     return { allowed: true, count: 0, limit }
   }
+}
+
+export async function checkSignInRateLimit(
+  request: NextRequest
+): Promise<ApiRateLimitResult> {
+  return checkApiRateLimit(request, SIGNIN_RATE_LIMIT_PER_MINUTE, 'signin')
 }
