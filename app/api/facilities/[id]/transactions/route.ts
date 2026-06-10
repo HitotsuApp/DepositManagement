@@ -15,6 +15,7 @@ import {
 } from '@/lib/buildFacilityBulkTransactionsPayload'
 import {
   sqlFacilityTransactionsFirstChunkJoined,
+  sqlFacilityTransactionsResumeChunk,
   type ChunkScalarsRow,
   type TransactionWithBalanceLedgerRow,
 } from '@/lib/facilityBulkTransactionsLedgerSql'
@@ -99,202 +100,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
       const resumedRows = (await withTransientDbRetries(
         `facilityTransactions.resume(${facilityId})`,
         async () =>
-          continuationFromBeginning
-            ? await sql`
-        WITH previous_balances AS (
-          SELECT
-            t_pb."residentId",
-            COALESCE(SUM(
-              CASE
-                WHEN t_pb."transactionType" IN ('in', 'past_correct_in') THEN t_pb.amount
-                WHEN t_pb."transactionType" IN ('out', 'past_correct_out') THEN -t_pb.amount
-                ELSE 0
-              END
-            ), 0) AS balance
-          FROM "Transaction" t_pb
-          INNER JOIN "Resident" r_pb ON r_pb.id = t_pb."residentId"
-            AND r_pb."facilityId" = ${facilityId}
-            AND r_pb."isActive" = true
-          WHERE t_pb."transactionDate" <= ${previousMonthEndDate}
-            AND t_pb."transactionType" NOT IN ('correct_in', 'correct_out')
-          GROUP BY t_pb."residentId"
-        ),
-        facility_opening AS (
-          SELECT COALESCE(SUM(COALESCE(pb.balance, 0)), 0)::numeric AS total
-          FROM "Resident" r
-          LEFT JOIN previous_balances pb ON pb."residentId" = r.id
-          WHERE r."facilityId" = ${facilityId}
-            AND r."isActive" = true
-        ),
-        current_transactions AS (
-          SELECT
-            t.id,
-            t."transactionDate",
-            t."transactionType",
-            t.amount,
-            t.description,
-            t.payee,
-            t.reason,
-            t."residentId",
-            r.name AS "residentName",
-            r."displayNamePrefix" AS res_dsp_prefix,
-            r."namePrefixDisplayOption" AS res_dsp_opt,
-            COALESCE(pb.balance, 0) AS previous_balance,
-            CASE
-              WHEN t."transactionType" IN ('in', 'past_correct_in') THEN t.amount
-              WHEN t."transactionType" IN ('out', 'past_correct_out') THEN -t.amount
-              ELSE 0
-            END AS transaction_amount
-          FROM "Transaction" t
-          INNER JOIN "Resident" r ON t."residentId" = r.id
-            AND r."facilityId" = ${facilityId}
-            AND r."isActive" = true
-          LEFT JOIN previous_balances pb ON t."residentId" = pb."residentId"
-          WHERE t."transactionDate" >= ${startDate}
-            AND t."transactionDate" <= ${endDate}
-        ),
-        balanced AS (
-          SELECT
-            ct.id,
-            ct."transactionDate",
-            ct."transactionType",
-            ct.amount,
-            ct.description,
-            ct.payee,
-            ct.reason,
-            ct."residentId",
-            ct."residentName",
-            ct.res_dsp_prefix,
-            ct.res_dsp_opt,
-            (ct.previous_balance + SUM(ct.transaction_amount) OVER (
-              PARTITION BY ct."residentId"
-              ORDER BY ct."transactionDate" ASC, ct.id ASC
-              ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ))::numeric AS balance,
-            (fo.total + SUM(ct.transaction_amount) OVER (
-              ORDER BY ct."transactionDate" ASC, ct.id ASC
-              ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ))::numeric AS facility_balance
-          FROM current_transactions ct
-          CROSS JOIN facility_opening fo
-        )
-        SELECT
-          b.id,
-          b."transactionDate",
-          b."transactionType",
-          b.amount,
-          b.description,
-          b.payee,
-          b.reason,
-          b."residentId",
-          b."residentName",
-          b.res_dsp_prefix,
-          b.res_dsp_opt,
-          b.balance,
-          b.facility_balance
-        FROM balanced b
-        WHERE TRUE
-        ORDER BY b."transactionDate" ASC, b.id ASC
-        LIMIT ${resumeTakeLimit}::int`
-            : await sql`
-        WITH previous_balances AS (
-          SELECT
-            t_pb."residentId",
-            COALESCE(SUM(
-              CASE
-                WHEN t_pb."transactionType" IN ('in', 'past_correct_in') THEN t_pb.amount
-                WHEN t_pb."transactionType" IN ('out', 'past_correct_out') THEN -t_pb.amount
-                ELSE 0
-              END
-            ), 0) AS balance
-          FROM "Transaction" t_pb
-          INNER JOIN "Resident" r_pb ON r_pb.id = t_pb."residentId"
-            AND r_pb."facilityId" = ${facilityId}
-            AND r_pb."isActive" = true
-          WHERE t_pb."transactionDate" <= ${previousMonthEndDate}
-            AND t_pb."transactionType" NOT IN ('correct_in', 'correct_out')
-          GROUP BY t_pb."residentId"
-        ),
-        facility_opening AS (
-          SELECT COALESCE(SUM(COALESCE(pb.balance, 0)), 0)::numeric AS total
-          FROM "Resident" r
-          LEFT JOIN previous_balances pb ON pb."residentId" = r.id
-          WHERE r."facilityId" = ${facilityId}
-            AND r."isActive" = true
-        ),
-        current_transactions AS (
-          SELECT
-            t.id,
-            t."transactionDate",
-            t."transactionType",
-            t.amount,
-            t.description,
-            t.payee,
-            t.reason,
-            t."residentId",
-            r.name AS "residentName",
-            r."displayNamePrefix" AS res_dsp_prefix,
-            r."namePrefixDisplayOption" AS res_dsp_opt,
-            COALESCE(pb.balance, 0) AS previous_balance,
-            CASE
-              WHEN t."transactionType" IN ('in', 'past_correct_in') THEN t.amount
-              WHEN t."transactionType" IN ('out', 'past_correct_out') THEN -t.amount
-              ELSE 0
-            END AS transaction_amount
-          FROM "Transaction" t
-          INNER JOIN "Resident" r ON t."residentId" = r.id
-            AND r."facilityId" = ${facilityId}
-            AND r."isActive" = true
-          LEFT JOIN previous_balances pb ON t."residentId" = pb."residentId"
-          WHERE t."transactionDate" >= ${startDate}
-            AND t."transactionDate" <= ${endDate}
-        ),
-        balanced AS (
-          SELECT
-            ct.id,
-            ct."transactionDate",
-            ct."transactionType",
-            ct.amount,
-            ct.description,
-            ct.payee,
-            ct.reason,
-            ct."residentId",
-            ct."residentName",
-            ct.res_dsp_prefix,
-            ct.res_dsp_opt,
-            (ct.previous_balance + SUM(ct.transaction_amount) OVER (
-              PARTITION BY ct."residentId"
-              ORDER BY ct."transactionDate" ASC, ct.id ASC
-              ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ))::numeric AS balance,
-            (fo.total + SUM(ct.transaction_amount) OVER (
-              ORDER BY ct."transactionDate" ASC, ct.id ASC
-              ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ))::numeric AS facility_balance
-          FROM current_transactions ct
-          CROSS JOIN facility_opening fo
-        )
-        SELECT
-          b.id,
-          b."transactionDate",
-          b."transactionType",
-          b.amount,
-          b.description,
-          b.payee,
-          b.reason,
-          b."residentId",
-          b."residentName",
-          b.res_dsp_prefix,
-          b.res_dsp_opt,
-          b.balance,
-          b.facility_balance
-        FROM balanced b
-        WHERE (
-          b."transactionDate" > ${afterDateParsed}
-          OR (b."transactionDate" = ${afterDateParsed} AND b.id > ${afterIdNum})
-        )
-        ORDER BY b."transactionDate" ASC, b.id ASC
-        LIMIT ${resumeTakeLimit}::int`
+          sqlFacilityTransactionsResumeChunk(
+            sql,
+            facilityId,
+            startDate,
+            endDate,
+            previousMonthEndDate,
+            resumeTakeLimit,
+            continuationFromBeginning,
+            afterDateParsed,
+            afterIdNum
+          )
       )) as TransactionWithBalanceLedgerRow[]
 
       const trimmed =

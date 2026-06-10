@@ -3,7 +3,7 @@
 import { readJsonFromApi } from '@/lib/readJsonApiResponse'
 
 /** チャンク1の既定サイズ（resume は同じ論理 limit でページング） */
-export const BULK_TRANSACTIONS_CHUNK_LIMIT = 40
+export const BULK_TRANSACTIONS_CHUNK_LIMIT = 60
 
 /** resume ページング無限ループ防止 */
 export const BULK_RESUME_MAX_PAGES = 500
