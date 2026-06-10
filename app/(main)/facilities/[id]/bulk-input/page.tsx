@@ -31,7 +31,12 @@ import {
   type FacilityTransactionPayload,
 } from '@/lib/bulkFacilityTransactionsFetch'
 import type { BulkInputBootstrapJson } from '@/lib/bulkInputBootstrapWire'
+import {
+  applyMarkCorrectToTransactionList,
+  mergeCreatedTransactionsIntoList,
+} from '@/lib/mergeBulkInputTransactions'
 import { readJsonFromApi } from '@/lib/readJsonApiResponse'
+import type { TransactionRow } from '@/lib/transactionWriteSql'
 
 interface TransactionFormData {
   residentId: string
@@ -112,6 +117,8 @@ export default function BulkInputPage() {
   const [editingPendingId, setEditingPendingId] = useState<string | null>(null)
   const [txnFilterExact, setTxnFilterExact] = useState('')
   const [txnFilterKeyword, setTxnFilterKeyword] = useState('')
+  /** resume 完了まで取引一覧が揃っているか（未完了時は登録後に全件再取得へフォールバック） */
+  const [transactionsFullyLoaded, setTransactionsFullyLoaded] = useState(true)
 
   const inOutAmountInputRef = useRef<FormattedAmountInputHandle>(null)
   const correctAmountInputRef = useRef<FormattedAmountInputHandle>(null)
@@ -195,10 +202,11 @@ export default function BulkInputPage() {
       console.log('💰 [パフォーマンス計測] 取引 resume 継続（hasMore のときのみ）')
       console.time('💰 取引 resume 経路')
       let mergedFinal = [...boot.transactions]
+      let fullyLoaded = !boot.transactionsHasMore
       setTransactions(mergedFinal)
 
       if (boot.transactionsHasMore) {
-        mergedFinal = await appendRemainingFacilityTransactions(
+        const resumeResult = await appendRemainingFacilityTransactions(
           mergedFinal,
           true,
           facilityId,
@@ -211,9 +219,14 @@ export default function BulkInputPage() {
             },
           }
         )
+        mergedFinal = resumeResult.transactions
+        fullyLoaded = resumeResult.fullyLoaded
         if (!signal?.aborted) {
           setTransactions(mergedFinal)
         }
+      }
+      if (!signal?.aborted) {
+        setTransactionsFullyLoaded(fullyLoaded)
       }
       console.timeEnd('💰 取引 resume 経路')
       
@@ -240,6 +253,25 @@ export default function BulkInputPage() {
       }
     }
   }
+
+  const applyCreatedTransactionsLocally = useCallback(
+    async (created: TransactionRow[]) => {
+      if (!transactionsFullyLoaded) {
+        await fetchBulkData(true)
+        return
+      }
+      const next = await mergeCreatedTransactionsIntoList({
+        existing: transactions,
+        created,
+        residents,
+        residentDisplayName: (r) => getResidentDisplayName(r, 'screen'),
+        year,
+        month,
+      })
+      setTransactions(next)
+    },
+    [transactionsFullyLoaded, transactions, residents, year, month, facilityId]
+  )
 
   // フォームのバリデーション
   const validateForm = (): boolean => {
@@ -423,9 +455,8 @@ export default function BulkInputPage() {
             reason: '',
           })
           
-          await fetchBulkData(true)
-          router.refresh()
-          
+          await applyCreatedTransactionsLocally([data as TransactionRow])
+
           setToast({
             message: `${transactionTypeLabel}を登録しました`,
             type: 'success',
@@ -515,8 +546,8 @@ export default function BulkInputPage() {
           reason: '',
         })
         
-        await fetchBulkData(true)
-        router.refresh()
+        const createdRows = (batchData.transactions ?? []) as TransactionRow[]
+        await applyCreatedTransactionsLocally(createdRows)
       } else {
         const errIndex = typeof batchData.index === 'number' ? batchData.index + 1 : null
         setToast({
@@ -644,8 +675,13 @@ export default function BulkInputPage() {
       const data = await response.json()
 
       if (response.ok) {
-        await fetchBulkData(true)
-        router.refresh()
+        if (!transactionsFullyLoaded) {
+          await fetchBulkData(true)
+        } else {
+          setTransactions(
+            applyMarkCorrectToTransactionList(transactions, data.transaction as TransactionRow)
+          )
+        }
         setToast({
           message: '取引を訂正としてマークしました',
           type: 'success',

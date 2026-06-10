@@ -79,6 +79,12 @@ export function getFacilityTransactionsChunk1Path(
   })
 }
 
+export type AppendRemainingFacilityTransactionsResult = {
+  transactions: FacilityTransactionPayload[]
+  /** false のときは BULK_RESUME_MAX_PAGES 到達などで末尾が未ロード */
+  fullyLoaded: boolean
+}
+
 /** チャンク1済み状態から resume をループ結合する */
 export async function appendRemainingFacilityTransactions(
   mergedInitial: FacilityTransactionPayload[],
@@ -87,7 +93,7 @@ export async function appendRemainingFacilityTransactions(
   year: number,
   month: number,
   options?: AppendRemainingTransactionOptions
-): Promise<FacilityTransactionPayload[]> {
+): Promise<AppendRemainingFacilityTransactionsResult> {
   const limit = BULK_TRANSACTIONS_CHUNK_LIMIT
   let merged = [...mergedInitial]
   let hasMore = initialHasMore
@@ -133,7 +139,7 @@ export async function appendRemainingFacilityTransactions(
     )
   }
 
-  return merged
+  return { transactions: merged, fullyLoaded: !hasMore }
 }
 
 /**
@@ -151,7 +157,7 @@ export async function fetchMergedFacilityTransactions(
   const d1 = await readJsonFromApi<TransactionsChunkResponse>(r1, '取引一覧(1)')
   let merged = [...(d1.transactions ?? [])]
 
-  return appendRemainingFacilityTransactions(
+  const result = await appendRemainingFacilityTransactions(
     merged,
     !!d1.hasMore,
     facilityId,
@@ -159,4 +165,5 @@ export async function fetchMergedFacilityTransactions(
     month,
     fetchOptions
   )
+  return result.transactions
 }

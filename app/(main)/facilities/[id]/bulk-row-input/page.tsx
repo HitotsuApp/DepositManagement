@@ -30,7 +30,12 @@ import {
   type FacilityTransactionPayload,
 } from '@/lib/bulkFacilityTransactionsFetch'
 import type { BulkInputBootstrapJson } from '@/lib/bulkInputBootstrapWire'
+import {
+  applyMarkCorrectToTransactionList,
+  mergeCreatedTransactionsIntoList,
+} from '@/lib/mergeBulkInputTransactions'
 import { readJsonFromApi } from '@/lib/readJsonApiResponse'
+import type { TransactionRow } from '@/lib/transactionWriteSql'
 import { BUSINESS_TIME_ZONE, formatJapanCalendarDate, getZonedCalendarParts } from '@/lib/calendarDate'
 
 type Resident = {
@@ -141,6 +146,7 @@ export default function BulkRowInputPage() {
   const [markCorrectSubmitting, setMarkCorrectSubmitting] = useState(false)
   const [txnFilterExact, setTxnFilterExact] = useState('')
   const [txnFilterKeyword, setTxnFilterKeyword] = useState('')
+  const [transactionsFullyLoaded, setTransactionsFullyLoaded] = useState(true)
 
   const { year: currentYear, month: currentMonth } = getZonedCalendarParts(
     new Date(),
@@ -184,10 +190,11 @@ export default function BulkRowInputPage() {
         setUnits([...boot.units])
 
         let mergedFinal = [...boot.transactions]
+        let fullyLoaded = !boot.transactionsHasMore
         setTransactions(mergedFinal)
 
         if (boot.transactionsHasMore) {
-          mergedFinal = await appendRemainingFacilityTransactions(
+          const resumeResult = await appendRemainingFacilityTransactions(
             mergedFinal,
             true,
             facilityId,
@@ -200,9 +207,14 @@ export default function BulkRowInputPage() {
               },
             }
           )
+          mergedFinal = resumeResult.transactions
+          fullyLoaded = resumeResult.fullyLoaded
           if (!signal?.aborted) {
             setTransactions(mergedFinal)
           }
+        }
+        if (!signal?.aborted) {
+          setTransactionsFullyLoaded(fullyLoaded)
         }
       } catch (e) {
         if (
@@ -226,6 +238,25 @@ export default function BulkRowInputPage() {
       }
     },
     [facilityId, year, month]
+  )
+
+  const applyCreatedTransactionsLocally = useCallback(
+    async (created: TransactionRow[]) => {
+      if (!transactionsFullyLoaded) {
+        await fetchBulkData(true)
+        return
+      }
+      const next = await mergeCreatedTransactionsIntoList({
+        existing: transactions,
+        created,
+        residents,
+        residentDisplayName: (r) => getResidentDisplayName(r, 'screen'),
+        year,
+        month,
+      })
+      setTransactions(next)
+    },
+    [transactionsFullyLoaded, transactions, residents, year, month, fetchBulkData]
   )
 
   useEffect(() => {
@@ -303,8 +334,13 @@ export default function BulkRowInputPage() {
       })
       const data = await response.json()
       if (response.ok) {
-        await fetchBulkData(true)
-        router.refresh()
+        if (!transactionsFullyLoaded) {
+          await fetchBulkData(true)
+        } else {
+          setTransactions(
+            applyMarkCorrectToTransactionList(transactions, data.transaction as TransactionRow)
+          )
+        }
         setToast({
           message: '取引を訂正としてマークしました',
           type: 'success',
@@ -428,8 +464,8 @@ export default function BulkRowInputPage() {
           isVisible: true,
         })
         setDraftRows([])
-        await fetchBulkData(true)
-        router.refresh()
+        const createdRows = (batchData.transactions ?? []) as TransactionRow[]
+        await applyCreatedTransactionsLocally(createdRows)
       } else {
         const errIndex =
           typeof batchData.index === 'number' ? batchData.index + 1 : null
@@ -452,7 +488,7 @@ export default function BulkRowInputPage() {
     } finally {
       setIsSubmitting(false)
     }
-  }, [draftRows, validateDraftRow, fetchBulkData, router])
+  }, [draftRows, validateDraftRow, applyCreatedTransactionsLocally])
 
   return (
     <div>
