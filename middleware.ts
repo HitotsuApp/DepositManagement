@@ -6,6 +6,11 @@ import {
   checkSignInRateLimit,
   isSignInRateLimitPath,
 } from "@/lib/apiRateLimit"
+import {
+  isGeoBlocked,
+  isKnownAppPagePath,
+  isObviousProbePath,
+} from "@/lib/edgeSecurity"
 
 const { auth } = NextAuth(authConfig)
 
@@ -13,6 +18,14 @@ export default auth(async (req) => {
   const { nextUrl } = req
   const pathname = nextUrl.pathname
   const isLoggedIn = !!req.auth
+
+  if (isGeoBlocked(req)) {
+    return new NextResponse("Forbidden", { status: 403 })
+  }
+
+  if (isObviousProbePath(pathname)) {
+    return new NextResponse(null, { status: 404 })
+  }
 
   const isAuthApi = pathname.startsWith("/api/auth")
   const isApiRoute = pathname.startsWith("/api")
@@ -63,6 +76,10 @@ export default auth(async (req) => {
   const isSignInPage = pathname.startsWith("/api/auth/signin")
 
   if (!isLoggedIn && !isAuthApi && !isSignInPage) {
+    if (!isKnownAppPagePath(pathname)) {
+      return new NextResponse(null, { status: 404 })
+    }
+
     const signInUrl = new URL("/api/auth/signin", nextUrl.origin)
     signInUrl.searchParams.set("callbackUrl", pathname)
     return NextResponse.redirect(signInUrl)

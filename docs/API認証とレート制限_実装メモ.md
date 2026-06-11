@@ -13,7 +13,9 @@
 |------|-------------------|
 | `/api/auth/*` | 従来どおり（ログイン可能） |
 | その他 `/api/*` | **401 JSON** `{ error: "Unauthorized" }` |
-| ページ（`/facilities/...` 等） | 従来どおり **signin へリダイレクト** |
+| ページ（正当なアプリパスのみ） | **signin へリダイレクト** |
+| ページ（スキャン・未知パス） | **404**（signin へ誘導しない） |
+| 海外 IP（`cf-ipcountry` ≠ JP） | **403** |
 
 - ブラウザの `fetch` は同一オリジンで **セッション Cookie が自動送信** されるため、ログイン済み利用者の UX は変わらない。
 - API に HTML リダイレクトは **しない**（JSON パースエラー防止）。
@@ -48,6 +50,19 @@
 
 Bot ダッシュボードで `/api/auth/signin` への連打が多かったため、業務 API とは **別カウンタ（bucket: `signin`）** で厳しめに制限。
 
+### 4. エッジ Bot 対策（403 / 404 早期返却）
+
+| 条件 | 挙動 | 目的 |
+|------|------|------|
+| `cf-ipcountry` が JP 以外 | **403** | BR/NL 等からのスキャンを 1 本で遮断 |
+| `symfony/`, `.gz`, `.sql` 等のプローブパス | **404** | スキャナ向けパスを即拒否 |
+| 許可リスト外のページパス | **404** | 未知パスを signin に流さない（307+429 の 2 本消費を防止） |
+
+**ログの読み方**: `/api/auth/signin` が **429** なら signin 制限は効いている。  
+問題は `/symfony/tls.gz` 等が **307** で Worker を消費していた点 → 上記で **403 または 404（1 本）** に変更。
+
+変更ファイル: `lib/edgeSecurity.ts`, `middleware.ts`
+
 ---
 
 ## デプロイ後の確認
@@ -72,6 +87,7 @@ lib/apiRateLimit.ts  → SIGNIN_RATE_LIMIT_PER_MINUTE = 2
 
 | ファイル | 役割 |
 |----------|------|
-| `middleware.ts` | API 401 / 429、ページリダイレクト |
+| `middleware.ts` | API 401 / 429、geo 403、ページ 404/リダイレクト |
 | `lib/apiRateLimit.ts` | IP 抽出・レート制限 |
+| `lib/edgeSecurity.ts` | 国別ブロック・プローブ検知・許可ページ判定 |
 | `auth.config.ts` | `@hitotsunokai.jp` ドメイン制限（変更なし） |
