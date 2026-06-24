@@ -15,6 +15,12 @@
 
 # misc
 .DS_Store
+
+# HP 空床ページ HTML（委託先共有用・リポジトリ公開対象外）
+vacantroom.html
+
+# インシデント概要（ローカル用・コミット対象外）
+docs/Cloudflareリクエスト急増_対応概要.md
 *.pem
 
 # debug
