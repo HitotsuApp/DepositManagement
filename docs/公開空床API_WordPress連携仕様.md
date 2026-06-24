@@ -13,7 +13,7 @@
 | データ源 | 預り金管理の施設マスタ（ユニット定員 + 在籍利用者数） |
 | 更新頻度 | **1日1回**（目安: 朝 9:00 JST）。WordPress cron が API を呼ぶ |
 | 個人情報 | **返却しない**（施設名・空床数・更新日時のみ） |
-| HTML テンプレート | リポジトリ直下 `vacantroom.html` |
+| HTML テンプレート | ローカル `vacantroom.html`（リポジトリ非公開） |
 | WordPress 固定設定 | `docs/vacancy-hp-facility-config.json` |
 
 ---
@@ -35,6 +35,12 @@ GET /api/public/vacancy
 
 キー未設定・不一致 → `401 Unauthorized`  
 環境変数 `VACANCY_API_KEY` 未設定 → `503`
+
+**他 API との違い**
+
+- `/api/public/vacancy` のみ **Google ログイン不要**（middleware で除外）
+- 他の `/api/*` は従来どおり **ログイン必須**
+- レート制限: **10 回/分/IP**（一般 API の 150 回/分より厳しい）
 
 ### レスポンス（JSON / UTF-8）
 

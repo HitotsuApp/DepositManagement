@@ -11,6 +11,11 @@ export const API_RATE_LIMIT_PER_MINUTE = 150
 /** 1 IP あたり・1分あたりの /api/auth/signin 上限（callback 除外は middleware 側） */
 export const SIGNIN_RATE_LIMIT_PER_MINUTE = 2
 
+/** 1 IP あたり・1分あたりの GET /api/public/vacancy 上限 */
+export const PUBLIC_VACANCY_RATE_LIMIT_PER_MINUTE = 10
+
+export const PUBLIC_VACANCY_API_PATH = '/api/public/vacancy'
+
 const RATE_LIMIT_WINDOW_SECONDS = 60
 
 /** OAuth コールバック（Google ログイン後の復帰）。レート制限対象外。 */
@@ -22,6 +27,11 @@ export function isOAuthCallbackPath(pathname: string): boolean {
 export function isSignInRateLimitPath(pathname: string): boolean {
   if (isOAuthCallbackPath(pathname)) return false
   return pathname === '/api/auth/signin' || pathname.startsWith('/api/auth/signin/')
+}
+
+/** 公開空床 API（API キー認証・middleware ログイン除外） */
+export function isPublicVacancyApiPath(pathname: string): boolean {
+  return pathname === PUBLIC_VACANCY_API_PATH
 }
 
 /** Cloudflare Workers の caches.default（Node/標準 DOM 型には無い） */
@@ -104,4 +114,14 @@ export async function checkSignInRateLimit(
   request: NextRequest
 ): Promise<ApiRateLimitResult> {
   return checkApiRateLimit(request, SIGNIN_RATE_LIMIT_PER_MINUTE, 'signin')
+}
+
+export async function checkPublicVacancyRateLimit(
+  request: NextRequest
+): Promise<ApiRateLimitResult> {
+  return checkApiRateLimit(
+    request,
+    PUBLIC_VACANCY_RATE_LIMIT_PER_MINUTE,
+    'public-vacancy'
+  )
 }

@@ -3,7 +3,9 @@ import { NextResponse } from "next/server"
 import { authConfig } from "@/auth.config"
 import {
   checkApiRateLimit,
+  checkPublicVacancyRateLimit,
   checkSignInRateLimit,
+  isPublicVacancyApiPath,
   isSignInRateLimitPath,
 } from "@/lib/apiRateLimit"
 import {
@@ -42,6 +44,24 @@ export default auth(async (req) => {
               "Retry-After": "60",
               "X-RateLimit-Limit": String(signInRate.limit),
               "X-RateLimit-Count": String(signInRate.count),
+            },
+          }
+        )
+      }
+      return NextResponse.next()
+    }
+
+    if (isPublicVacancyApiPath(pathname)) {
+      const vacancyRate = await checkPublicVacancyRateLimit(req)
+      if (!vacancyRate.allowed) {
+        return NextResponse.json(
+          { error: "Too Many Requests" },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": "60",
+              "X-RateLimit-Limit": String(vacancyRate.limit),
+              "X-RateLimit-Count": String(vacancyRate.count),
             },
           }
         )
