@@ -1,0 +1,219 @@
+<!--
+  WordPress 連携用テンプレート（参照用）
+  動的置換プレースホルダー（数値は預り金管理の facilityId）:
+    {{UPDATE_DATE}}          … API の updateDateLabel（cron 成功時の JST 日付）
+    {{FACILITY_NAME:10}}     … API facilities[id=10].name（施設マスタ名称）
+    {{ROOM_COUNT:10}}        … vacancy に応じた表示（例: 2室 空き / 空き無し）
+  施設名・空床数は API から取得。WordPress 側は facilityId + URL + 所在地 + 区分のみ固定設定。
+  空きあり / 空き無し のセクション振り分けは vacancy に応じて PHP 側で行う。
+  設定: docs/vacancy-hp-facility-config.json
+  詳細: docs/公開空床API_WordPress連携仕様.md
+-->
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><style>
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fcfcfc;
+        }
+        .update-box {
+            background-color: #f0f4f8;
+            border-left: 4px solid #0056b3;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 0 4px 4px 0;
+        }
+        .update-box h1 {
+            font-size: 18px;
+            margin: 0 0 10px 0;
+            color: #0056b3;
+        }
+        .update-box p {
+            margin: 0;
+            font-size: 14px;
+        }
+        .section-title {
+            font-size: 18px;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 5px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        .target-badge {
+            display: inline-block;
+            background-color: #eef2f7;
+            color: #4a5568;
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .status-group {
+            margin-bottom: 15px;
+        }
+        .status-header {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+        .status-header.available {
+            color: #2e7d32;
+        }
+        .status-header.full {
+            color: #c62828;
+        }
+        .status-list {
+            list-style-type: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        .status-list li {
+            padding: 8px 12px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        .status-list li a {
+            color: #0066cc;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .status-list li a:hover {
+            text-decoration: underline;
+        }
+        .room-count {
+            float: right;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        .available .room-count {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .full .room-count {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .contact-box {
+            background-color: #fff9db;
+            border: 1px solid #fab005;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 35px;
+        }
+        .contact-box h2 {
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #f59f00;
+        }
+        .contact-method {
+            margin-bottom: 15px;
+        }
+        .contact-method:last-child {
+            margin-bottom: 0;
+        }
+        .contact-label {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 3px;
+        }
+        .btn-link {
+            display: inline-block;
+            background-color: #ff922b;
+            color: #fff !important;
+            text-decoration: none !important;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-top: 5px;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .btn-link:hover {
+            background-color: #f76707;
+        }
+        .phone-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: #cf222e;
+        }
+    </style></p>
+<div class="update-box">
+<h1>【{{UPDATE_DATE}}更新】ひとつの会 施設空き情報のご案内【毎日９時更新】</h1>
+<p>いつもお世話になっております。社会福祉法人ひとつの会です。<br />地域のケアマネジャー様、ならびにご家族様へ、現在の各施設の空き状況についてご案内いたします。<br />「急ぎでの入所を検討している」「まずは見学をしてみたい」など、どうぞお気軽にご相談ください。</p>
+</div>
+<!-- 1. 特別養護老人ホーム（facilityId: 10, 6, 8） -->
+<h2 class="section-title">🏡 1. 特別養護老人ホーム（特養）</h2>
+<div class="target-badge">原則 要介護3以上の方が対象です</div>
+<div class="status-group">
+<div class="status-header available">🟢 空きあり</div>
+<ul class="status-list available">
+<li data-facility-id="10"><a href="https://hitotsunokai.jp/facilities/tokuyo-oserver-aioi" target="_blank" rel="noopener">{{FACILITY_NAME:10}}</a>（山口市下小鯖） <span class="room-count">{{ROOM_COUNT:10}}</span></li>
+<li data-facility-id="6"><a href="https://hitotsunokai.jp/facilities/tokuyo-jiyunomori/" target="_blank" rel="noopener">{{FACILITY_NAME:6}}</a>（防府市大崎） <span class="room-count">{{ROOM_COUNT:6}}</span></li>
+</ul>
+</div>
+<div class="status-group">
+<div class="status-header full">🔴 空き無し（待機・ご相談受付中）</div>
+<ul class="status-list full">
+<li data-facility-id="8"><a href="https://hitotsunokai.jp/facilities/tokuyo-filage-kaide/" target="_blank" rel="noopener">{{FACILITY_NAME:8}}</a>（防府市開出西町） <span class="room-count">{{ROOM_COUNT:8}}</span></li>
+</ul>
+</div>
+<!-- 2. ケアハウス（facilityId: 1） -->
+<h2 class="section-title">🏢 2. ケアハウス（軽費老人ホーム）</h2>
+<div class="target-badge">自立～軽度の方、60歳以上の方が対象です</div>
+<div class="status-group">
+<div class="status-header available">🟢 空きあり</div>
+<ul class="status-list">
+<li style="color: #666; font-style: italic; background: #f8f9fa; border-style: dashed;">現在、空き室はございません</li>
+</ul>
+</div>
+<div class="status-group">
+<div class="status-header full">🔴 空き無し（待機・ご相談受付中）</div>
+<ul class="status-list full">
+<li data-facility-id="1"><a href="https://hitotsunokai.jp/facilities/carehouse-aioien/" target="_blank" rel="noopener">{{FACILITY_NAME:1}}</a>（防府市佐野） <span class="room-count">{{ROOM_COUNT:1}}</span></li>
+</ul>
+</div>
+<!-- 3. グループホーム（facilityId: 3, 5, 7, 2, 4） -->
+<h2 class="section-title">🌻 3. グループホーム</h2>
+<div class="target-badge">要支援2～要介護5で、認知症の診断を受けた方が対象です</div>
+<div class="status-group">
+<div class="status-header available">🟢 空きあり</div>
+<ul class="status-list available">
+<li data-facility-id="3"><a href="https://hitotsunokai.jp/facilities/grouphome-yuda-aioien" target="_blank" rel="noopener">{{FACILITY_NAME:3}}</a>（山口市下市町） <span class="room-count">{{ROOM_COUNT:3}}</span></li>
+<li data-facility-id="5"><a href="https://hitotsunokai.jp/facilities/grouphome-tokuji-aioien/" target="_blank" rel="noopener">{{FACILITY_NAME:5}}</a>（山口市徳地） <span class="room-count">{{ROOM_COUNT:5}}</span></li>
+<li data-facility-id="7"><a href="https://hitotsunokai.jp/facilities/grouphome-jiyunomori/" target="_blank" rel="noopener">{{FACILITY_NAME:7}}</a>（防府市大崎） <span class="room-count">{{ROOM_COUNT:7}}</span></li>
+</ul>
+</div>
+<div class="status-group">
+<div class="status-header full">🔴 空き無し（待機・ご相談受付中）</div>
+<ul class="status-list full">
+<li data-facility-id="2"><a href="https://hitotsunokai.jp/facilities/grouphome-shoseien" target="_blank" rel="noopener">{{FACILITY_NAME:2}}</a>（防府市佐野） <span class="room-count">{{ROOM_COUNT:2}}</span></li>
+<li data-facility-id="4"><a href="http://hitotsunokai.jp/facilities/grouphome-tokusa-aioien/" target="_blank" rel="noopener">{{FACILITY_NAME:4}}</a>（山口市阿東徳佐） <span class="room-count">{{ROOM_COUNT:4}}</span></li>
+</ul>
+</div>
+<!-- お問い合わせ -->
+<div class="contact-box">
+<h2>📞 お問い合わせ・見学のお申し込み</h2>
+<p style="font-size: 14px; margin-top: 0;">空き状況は日々変動いたします。最新の状況や詳しい料金、必要書類等につきましては、下記よりお気軽にお問い合わせください。</p>
+<div class="contact-method">
+<div class="contact-label">お電話での総合お問い合わせ：</div>
+<div class="phone-number">0835-26-6667 <span style="font-size: 12px; color: #666; font-weight: normal;">（施設利用についてのお問い合わせ窓口）</span></div>
+</div>
+<div class="contact-method">
+<div class="contact-label">ホームページからのご相談・見学申し込み：</div>
+<a href="https://hitotsunokai.jp/guide/" class="btn-link" target="_blank" rel="noopener">👉 24時間受付：WEBからのお問い合わせはこちら</a></div>
+</div>

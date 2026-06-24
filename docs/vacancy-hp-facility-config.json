@@ -1,0 +1,84 @@
+{
+  "_comment": "WordPress 側の固定設定。施設名・空床数は API の facilities[].id で引く。",
+  "masterFacilities": [
+    { "facilityId": 1, "masterName": "ケアハウスあいおい苑" },
+    { "facilityId": 2, "masterName": "グループホーム　笑生苑" },
+    { "facilityId": 3, "masterName": "グループホーム　湯田あいおい苑" },
+    { "facilityId": 4, "masterName": "グループホーム　徳佐あいおい苑" },
+    { "facilityId": 5, "masterName": "グループホーム　徳地あいおい苑" },
+    { "facilityId": 6, "masterName": "特別養護老人ホーム　自由の杜" },
+    { "facilityId": 7, "masterName": "グループホーム　自由の杜" },
+    { "facilityId": 8, "masterName": "特別養護老人ホーム　Filage開出" },
+    { "facilityId": 9, "masterName": "グループホーム　Filage開出" },
+    { "facilityId": 10, "masterName": "特別養護老人ホーム　オ・サーバaioi" },
+    { "facilityId": 11, "masterName": "サ高・ショートステイ　オ・サーバaioi" }
+  ],
+  "hpFacilities": [
+    {
+      "facilityId": 10,
+      "category": "tokuyo",
+      "location": "（山口市下小鯖）",
+      "url": "https://hitotsunokai.jp/facilities/tokuyo-oserver-aioi"
+    },
+    {
+      "facilityId": 6,
+      "category": "tokuyo",
+      "location": "（防府市大崎）",
+      "url": "https://hitotsunokai.jp/facilities/tokuyo-jiyunomori/"
+    },
+    {
+      "facilityId": 8,
+      "category": "tokuyo",
+      "location": "（防府市開出西町）",
+      "url": "https://hitotsunokai.jp/facilities/tokuyo-filage-kaide/"
+    },
+    {
+      "facilityId": 1,
+      "category": "carehouse",
+      "location": "（防府市佐野）",
+      "url": "https://hitotsunokai.jp/facilities/carehouse-aioien/"
+    },
+    {
+      "facilityId": 3,
+      "category": "grouphome",
+      "location": "（山口市下市町）",
+      "url": "https://hitotsunokai.jp/facilities/grouphome-yuda-aioien"
+    },
+    {
+      "facilityId": 5,
+      "category": "grouphome",
+      "location": "（山口市徳地）",
+      "url": "https://hitotsunokai.jp/facilities/grouphome-tokuji-aioien/"
+    },
+    {
+      "facilityId": 7,
+      "category": "grouphome",
+      "location": "（防府市大崎）",
+      "url": "https://hitotsunokai.jp/facilities/grouphome-jiyunomori/"
+    },
+    {
+      "facilityId": 2,
+      "category": "grouphome",
+      "location": "（防府市佐野）",
+      "url": "https://hitotsunokai.jp/facilities/grouphome-shoseien"
+    },
+    {
+      "facilityId": 4,
+      "category": "grouphome",
+      "location": "（山口市阿東徳佐）",
+      "url": "http://hitotsunokai.jp/facilities/grouphome-tokusa-aioien/"
+    }
+  ],
+  "hpNotPublished": [
+    {
+      "facilityId": 9,
+      "masterName": "グループホーム　Filage開出",
+      "note": "空床ページには未掲載。掲載する場合は hpFacilities に追加"
+    },
+    {
+      "facilityId": 11,
+      "masterName": "サ高・ショートステイ　オ・サーバaioi",
+      "note": "空床ページには未掲載"
+    }
+  ]
+}
