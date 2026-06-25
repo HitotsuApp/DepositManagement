@@ -272,7 +272,8 @@ facilityId=10 の行
 
 | ファイル | 内容 |
 |----------|------|
-| `vacantroom.html` | HP 用 HTML テンプレート（facilityId プレースホルダー付き） |
+| `docs/gas/vacancy-sheet/Code.gs` | スプレッドシート用 GAS（API 同期・HP JSON 出力） |
+| `docs/gas/vacancy-sheet/README.md` | GAS セットアップ手順 |
 | `docs/vacancy-hp-facility-config.json` | WordPress 固定設定（facilityId ↔ URL・所在地・区分） |
 | `app/api/public/vacancy/route.ts` | 公開 API |
 | `lib/publicVacancySql.ts` | 空床集計 SQL |
@@ -280,10 +281,25 @@ facilityId=10 の行
 
 ---
 
-## 11. 未決事項
+## 11. スプレッドシート経由（人手補正あり・推奨）
+
+```
+預り金 API → GAS（7:00）→ シート C/D/E → F=C+E
+                              ↓ 人が E を編集
+GAS Web App → WordPress cron（9:00）→ HP 表示
+```
+
+- HP 表示値は **`hpFacilities[].vacancy`（F列）**
+- API の C が D と異なって更新された行は **E を自動クリア**
+- 詳細: `docs/gas/vacancy-sheet/README.md`
+
+---
+
+## 12. 未決事項
 
 - [ ] 本番 `VACANCY_API_KEY` の発行と WordPress への受け渡し
 - [ ] 本番 API URL の確定
 - [ ] WordPress サーバー cron の設定（9:00 JST）
 - [ ] 各ユニットの定員数が施設マスタに入っているか確認
-- [ ] HP 掲載外（id=9, 11）を将来載せる場合は `hpFacilities` に追加
+- [ ] GAS Web App URL を WordPress 委託先へ共有
+- [x] GAS から API 取得時 403 → `/api/public/vacancy` を geo 除外（middleware）

@@ -19,6 +19,10 @@
 # HP 空床ページ HTML（委託先共有用・リポジトリ公開対象外）
 vacantroom.html
 
+# 空床スプレッドシート GAS（ローカル・委託先直接共有用）
+docs/gas/vacancy-sheet/Code.gs
+docs/gas/vacancy-sheet/README.md
+
 # インシデント概要（ローカル用・コミット対象外）
 docs/Cloudflareリクエスト急増_対応概要.md
 *.pem

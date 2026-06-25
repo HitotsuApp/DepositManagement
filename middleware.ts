@@ -21,7 +21,8 @@ export default auth(async (req) => {
   const pathname = nextUrl.pathname
   const isLoggedIn = !!req.auth
 
-  if (isGeoBlocked(req)) {
+  // GAS（Google サーバー・海外 IP）からの空床 API 取得のため geo 除外（API キー + 専用レート制限で保護）
+  if (isGeoBlocked(req) && !isPublicVacancyApiPath(pathname)) {
     return new NextResponse("Forbidden", { status: 403 })
   }
 
