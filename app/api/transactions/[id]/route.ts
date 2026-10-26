@@ -1,5 +1,6 @@
 export const runtime = 'edge'
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { validateId } from '@/lib/validation'
 import { neonHttpSql } from '@/lib/neonHttpSql'
@@ -9,6 +10,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   try {
     const transactionId = validateId(params.id)
     if (!transactionId) {

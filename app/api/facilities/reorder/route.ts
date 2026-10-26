@@ -1,9 +1,13 @@
 export const runtime = 'edge';
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 
 export async function POST(request: Request) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const body = await request.json()

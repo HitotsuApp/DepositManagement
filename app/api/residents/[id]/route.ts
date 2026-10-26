@@ -1,5 +1,6 @@
 export const runtime = 'edge';
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { neonHttpSql } from '@/lib/neonHttpSql'
@@ -15,6 +16,9 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   try {
     const residentId = validateId(params.id)
     if (!residentId) {
@@ -87,6 +91,9 @@ export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const residentId = validateId(params.id)
@@ -186,6 +193,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const residentId = validateId(params.id)

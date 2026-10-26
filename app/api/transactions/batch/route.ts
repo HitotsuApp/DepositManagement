@@ -1,5 +1,6 @@
 export const runtime = 'edge'
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import {
   validateTransactionCreateBody,
@@ -12,6 +13,9 @@ import { createTransactionsBatchNeon } from '@/lib/transactionWriteSql'
 const MAX_BATCH_ITEMS = 100
 
 export async function POST(request: Request) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   try {
     const body = await request.json()
     const itemsRaw = body?.items

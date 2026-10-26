@@ -2,6 +2,7 @@ export const runtime = 'edge'
 
 export const dynamic = 'force-dynamic'
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { neonHttpSql } from '@/lib/neonHttpSql'
 import {
@@ -10,6 +11,9 @@ import {
 } from '@/lib/dashboardFacilityBalancesSql'
 
 export async function GET(request: Request) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   try {
     const { searchParams } = new URL(request.url)
     const year = Number(searchParams.get('year')) || new Date().getFullYear()

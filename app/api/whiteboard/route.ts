@@ -1,10 +1,14 @@
 export const runtime = 'edge';
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { sortUnitsForDisplay, sortResidentsForDisplay } from '@/lib/sortOrder'
 
 export async function GET() {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const oneMonthAgo = new Date()

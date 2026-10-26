@@ -1,6 +1,8 @@
 export const runtime = "edge"
+
 export const dynamic = "force-dynamic"
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from "next/server"
 import { getPrisma } from "@/lib/prisma"
 import {
@@ -32,6 +34,9 @@ function parseYmdToLocalDate(
 }
 
 export async function GET(request: Request) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const { searchParams } = new URL(request.url)

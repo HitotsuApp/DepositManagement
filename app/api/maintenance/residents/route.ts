@@ -1,9 +1,13 @@
 export const runtime = 'edge';
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 
 export async function GET(request: Request) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const residents = await prisma.resident.findMany({
@@ -47,6 +51,9 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     // 終了者を取得

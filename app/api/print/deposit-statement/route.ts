@@ -1,12 +1,17 @@
 export const runtime = 'edge';
+
 export const dynamic = 'force-dynamic'
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from "next/server"
 import { fetchFacilityWithActiveUnitsForPrint } from "@/lib/printFacilitySql"
 import { loadResidentsForDepositPrint } from "@/lib/residentPrintEligibility"
 import { buildDepositPrintRawWire } from "@/lib/toDepositPrintRawWire"
 
 export async function GET(request: Request) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   try {
     const { searchParams } = new URL(request.url)
     const facilityId = searchParams.get("facilityId")

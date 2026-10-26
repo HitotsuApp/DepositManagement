@@ -1,11 +1,15 @@
 export const runtime = 'edge'
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { validateTransactionCreateBody } from '@/lib/transactionCreateValidation'
 import { neonHttpSql } from '@/lib/neonHttpSql'
 import { createTransactionNeon } from '@/lib/transactionWriteSql'
 
 export async function POST(request: Request) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   try {
     const body = await request.json()
     const validated = validateTransactionCreateBody(body as Record<string, unknown>)

@@ -1,6 +1,8 @@
 export const runtime = 'edge'
+
 export const dynamic = 'force-dynamic'
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { validateId } from '@/lib/validation'
 import { neonHttpSql } from '@/lib/neonHttpSql'
@@ -18,6 +20,9 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   try {
     const facilityId = validateId(params.id)
     if (!facilityId) {

@@ -1,5 +1,6 @@
 export const runtime = 'edge';
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { neonHttpSql } from '@/lib/neonHttpSql'
@@ -9,6 +10,9 @@ import { validateMaxLength, validateSortOrder, MAX_LENGTHS, NAME_PREFIX_DISPLAY_
 import { sanitizeFurigana } from '@/lib/furigana'
 
 export async function GET(request: Request) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   try {
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
@@ -47,6 +51,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const body = await request.json()

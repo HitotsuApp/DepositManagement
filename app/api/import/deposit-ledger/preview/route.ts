@@ -1,6 +1,8 @@
 export const runtime = 'edge'
+
 export const dynamic = 'force-dynamic'
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import {
@@ -13,6 +15,9 @@ import {
 import { loadResidentLookup, resolveResidentId } from '@/lib/residentMatch'
 
 export async function POST(request: Request) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const form = await request.formData()

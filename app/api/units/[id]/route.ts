@@ -1,5 +1,6 @@
 export const runtime = 'edge';
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { validateId, validateMaxLength, validateSortOrder, MAX_LENGTHS } from '@/lib/validation'
@@ -8,6 +9,9 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const unitId = validateId(params.id)
@@ -44,6 +48,9 @@ export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const unitId = validateId(params.id)
@@ -142,6 +149,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const unitId = validateId(params.id)

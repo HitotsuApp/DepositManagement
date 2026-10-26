@@ -1,5 +1,6 @@
 export const runtime = 'edge';
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { fetchFacilityMonthUnitBalances } from '@/lib/facilityUnitBalancesSql'
 import { fetchFacilityByIdForApi } from '@/lib/facilityByIdSql'
@@ -11,6 +12,9 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   try {
     const facilityId = validateId(params.id)
     if (!facilityId) {
@@ -102,6 +106,9 @@ export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const facilityId = validateId(params.id)
@@ -183,6 +190,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const facilityId = validateId(params.id)

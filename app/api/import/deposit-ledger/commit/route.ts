@@ -1,6 +1,8 @@
 export const runtime = 'edge'
+
 export const dynamic = 'force-dynamic'
 
+import { requireApiSession } from "@/lib/requireApiSession"
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import {
@@ -13,6 +15,9 @@ const MAX_COMMIT = 5000
 
 /** replace_month: 対象年月の既存取引を該当利用者から削除してから登録。append: そのまま追加 */
 export async function POST(request: Request) {
+  const unauthorized = await requireApiSession()
+  if (unauthorized) return unauthorized
+
   const prisma = getPrisma()
   try {
     const body = await request.json()
